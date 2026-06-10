@@ -27,12 +27,6 @@
       "dest": "/index.html"
     }
   ],
-  "functions": {
-    "api/index.js": {
-      "maxDuration": 60,
-      "includeFiles": ["backend/**"]
-    }
-  },
   "env": {
     "VERCEL": "true"
   }
