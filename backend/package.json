@@ -1,0 +1,26 @@
+{
+  "name": "payslip-generator-backend",
+  "version": "1.0.0",
+  "description": "Payslip Generator API with PDF & Email support",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node -e \"const {execSync}=require('child_process');try{execSync('npx kill-port 5001',{stdio:'ignore'})}catch(e){}\" && nodemon server.js",
+    "kill": "npx kill-port 5001"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "^123.0.1",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.0.3",
+    "nodemailer": "^6.9.7",
+    "pdfkit": "^0.14.0",
+    "puppeteer-core": "^24.40.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

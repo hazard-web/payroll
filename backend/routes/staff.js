@@ -1,0 +1,307 @@
+const express = require('express');
+const router = express.Router();
+const Staff = require('../models/Staff');
+const Notification = require('../models/Notification');
+const { auth: protect } = require('./auth');
+const crypto = require('crypto');
+const emailService = require('../utils/emailService');
+
+// ─────────────────────────────────────────────────────────────
+// PAN validation helper
+// Format: 5 uppercase letters + 4 digits + 1 uppercase letter
+// Example: ABCDE1234F
+// ─────────────────────────────────────────────────────────────
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+const isValidPAN = (pan) => typeof pan === 'string' && PAN_REGEX.test(pan);
+
+const { logActivity } = require('../utils/logger');
+router.get('/', protect, async (req, res) => {
+  try {
+    const staff = await Staff.find({ user: req.user._id }).sort({ createdAt: -1 });
+    res.json({ success: true, data: staff });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Add new staff — Employee ID is OPTIONAL.
+// Per the new flow, admin only enters basic info; the employee
+// completes the rest after first login. Auto-Employee-ID generation
+// has been removed.
+router.post('/', protect, async (req, res) => {
+  try {
+    const requestedId = (req.body.employeeId || '').trim();
+
+    // PAN validation: must match ABCDE1234F (only if provided by admin)
+    if (req.body.panNumber && !isValidPAN(String(req.body.panNumber).toUpperCase())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid PAN Number format. Expected format: ABCDE1234F (5 letters, 4 digits, 1 letter).'
+      });
+    }
+
+    // Validate financials.panNumber (legacy admin form path) too
+    if (req.body.financials?.panNumber && !isValidPAN(String(req.body.financials.panNumber).toUpperCase())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid PAN Number format. Expected format: ABCDE1234F (5 letters, 4 digits, 1 letter).'
+      });
+    }
+
+    // If admin provided an employeeId, make sure it's unique within their tenant
+    if (requestedId) {
+      const exists = await Staff.findOne({ user: req.user._id, employeeId: requestedId });
+      if (exists) {
+        return res.status(400).json({
+          success: false,
+          message: `Employee ID "${requestedId}" is already in use.`
+        });
+      }
+    }
+
+    // Build the staff document. Employee ID is intentionally optional.
+    const staffPayload = {
+      ...req.body,
+      user: req.user._id,
+    };
+
+    // Normalise PAN to uppercase on the top-level field
+    if (staffPayload.panNumber) {
+      staffPayload.panNumber = String(staffPayload.panNumber).toUpperCase().trim();
+    }
+    // Mirror top-level PAN into financials.panNumber for legacy payslip support
+    if (staffPayload.panNumber) {
+      staffPayload.financials = {
+        ...(staffPayload.financials || {}),
+        panNumber: staffPayload.panNumber,
+      };
+    }
+    // Same for bankDetails → financials (legacy payslip)
+    if (staffPayload.bankDetails) {
+      staffPayload.financials = {
+        ...(staffPayload.financials || {}),
+        bankName: staffPayload.bankDetails.bankName,
+        accountNumber: staffPayload.bankDetails.accountNumber,
+        ifscCode: staffPayload.bankDetails.ifscCode,
+      };
+    }
+
+    // If admin provided an employeeId, store it; otherwise leave undefined
+    if (requestedId) {
+      staffPayload.employeeId = requestedId;
+    } else {
+      delete staffPayload.employeeId;
+    }
+
+    const staff = new Staff(staffPayload);
+    await staff.save();
+
+    await logActivity(
+      req.user._id,
+      'STAFF_CREATED',
+      `Added new staff: ${staff.fullName}${staff.employeeId ? ` (${staff.employeeId})` : ''}`,
+      { staffId: staff._id }
+    );
+
+    await new Notification({
+      admin: req.user._id,
+      staff: staff._id,
+      recipientType: 'admin',
+      type: 'STAFF_CREATED',
+      referenceId: staff._id,
+      message: `New staff added: ${staff.fullName}${staff.employeeId ? ` (${staff.employeeId})` : ''} — ${staff.designation || 'N/A'}`
+    }).save();
+
+    res.status(201).json({ success: true, data: staff });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// Get a specific staff member
+router.get('/:id', protect, async (req, res) => {
+  try {
+    const staff = await Staff.findOne({ _id: req.params.id, user: req.user._id });
+    if (!staff) {
+      return res.status(404).json({ success: false, message: 'Staff member not found' });
+    }
+    res.json({ success: true, data: staff });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Update a staff member
+router.put('/:id', protect, async (req, res) => {
+  try {
+    // PAN validation on update
+    if (req.body.panNumber && !isValidPAN(String(req.body.panNumber).toUpperCase())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid PAN Number format. Expected format: ABCDE1234F (5 letters, 4 digits, 1 letter).'
+      });
+    }
+    if (req.body.financials?.panNumber && !isValidPAN(String(req.body.financials.panNumber).toUpperCase())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid PAN Number format. Expected format: ABCDE1234F (5 letters, 4 digits, 1 letter).'
+      });
+    }
+
+    // Normalise PAN to uppercase before persisting
+    if (req.body.panNumber) {
+      req.body.panNumber = String(req.body.panNumber).toUpperCase().trim();
+    }
+    if (req.body.panNumber) {
+      req.body.financials = {
+        ...(req.body.financials || {}),
+        panNumber: req.body.panNumber,
+      };
+    }
+    if (req.body.bankDetails) {
+      req.body.financials = {
+        ...(req.body.financials || {}),
+        bankName: req.body.bankDetails.bankName,
+        accountNumber: req.body.bankDetails.accountNumber,
+        ifscCode: req.body.bankDetails.ifscCode,
+      };
+    }
+
+    const updatedStaff = await Staff.findOneAndUpdate(
+      { _id: req.params.id, user: req.user._id },
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!updatedStaff) {
+      return res.status(404).json({ success: false, message: 'Staff member not found' });
+    }
+
+    await logActivity(req.user._id, 'STAFF_UPDATED', `Updated details for ${updatedStaff.fullName}`, { staffId: updatedStaff._id });
+
+    res.json({ success: true, data: updatedStaff });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// Delete a staff member
+router.delete('/:id', protect, async (req, res) => {
+  try {
+    const deletedStaff = await Staff.findOneAndDelete({ _id: req.params.id, user: req.user._id });
+    if (!deletedStaff) {
+      return res.status(404).json({ success: false, message: 'Staff member not found' });
+    }
+
+    await logActivity(req.user._id, 'STAFF_DELETED', `Deleted staff: ${deletedStaff.fullName}`, { staffId: deletedStaff._id });
+
+    res.json({ success: true, data: {} });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/staff/:id/provision-portal — Admin Provisions Staff Portal
+// ─────────────────────────────────────────────────────────────
+router.post('/:id/provision-portal', protect, async (req, res) => {
+  try {
+    const staff = await Staff.findOne({ _id: req.params.id, user: req.user._id }).populate('user', 'companyName companyLogo');
+    if (!staff) return res.status(404).json({ success: false, message: 'Staff not found' });
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours so staff has time to check email
+
+    // Generate a temporary portal password (hex, 12 chars)
+    const tempPassword = crypto.randomBytes(6).toString('hex');
+
+    staff.passwordResetToken = resetToken;
+    staff.passwordResetExpires = resetExpires;
+    staff.isPortalEnabled = true;
+    staff.mustChangePassword = true;
+    staff.portalPassword = tempPassword; // will be hashed by Staff pre-save hook
+    staff.loginAttempts = 0;
+    staff.lockUntil = undefined;
+
+    await staff.save();
+
+    // ─── Build a public-facing base URL for the reset link ───────────────────
+    // Priority: APP_URL env var → non-localhost origin → FRONTEND_URL
+    // Never send a localhost URL in an email — it won't work for the recipient.
+    const resolveBaseUrl = () => {
+      if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
+      const origin = req.get('origin') || '';
+      if (origin && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+        return origin.replace(/\/$/, '');
+      }
+      const frontendUrl = process.env.FRONTEND_URL || '';
+      if (frontendUrl && !frontendUrl.includes('localhost') && !frontendUrl.includes('127.0.0.1')) {
+        return frontendUrl.replace(/\/$/, '');
+      }
+      // Last resort: use origin as-is (dev environment, staff is on same network)
+      return (origin || frontendUrl || 'http://localhost:3000').replace(/\/$/, '');
+    };
+
+    const baseUrl = resolveBaseUrl();
+    const resetLink = `${baseUrl}/portal/reset-password?token=${resetToken}`;
+
+    // Send email to staff.email with a password setup link
+    let emailPreviewUrl = null;
+    try {
+      if (emailService && emailService.sendStaffProvisionEmail) {
+        console.log(`📧 Sending staff provision email to: ${staff.email}`);
+        console.log(`📧 Reset link: ${resetLink}`);
+        emailPreviewUrl = await emailService.sendStaffProvisionEmail(staff, tempPassword, resetLink);
+        console.log(`✅ Provision email sent successfully to: ${staff.email}`);
+      } else {
+        console.warn('⚠️ emailService.sendStaffProvisionEmail is not defined. Password setup link:', resetLink);
+      }
+    } catch (emailErr) {
+      console.error('📧 Failed to send provision email:', emailErr.message);
+      // Portal is still provisioned — return the link so admin can share manually
+      return res.json({ 
+        success: true, 
+        message: `Portal provisioned, but email failed to send (${emailErr.message}). Share the link below manually.`,
+        resetLink,
+        emailError: emailErr.message,
+      });
+    }
+
+    await logActivity(req.user._id, 'PORTAL_ACCESS_GRANTED', `Granted portal access to ${staff.fullName}`, { staffId: staff._id });
+
+    const responsePayload = {
+      success: true,
+      message: `Portal access granted. Login credentials emailed to ${staff.email}.`,
+      resetLink,
+    };
+    if (emailPreviewUrl) {
+      responsePayload.emailPreviewUrl = emailPreviewUrl;
+    }
+    res.json(responsePayload);
+  } catch (err) {
+    console.error('Provisioning error:', err);
+    res.status(500).json({ success: false, message: 'Server error provisioning portal' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// DELETE /api/staff/:id/revoke-portal — Admin Revokes Staff Portal
+// ─────────────────────────────────────────────────────────────
+router.delete('/:id/revoke-portal', protect, async (req, res) => {
+  try {
+    const staff = await Staff.findOne({ _id: req.params.id, user: req.user._id });
+    if (!staff) return res.status(404).json({ success: false, message: 'Staff not found' });
+
+    staff.isPortalEnabled = false;
+    staff.portalPassword = undefined;
+    
+    await staff.save();
+
+    await logActivity(req.user._id, 'PORTAL_ACCESS_REVOKED', `Revoked portal access for ${staff.fullName}`, { staffId: staff._id });
+
+    res.json({ success: true, message: 'Portal access revoked.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error revoking portal' });
+  }
+});
+
+module.exports = router;
