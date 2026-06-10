@@ -43,22 +43,25 @@ app.get('/api/health', (req, res) => {
 
 const path = require('path');
 
-// Serve frontend in production (Vercel: dist at root, Local: frontend/dist)
-const isVercel = process.env.VERCEL === 'true' || process.env.VERCEL === 1;
-const frontendDist = isVercel
-  ? path.join(__dirname, '../../dist')
-  : path.join(__dirname, '../frontend/dist');
-app.use(express.static(frontendDist));
+// Note: On Vercel, static files are served by @vercel/static-build
+// On local/dev, we serve frontend static files from here for unified server
+if (!process.env.VERCEL) {
+  const frontendDist = path.join(__dirname, '../frontend/dist');
+  app.use(express.static(frontendDist));
+}
 
 // API 404 handler
 app.use('/api', (req, res) => {
   res.status(404).json({ success: false, message: 'API Route not found' });
 });
 
-// Catch-all route for React app
-app.get('*', (req, res) => {
-  res.sendFile(path.join(frontendDist, 'index.html'));
-});
+// Catch-all route for React app (local dev only)
+if (!process.env.VERCEL) {
+  const frontendDist = path.join(__dirname, '../frontend/dist');
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
 
 // Global error handler
 app.use((err, req, res, next) => {

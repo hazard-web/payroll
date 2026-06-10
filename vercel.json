@@ -26,15 +26,13 @@
       "dest": "/index.html"
     }
   ],
-  "env": {
-    "VERCEL": "true"
-  },
   "functions": {
     "api/index.js": {
       "maxDuration": 60,
-      "includeFiles": [
-        "backend/**"
-      ]
+      "includeFiles": ["backend/**"]
     }
+  },
+  "env": {
+    "VERCEL": "true"
   }
 }
