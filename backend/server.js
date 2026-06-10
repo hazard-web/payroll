@@ -43,8 +43,12 @@ app.get('/api/health', (req, res) => {
 
 const path = require('path');
 
-// Serve frontend in production (or locally via single server)
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
+// Serve frontend in production (Vercel: dist at root, Local: frontend/dist)
+const isVercel = process.env.VERCEL === 'true' || process.env.VERCEL === 1;
+const frontendDist = isVercel
+  ? path.join(__dirname, '../../dist')
+  : path.join(__dirname, '../frontend/dist');
+app.use(express.static(frontendDist));
 
 // API 404 handler
 app.use('/api', (req, res) => {
@@ -53,7 +57,7 @@ app.use('/api', (req, res) => {
 
 // Catch-all route for React app
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+  res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
 // Global error handler

@@ -1,19 +1,43 @@
 {
-  "outputDirectory": "dist",
-  "rewrites": [
+  "version": 2,
+  "builds": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index"
+      "src": "package.json",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "dist/**",
+          "backend/**",
+          "frontend/**"
+        ]
+      }
     },
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "api/index.js",
+      "use": "@vercel/node"
     }
   ],
-  "crons": [
+  "routes": [
     {
-      "path": "/api/attendance/cron/check-shifts",
-      "schedule": "0 0 * * *"
+      "src": "/api/(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/dist/$1"
     }
-  ]
+  ],
+  "env": {
+    "VERCEL": "true"
+  },
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60,
+      "includeFiles": [
+        "dist/**",
+        "backend/**",
+        "frontend/**"
+      ]
+    }
+  }
 }
