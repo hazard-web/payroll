@@ -21,6 +21,19 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// On Vercel, ensure the Mongo connection is warm before any route runs.
+// This avoids each cold start opening a brand-new Atlas connection.
+if (process.env.VERCEL) {
+  app.use(async (req, res, next) => {
+    try {
+      await ensureMongoConnection();
+      next();
+    } catch (err) {
+      next(err);
+    }
+  });
+}
+
 // Routes
 app.use('/api/payslips', payslipRoutes);
 app.use('/api/auth', authRoutes);
@@ -101,6 +114,22 @@ console.log('🔍 MONGODB_URI =', process.env.MONGODB_URI);
 const { runShiftCheck } = require('./utils/cronJobs');
 const http = require('http');
 
+// Cache the Mongoose connection promise across serverless invocations so
+// we don't open a brand-new Atlas connection on every cold start.
+let mongooseConnectionPromise = null;
+function ensureMongoConnection() {
+  if (mongooseConnectionPromise) return mongooseConnectionPromise;
+  mongooseConnectionPromise = mongoose.connect(MONGO_URI, {
+    serverSelectionTimeoutMS: 10000,
+    maxPoolSize: 10,
+  });
+  // Reset the cache on hard failure so a future request can retry
+  mongooseConnectionPromise.catch(() => {
+    mongooseConnectionPromise = null;
+  });
+  return mongooseConnectionPromise;
+}
+
 if (!process.env.VERCEL) {
   // Start the HTTP server FIRST so requests get clean error responses
   // even when the database is down. This avoids HTTP 000 / connection-refused.
@@ -133,17 +162,14 @@ if (!process.env.VERCEL) {
   console.log('⏰ Local shift-check cron scheduled (every 1 hour)');
 }
 
-mongoose
-  .connect(MONGO_URI, {
-    serverSelectionTimeoutMS: 10000,
-  })
-  .then(() => {
-    console.log('✅ Connected to MongoDB');
-  })
- .catch((err) => {
-  console.error('❌ MongoDB connection error (server is still up — requests will return DB_UNREACHABLE until DB is reachable):');
-  console.error(err.message);
-});
+// Eagerly establish the Mongo connection on cold start so the first
+// request doesn't pay the connection cost. Safe to call repeatedly.
+ensureMongoConnection()
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch((err) => {
+    console.error('❌ MongoDB connection error (server is still up — requests will return DB_UNREACHABLE until DB is reachable):');
+    console.error(err.message);
+  });
 
 
 // Export the app so Vercel Serverless Functions can use it
