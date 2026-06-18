@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Building2, User, Calendar,
-  ChevronRight, CheckCircle2, Loader2,
+import {
+  User, Calendar,
+  ChevronRight, Loader2,
   IndianRupee, Landmark, Send
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -11,13 +11,17 @@ import toast from 'react-hot-toast'
 import api from '../api'
 import PageShell from '../components/PageShell'
 import AnimatedNumber from '../components/AnimatedNumber'
+import {
+  InputField, SelectField, SegmentedControl, Toggle, StepLabel
+} from '../components/UI'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 2 + i)
 
 const INITIAL = {
-  companyName: '', companyAddress: '', companyEmail: '', companyPhone: '', companyCIN: '', companyLogo: '',
+  companyName: '', companyAddress: '', companyEmail: '', companyPhone: '',
+  companyCIN: '', companyGST: '', companyWebsite: '', companyLogo: '',
   employeeName: '', employeeId: '', designation: '', department: '', employeeEmail: '',
   dateOfJoining: '', bankAccount: '', bankName: '', panNumber: '', pfNumber: '',
   month: MONTHS[new Date().getMonth()], year: CURRENT_YEAR,
@@ -30,66 +34,28 @@ const INITIAL = {
   automationEnabled: true,
 }
 
-function StepLabel({ num, label, active, completed }) {
-  const isInactive = !active && !completed
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: active || completed ? 1 : 0.75 }}>
-      <div style={{
-        width: 32, height: 32, borderRadius: 6,
-        background: completed || active ? 'var(--primary)' : 'var(--bg)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: completed || active ? '#ffffff' : 'var(--text-muted)',
-        border: isInactive ? '1px solid var(--border)' : '1px solid transparent',
-        fontSize: 14, fontWeight: 600, transition: 'all 0.3s'
-      }}>
-        {completed ? <CheckCircle2 size={18} /> : num}
-      </div>
-      <span style={{ fontSize: 13, fontWeight: 600, color: active ? 'var(--primary)' : 'var(--text-muted)' }}>{label}</span>
-    </div>
-  )
-}
-
-function InputField({ label, name, value, onChange, type = 'text', placeholder, icon: Icon, required, min, max }) {
-  const handleKeyDown = (e) => {
-    if (type === 'number' && (e.key === '-' || e.key === 'e' || e.key === '+')) {
-      e.preventDefault();
-    }
-  };
-
-  return (
-    <div style={{ marginBottom: 20 }}>
-      <label className="label">
-        {label}{required && <span style={{ color: 'var(--primary)', marginLeft: 4 }}>*</span>}
-      </label>
-      <div style={{ position: 'relative' }}>
-        {Icon && <Icon size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-light)' }} />}
-        <input
-          type={type}
-          value={value}
-          placeholder={placeholder}
-          onChange={onChange}
-          onKeyDown={handleKeyDown}
-          min={min}
-          max={max}
-          required={required}
-          className="input-field"
-          style={{ width: '100%', paddingLeft: Icon ? 42 : 12 }}
-        />
-      </div>
-    </div>
-  )
-}
+const SEGMENTED_OPTIONS = [
+  { value: 'regular', label: 'Regular Employee' },
+  { value: 'intern', label: 'Internship' },
+]
 
 function PreviewRow({ label, value, type = 'normal', isDeduction }) {
+  const valueClass =
+    type === 'bold'
+      ? 'preview-row__value preview-row__value--bold'
+      : isDeduction
+        ? 'preview-row__value preview-row__value--deduction'
+        : 'preview-row__value'
+
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(15,23,42,0.06)' }}>
-      <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>{label}</span>
-      <span style={{ 
-        fontSize: 14, 
-        fontWeight: type === 'bold' ? 800 : 700,
-        color: type === 'bold' ? 'var(--primary)' : 'var(--text)'
-      }}>
-        {type === 'text' ? value : <div style={{ display: 'flex', alignItems: 'center' }}><AnimatedNumber value={parseFloat(value || 0)} decimals={0} /></div>}
+    <div className="preview-row">
+      <span className="preview-row__label">{label}</span>
+      <span className={valueClass}>
+        {typeof value === 'number' ? (
+          <AnimatedNumber value={parseFloat(value || 0)} decimals={0} />
+        ) : (
+          value || '—'
+        )}
       </span>
     </div>
   )
@@ -101,13 +67,13 @@ export default function GeneratePayslip() {
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const staffId = searchParams.get('staffId')
-  
+
   const [staffList, setStaffList] = useState([])
   useEffect(() => {
     api.get('/staff').then(res => {
       const list = res.data.data;
       setStaffList(list);
-      
+
       // If staffId from URL, auto-fill
       if (staffId) {
         const s = list.find(x => x._id === staffId);
@@ -141,20 +107,22 @@ export default function GeneratePayslip() {
     if (user) {
       initialValues = {
         ...initialValues,
-        companyName: user.companyName || '',
+        companyName:    user.companyName    || '',
         companyAddress: user.companyAddress || '',
-        companyEmail: user.companyEmail || '',
-        companyPhone: user.companyPhone || '',
-        companyCIN: user.companyCIN || '',
-        companyLogo: user.companyLogo || '',
+        companyEmail:   user.companyEmail   || '',
+        companyPhone:   user.companyPhone   || '',
+        companyCIN:     user.companyCIN     || '',
+        companyGST:     user.companyGST     || '',
+        companyWebsite: user.companyWebsite || '',
+        companyLogo:    user.companyLogo    || '',
       };
     }
-    
+
     if (location.state?.duplicateData) {
       const { _id, createdAt, updatedAt, __v, user: _user, ...rest } = location.state.duplicateData;
       return { ...initialValues, ...rest };
     }
-    
+
     if (location.state?.predefinedStaff) {
       const s = location.state.predefinedStaff;
       return {
@@ -172,10 +140,10 @@ export default function GeneratePayslip() {
         baseSalary: s.type === 'Intern' ? (s.salaryDetails?.baseSalary || '') : '',
       }
     }
-    
+
     return initialValues;
   })
-  
+
   const [submitting, setSubmitting] = useState(false)
 
   const totals = useMemo(() => {
@@ -194,7 +162,7 @@ export default function GeneratePayslip() {
 
     const basicAnnual = annualCTC * 0.5;
     const hraAnnual = basicAnnual * 0.5;
-    const employerPFAnnual = basicAnnual * 0.12; 
+    const employerPFAnnual = basicAnnual * 0.12;
     const gratuityAnnual = basicAnnual * 0.0481;
     const retiralsAnnual = employerPFAnnual + gratuityAnnual;
     const grossAnnual = annualCTC - retiralsAnnual;
@@ -211,7 +179,7 @@ export default function GeneratePayslip() {
 
     const empPF = form.automationEnabled ? Math.round(basic * 0.12) : 0;
     const esi = form.automationEnabled ? (gross <= 21000 ? Math.ceil(gross * 0.0075) : 0) : 0;
-    const pt = form.automationEnabled ? ((paidDays > 0 && gross >= 15000) ? 200 : (paidDays > 0 && gross >= 10000) ? 150 : 0) : 0; 
+    const pt = form.automationEnabled ? ((paidDays > 0 && gross >= 15000) ? 200 : (paidDays > 0 && gross >= 10000) ? 150 : 0) : 0;
     const tds = Math.round(parseFloat(form.tds) || 0);
     const loan = Math.round(parseFloat(form.loanDeduction) || 0);
 
@@ -237,6 +205,10 @@ export default function GeneratePayslip() {
   const handleSubmit = async () => {
     setSubmitting(true)
     try {
+      const employerPFAmt = form.automationEnabled
+        ? Math.round(totals.basic * 0.12)
+        : 0;
+
       const payload = {
         ...form,
         basicSalary: totals.basic,
@@ -245,6 +217,7 @@ export default function GeneratePayslip() {
         providentFund: totals.pf,
         esi: totals.esi,
         professionalTax: totals.pt,
+        employerPF: form.employmentType === 'regular' ? employerPFAmt : 0,
         stipend: form.employmentType === 'intern' ? totals.gross : 0,
         grossEarnings: totals.gross,
         totalDeductions: totals.deductions,
@@ -254,7 +227,7 @@ export default function GeneratePayslip() {
       toast.success('Payslip generated successfully!')
       navigate(`/payslips/${res.data.data._id}`)
     } catch (err) {
-      toast.error(err.message || 'Failed to generate payslip')
+      toast.error(err?.message || 'Failed to generate payslip. Check all required fields.')
     } finally {
       setSubmitting(false)
     }
@@ -262,21 +235,24 @@ export default function GeneratePayslip() {
 
   return (
     <PageShell className="page-shell--flush">
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="split-screen"
+      className="split-screen split-screen--narrow"
     >
       {/* LEFT: FORM ENGINE */}
-      <div style={{ padding: 'clamp(24px, 5vw, 60px)', position: 'relative' }}>
+      <div
+        className="split-screen__pane-form"
+        style={{ padding: 'var(--page-padding-y) var(--page-padding-x)' }}
+      >
         <div style={{ maxWidth: 540, margin: '0 auto' }}>
-          <header style={{ marginBottom: 48 }}>
+          <header style={{ marginBottom: 'var(--space-8)' }}>
             <div className="badge badge-navy" style={{ marginBottom: 12 }}>Statutory v2.6</div>
-            <h1 style={{ color: 'var(--primary)', marginBottom: 12, letterSpacing: '-0.03em' }}>Payroll Engine</h1>
-            <p style={{ color: 'var(--text-muted)', fontSize: 16, fontWeight: 500 }}>Generate localized Indian payslips with 2026 tax standards.</p>
+            <h1 className="page-title" style={{ marginBottom: 12 }}>Payroll Engine</h1>
+            <p className="page-subtitle">Generate localized Indian payslips with 2026 tax standards.</p>
           </header>
 
-          <div style={{ display: 'flex', gap: 'clamp(12px, 3vw, 24px)', marginBottom: 48, paddingBottom: 16, borderBottom: '2px solid var(--border)', overflowX: 'auto' }}>
+          <div className="stepper">
             <StepLabel num={1} label="Identity" active={step === 1} completed={step > 1} />
             <StepLabel num={2} label="Timeline" active={step === 2} completed={step > 2} />
             <StepLabel num={3} label="Payroll" active={step === 3} completed={step > 3} />
@@ -286,92 +262,84 @@ export default function GeneratePayslip() {
             <AnimatePresence mode="wait">
               {step === 1 && (
                 <motion.div key="s1" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}>
-                  <div className="card" style={{ marginBottom: 24, padding: 20, background: 'var(--bg)', border: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="panel" style={{ marginBottom: 'var(--space-6)', padding: 'var(--space-5)', background: 'var(--bg)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                       <div>
                         <h4 style={{ margin: 0, color: 'var(--primary)', fontSize: 15 }}>Statutory Automation</h4>
                         <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: 12 }}>Auto-calculate PF, ESI, and PT based on earnings.</p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setForm({...form, automationEnabled: !form.automationEnabled})}
-                        style={{
-                          width: 52, height: 28, borderRadius: 6, background: form.automationEnabled ? 'var(--primary)' : 'var(--border)',
-                          position: 'relative', border: 'none', cursor: 'pointer', transition: 'all 0.3s'
-                        }}
-                      >
-                        <div style={{
-                          position: 'absolute', top: 4, left: form.automationEnabled ? 28 : 4,
-                          width: 20, height: 20, borderRadius: '50%', background: 'white', transition: 'all 0.3s'
-                        }} />
-                      </button>
+                      <Toggle
+                        checked={form.automationEnabled}
+                        onChange={(v) => setForm({...form, automationEnabled: v})}
+                        label=""
+                      />
                     </div>
                   </div>
 
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: 'var(--text-muted)', marginBottom: 12, textTransform: 'uppercase' }}>Employment Category</label>
-                  <div style={{ display: 'flex', gap: 10, marginBottom: 32, background: 'var(--bg)', padding: 6, borderRadius: 12, border: '1px solid var(--border)' }}>
-                    {['regular', 'intern'].map(type => (
-                      <button 
-                        key={type} type="button"
-                        onClick={() => setForm({...form, employmentType: type})}
-                        style={{ 
-                          flex: 1, padding: '16px', borderRadius: 12, background: form.employmentType === type ? 'var(--primary)' : 'transparent', color: form.employmentType === type ? '#ffffff' : 'var(--text-muted)', border: 'none', fontWeight: 700, cursor: 'pointer' 
-                        }}
-                      >{type === 'regular' ? 'Regular Employee' : 'Internship'}</button>
-                    ))}
-                  </div>
+                  <label className="label" style={{ marginBottom: 12 }}>Employment Category</label>
+                  <SegmentedControl
+                    options={SEGMENTED_OPTIONS}
+                    value={form.employmentType}
+                    onChange={(v) => setForm({...form, employmentType: v})}
+                    className="mb-6"
+                    style={{ marginBottom: 'var(--space-6)' }}
+                  />
 
-                  <div style={{ position: 'relative', marginBottom: 20 }}>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8 }}>Auto-fill from Team Directory</label>
-                    <select 
-                      onChange={(e) => {
-                        const s = staffList.find(x => x._id === e.target.value);
-                        if(s) {
-                           const empType = s.type === 'Employee' ? 'regular' : 'intern';
-                           setForm(f => ({
-                             ...f,
-                             employmentType: empType,
-                             employeeName: s.fullName,
-                             employeeId: s.employeeId,
-                             employeeEmail: s.email,
-                             designation: s.designation || '',
-                             department: s.department || '',
-                             dateOfJoining: s.joiningDate ? s.joiningDate.split('T')[0] : '',
-                             panNumber: s.financials?.panNumber || '',
-                             pfNumber: s.pfNumber || '',
-                             bankAccount: s.financials?.accountNumber || '',
-                             bankName: s.financials?.bankName || '',
-                             annualCTC: s.type === 'Employee' ? (s.salaryDetails?.annualCTC || '') : '',
-                             baseSalary: s.type === 'Intern' ? (s.salaryDetails?.baseSalary || '') : '',
-                           }))
+                  <div style={{ marginBottom: 20 }}>
+                    <label className="label" style={{ marginBottom: 8 }}>Auto-fill from Team Directory</label>
+                    <SelectField
+                      value=""
+                      onChange={(v) => {
+                        const s = staffList.find(x => x._id === v);
+                        if (s) {
+                          const empType = s.type === 'Employee' ? 'regular' : 'intern';
+                          setForm(f => ({
+                            ...f,
+                            employmentType: empType,
+                            employeeName: s.fullName,
+                            employeeId: s.employeeId,
+                            employeeEmail: s.email,
+                            designation: s.designation || '',
+                            department: s.department || '',
+                            dateOfJoining: s.joiningDate ? s.joiningDate.split('T')[0] : '',
+                            panNumber: s.financials?.panNumber || '',
+                            pfNumber: s.pfNumber || '',
+                            bankAccount: s.financials?.accountNumber || '',
+                            bankName: s.financials?.bankName || '',
+                            annualCTC: s.type === 'Employee' ? (s.salaryDetails?.annualCTC || '') : '',
+                            baseSalary: s.type === 'Intern' ? (s.salaryDetails?.baseSalary || '') : '',
+                          }));
                         }
                       }}
-                      className="btn-hover" style={{ width: '100%', padding: '12px 14px', border: '2px solid var(--border)', borderRadius: 12, fontSize: 14, fontWeight: 600, color: 'var(--text)', background: 'var(--surface)', outline: 'none' }}
-                    >
-                      <option value="">-- Select Team Member --</option>
-                      {staffList.filter(s => {
-                        const type = s.type?.toLowerCase();
-                        const current = form.employmentType?.toLowerCase();
-                        return (current === 'regular' && type === 'employee') || (current === type);
-                      }).length === 0 && (
-                        <option value="" disabled>No {form.employmentType === 'regular' ? 'Employees' : 'Interns'} found in directory.</option>
-                      )}
-                      {staffList.filter(s => {
-                        const type = s.type?.toLowerCase();
-                        const current = form.employmentType?.toLowerCase();
-                        return (current === 'regular' && type === 'employee') || (current === type);
-                      }).map(s => <option key={s._id} value={s._id}>{s.fullName} ({s.type})</option>)}
-                    </select>
+                      options={[
+                        ...staffList
+                          .filter(s => {
+                            const type = s.type?.toLowerCase();
+                            const current = form.employmentType?.toLowerCase();
+                            return (current === 'regular' && type === 'employee') || (current === type);
+                          })
+                          .map(s => ({ value: s._id, label: `${s.fullName} (${s.type})` })),
+                      ]}
+                      placeholder={
+                        staffList.filter(s => {
+                          const type = s.type?.toLowerCase();
+                          const current = form.employmentType?.toLowerCase();
+                          return (current === 'regular' && type === 'employee') || (current === type);
+                        }).length === 0
+                          ? `No ${form.employmentType === 'regular' ? 'Employees' : 'Interns'} found in directory.`
+                          : '-- Select Team Member --'
+                      }
+                    />
                   </div>
 
                   <InputField label="Employee Name" required value={form.employeeName} onChange={e => setForm({...form, employeeName: e.target.value})} placeholder="Full Name" icon={User} />
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  <div className="form-grid-2">
                     <InputField label="ID Code" required value={form.employeeId} onChange={e => setForm({...form, employeeId: e.target.value})} placeholder="EMP-001" />
                     <InputField label="Designation" required value={form.designation} onChange={e => setForm({...form, designation: e.target.value})} placeholder="Role" />
                   </div>
                   <InputField label="Department" required value={form.department} onChange={e => setForm({...form, department: e.target.value})} placeholder="e.g. Engineering" />
                   <InputField label="Employee Email" required type="email" value={form.employeeEmail} onChange={e => setForm({...form, employeeEmail: e.target.value})} placeholder="email@company.com" icon={Send} />
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  <div className="form-grid-2">
                     <InputField label="PAN Number" required value={form.panNumber} onChange={e => setForm({...form, panNumber: e.target.value})} placeholder="ABCDE1234F" />
                     <InputField label="PF Number" required={form.employmentType === 'regular'} value={form.pfNumber} onChange={e => setForm({...form, pfNumber: e.target.value})} placeholder="XX/XXX/0000000" />
                   </div>
@@ -380,27 +348,31 @@ export default function GeneratePayslip() {
 
               {step === 2 && (
                 <motion.div key="s2" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 20 }}>
-                    <div style={{ marginBottom: 20 }}>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8 }}>Pay Month</label>
-                      <select value={form.month} onChange={e => setForm({...form, month: e.target.value})} className="btn-hover" style={{ width: '100%', padding: '14px', border: '2px solid var(--border)', borderRadius: 12, fontSize: 14, fontWeight: 600, color: 'var(--text)', background: 'var(--surface)', outline: 'none' }}>
-                        {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
-                      </select>
-                    </div>
-                    <div style={{ marginBottom: 20 }}>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8 }}>Year</label>
-                      <select value={form.year} onChange={e => setForm({...form, year: e.target.value})} className="btn-hover" style={{ width: '100%', padding: '14px', border: '2px solid var(--border)', borderRadius: 12, fontSize: 14, fontWeight: 600, color: 'var(--text)', background: 'var(--surface)', outline: 'none' }}>
-                        {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-                      </select>
-                    </div>
+                  <div className="form-grid-2">
+                    <SelectField
+                      label="Pay Month"
+                      required
+                      value={form.month}
+                      onChange={(v) => setForm({...form, month: v})}
+                      options={MONTHS.map(m => ({ value: m, label: m }))}
+                    />
+                    <SelectField
+                      label="Year"
+                      required
+                      value={form.year}
+                      onChange={(v) => setForm({...form, year: v})}
+                      options={YEARS.map(y => ({ value: y, label: y }))}
+                    />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  <div className="form-grid-2">
                     <InputField label="Date of Joining" required type="date" value={form.dateOfJoining} onChange={e => setForm({...form, dateOfJoining: e.target.value})} icon={Calendar} />
                     <InputField label="Payout Date" required type="date" value={form.payDate} onChange={e => setForm({...form, payDate: e.target.value})} icon={Calendar} />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, padding: 20, background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
-                    <InputField label="Working Days" required type="number" min="0" max="31" value={form.workingDays} onChange={e => setForm({...form, workingDays: Math.max(0, parseInt(e.target.value) || 0)})} />
-                    <InputField label="Paid Days" required type="number" min="0" max="31" value={form.paidDays} onChange={e => setForm({...form, paidDays: Math.max(0, parseInt(e.target.value) || 0)})} />
+                  <div className="panel" style={{ padding: 'var(--space-5)' }}>
+                    <div className="form-grid-2" style={{ marginBottom: 0 }}>
+                      <InputField label="Working Days" required type="number" min="0" max="31" value={form.workingDays} onChange={e => setForm({...form, workingDays: Math.max(0, parseInt(e.target.value) || 0)})} />
+                      <InputField label="Paid Days" required type="number" min="0" max="31" value={form.paidDays} onChange={e => setForm({...form, paidDays: Math.max(0, parseInt(e.target.value) || 0)})} />
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -412,15 +384,15 @@ export default function GeneratePayslip() {
                   ) : (
                      <InputField label="Annual Cost to Company (CTC)" required type="number" min="0" value={form.annualCTC} onChange={e => setForm({...form, annualCTC: Math.max(0, parseFloat(e.target.value) || 0)})} placeholder="Salary in INR" icon={IndianRupee} />
                   )}
-                  
+
                   {form.employmentType === 'regular' && (
-                    <div style={{ padding: 24, background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)', marginBottom: 24 }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                    <div className="panel" style={{ padding: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
+                      <div className="form-grid-2">
                         <InputField label="TDS" required type="number" min="0" value={form.tds} onChange={e => setForm({...form, tds: Math.max(0, parseFloat(e.target.value) || 0)})} placeholder="0" />
                         <InputField label="Loan/Recovery" required type="number" min="0" value={form.loanDeduction} onChange={e => setForm({...form, loanDeduction: Math.max(0, parseFloat(e.target.value) || 0)})} placeholder="0" />
                       </div>
                       {!form.automationEnabled && (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginTop: 12 }}>
+                        <div className="form-grid-2" style={{ marginTop: 12 }}>
                           <InputField label="Custom PF" type="number" value={form.providentFund} onChange={e => setForm({...form, providentFund: e.target.value})} />
                           <InputField label="Custom ESI" type="number" value={form.esi} onChange={e => setForm({...form, esi: e.target.value})} />
                         </div>
@@ -432,11 +404,11 @@ export default function GeneratePayslip() {
               )}
             </AnimatePresence>
 
-            <div style={{ display: 'flex', gap: 14, marginTop: 40 }}>
+            <div style={{ display: 'flex', gap: 14, marginTop: 'var(--space-8)' }}>
               {step > 1 && (
                 <button type="button" onClick={() => setStep(s => s - 1)} className="btn-secondary" style={{ width: 110, height: 48 }}>Back</button>
               )}
-              <button 
+              <button
                 type="submit" disabled={submitting} className="btn-primary"
                 style={{ flex: 1, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
               >
@@ -449,11 +421,10 @@ export default function GeneratePayslip() {
       </div>
 
       {/* RIGHT: PROFESSIONAL PREVIEW */}
-      <div style={{ 
-        background: 'var(--bg)', borderLeft: '1px solid var(--border)', 
-        padding: 'clamp(20px, 4vw, 60px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-        minHeight: '100%', overflowY: 'auto'
-      }}>
+      <div
+        className="split-screen__pane-preview"
+        style={{ padding: 'var(--page-padding-y) var(--page-padding-x)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}
+      >
         <div style={{ width: '100%', maxWidth: 500 }} className="fade-in">
           <div className="card" style={{ padding: 'clamp(24px, 5vw, 40px)', position: 'relative' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32, borderBottom: '1px solid var(--border)', paddingBottom: 24 }}>
@@ -467,23 +438,23 @@ export default function GeneratePayslip() {
                 </div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Period</div>
+                <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}>Period</div>
                 <div style={{ fontSize: 14, fontWeight: 700 }}>{form.month} {form.year}</div>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32, padding: 16, background: 'var(--bg)', borderRadius: 6 }}>
-              <div style={{ width: 50, height: 50, borderRadius: 6, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 20, fontWeight: 700 }}>
+              <div className="avatar avatar--lg" style={{ background: 'var(--primary)' }}>
                 {(form.employeeName || 'U')[0].toUpperCase()}
               </div>
               <div style={{ overflow: 'hidden' }}>
                 <div style={{ fontSize: 16, fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{form.employeeName || 'Active User'}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>{form.designation || 'Position Unspecified'} · {form.department}</div>
+                <div className="text-muted" style={{ fontSize: 12, fontWeight: 500 }}>{form.designation || 'Position Unspecified'} · {form.department}</div>
               </div>
             </div>
 
             <div style={{ marginBottom: 32 }}>
-              <PreviewRow label="Identity Code" value={form.employeeId || '—'} type="text" />
+              <PreviewRow label="Identity Code" value={form.employeeId || '—'} />
               {form.employmentType === 'intern' ? (
                 <>
                   <PreviewRow label="Monthly Stipend (Base)" value={totals.baseStipend} />
@@ -502,8 +473,8 @@ export default function GeneratePayslip() {
               <PreviewRow label="Total Deductions" value={totals.deductions} isDeduction type="bold" />
             </div>
 
-            <div style={{ 
-              background: 'var(--primary)', color: 'white', padding: '24px', 
+            <div style={{
+              background: 'var(--primary)', color: 'white', padding: 24,
               borderRadius: 6, textAlign: 'center'
             }}>
               <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>
@@ -513,10 +484,9 @@ export default function GeneratePayslip() {
                 <AnimatedNumber value={totals.net} decimals={0} />
               </div>
             </div>
-            
-            <div style={{ marginTop: 24, padding: '12px', background: 'var(--bg)', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Building2 size={16} color="var(--text-muted)" />
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>System generated professional artifact (ISO-Standard)</span>
+
+            <div className="text-muted" style={{ marginTop: 24, padding: 12, background: 'var(--bg)', borderRadius: 12, fontSize: 11, fontWeight: 500, textAlign: 'center' }}>
+              System generated professional artifact (ISO-Standard)
             </div>
           </div>
         </div>

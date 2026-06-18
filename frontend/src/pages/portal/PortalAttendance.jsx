@@ -153,39 +153,35 @@ function AttendanceSection() {
           <div style={{ color:'var(--text-muted)', fontSize:13 }}>No attendance data for {MONTHS[month-1]} {year}.</div>
         </div>
       ) : (
-        <div className="pa-card">
-          <div className="pa-table-head" style={{ gridTemplateColumns:'100px 80px 80px 70px 70px 80px 90px' }}>
-            {['Date','Punch In','Punch Out','Hours','OT','Tasks','Status'].map(h => (
-              <div key={h} style={{ fontSize:10, fontWeight:700, color:'var(--text-light)', textTransform:'uppercase', letterSpacing:'.06em' }}>{h}</div>
-            ))}
-          </div>
-          <div style={{ maxHeight:440, overflowY:'auto' }}>
-            {history.map((row, i) => {
-              const taskCount = Array.isArray(row.tasks) ? row.tasks.length : 0
-              const completed = Array.isArray(row.tasks) ? row.tasks.filter(t => t.status === 'Completed').length : 0
-              return (
-                <motion.div key={i} initial={{ opacity:0 }} animate={{ opacity:1 }}
-                  className="pa-table-row" style={{ gridTemplateColumns:'100px 80px 80px 70px 70px 80px 90px' }}>
-                  <div style={{ fontSize:12, fontWeight:700, color:'var(--primary)' }}>{fmtDate(row.date)}</div>
-                  <div style={{ fontSize:12, fontWeight:600, color:'var(--text)' }}>{fmtTime(row.punchIn)}</div>
-                  <div style={{ fontSize:12, color:'var(--text-muted)' }}>{row.punchOut ? fmtTime(row.punchOut) : <span className="pa-pill pa-pill-blue" style={{ fontSize:10 }}>Active</span>}</div>
-                  <div style={{ fontSize:12, fontWeight:600, color:'var(--text)' }}>{row.totalHours ? `${row.totalHours.toFixed(1)}h` : '—'}</div>
-                  <div style={{ fontSize:12, color: row.overtimeHours > 0 ? '#6b21a8' : 'var(--text-muted)', fontWeight: row.overtimeHours > 0 ? 700 : 400 }}>
-                    {row.overtimeHours > 0 ? `+${row.overtimeHours.toFixed(1)}h` : '—'}
-                  </div>
-                  <div style={{ fontSize:12, color:'var(--text)', fontWeight:700 }}>{taskCount ? `${completed}/${taskCount}` : '—'}</div>
-                  <WorkStatusPill status={row.workStatus === 'Active' ? 'Active' : row.workStatus} />
-                </motion.div>
-              )
-            })}
-          </div>
-          {history.length > 0 && (
-            <div style={{ padding:'10px 18px', borderTop:'1px solid var(--border)', display:'flex', gap:18, flexWrap:'wrap', fontSize:12, color:'var(--text-muted)' }}>
-              <span>Total: <strong style={{ color:'var(--text)' }}>{history.length} days</strong></span>
-              <span>Hours: <strong style={{ color:'var(--text)' }}>{(summary?.totalHours||0).toFixed(1)}h</strong></span>
-              {(summary?.totalOT||0) > 0 && <span>OT: <strong style={{ color:'#6b21a8' }}>{summary.totalOT.toFixed(1)}h</strong></span>}
+          <div className="pa-card">
+            <div className="pa-table-head" style={{ gridTemplateColumns:'100px 80px 80px 70px 80px 90px' }}>
+              {['Date','Punch In','Punch Out','Hours','Tasks','Status'].map(h => (
+                <div key={h} style={{ fontSize:10, fontWeight:700, color:'var(--text-light)', textTransform:'uppercase', letterSpacing:'.06em' }}>{h}</div>
+              ))}
             </div>
-          )}
+            <div style={{ maxHeight:440, overflowY:'auto' }}>
+              {history.map((row, i) => {
+                const taskCount = Array.isArray(row.tasks) ? row.tasks.length : 0
+                const completed = Array.isArray(row.tasks) ? row.tasks.filter(t => t.status === 'Completed').length : 0
+                return (
+                  <motion.div key={i} initial={{ opacity:0 }} animate={{ opacity:1 }}
+                    className="pa-table-row" style={{ gridTemplateColumns:'100px 80px 80px 70px 80px 90px' }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:'var(--primary)' }}>{fmtDate(row.date)}</div>
+                    <div style={{ fontSize:12, fontWeight:600, color:'var(--text)' }}>{fmtTime(row.punchIn)}</div>
+                    <div style={{ fontSize:12, color:'var(--text-muted)' }}>{row.punchOut ? fmtTime(row.punchOut) : <span className="pa-pill pa-pill-blue" style={{ fontSize:10 }}>Active</span>}</div>
+                    <div style={{ fontSize:12, fontWeight:600, color:'var(--text)' }}>{row.totalHours ? `${row.totalHours.toFixed(1)}h` : '—'}</div>
+                    <div style={{ fontSize:12, color:'var(--text)', fontWeight:700 }}>{taskCount ? `${completed}/${taskCount}` : '—'}</div>
+                    <WorkStatusPill status={row.workStatus === 'Active' ? 'Active' : row.workStatus} />
+                  </motion.div>
+                )
+              })}
+            </div>
+            {history.length > 0 && (
+              <div style={{ padding:'10px 18px', borderTop:'1px solid var(--border)', display:'flex', gap:18, flexWrap:'wrap', fontSize:12, color:'var(--text-muted)' }}>
+                <span>Total: <strong style={{ color:'var(--text)' }}>{history.length} days</strong></span>
+                <span>Hours: <strong style={{ color:'var(--text)' }}>{(summary?.totalHours||0).toFixed(1)}h</strong></span>
+              </div>
+            )}
         </div>
       )}
     </div>

@@ -12,7 +12,71 @@ const emailService = require('../utils/emailService');
 // Example: ABCDE1234F
 // ─────────────────────────────────────────────────────────────
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const isValidPAN = (pan) => typeof pan === 'string' && PAN_REGEX.test(pan);
+const isValidEmail = (email) => typeof email === 'string' && EMAIL_REGEX.test(email.toLowerCase().trim());
+
+function resolvePortalBaseUrl(req) {
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
+  const origin = req.get('origin') || '';
+  if (origin && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+    return origin.replace(/\/$/, '');
+  }
+  const frontendUrl = process.env.FRONTEND_URL || '';
+  if (frontendUrl && !frontendUrl.includes('localhost') && !frontendUrl.includes('127.0.0.1')) {
+    return frontendUrl.replace(/\/$/, '');
+  }
+  return (origin || frontendUrl || 'http://localhost:3000').replace(/\/$/, '');
+}
+
+async function provisionStaffPortalAccess(staff, req, options = {}) {
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  const tempPassword = crypto.randomBytes(6).toString('hex');
+
+  staff.passwordResetToken = resetToken;
+  staff.passwordResetExpires = Date.now() + 24 * 60 * 60 * 1000;
+  staff.isPortalEnabled = true;
+  staff.mustChangePassword = true;
+  staff.portalPassword = tempPassword;
+  staff.loginAttempts = 0;
+  staff.lockUntil = undefined;
+
+  await staff.save();
+
+  const resetLink = `${resolvePortalBaseUrl(req)}/portal/reset-password?token=${resetToken}`;
+  const result = {
+    resetLink,
+    emailPreviewUrl: null,
+    emailError: null,
+    smtpAccepted: false,
+    smtpRejected: [],
+    smtpResponse: null,
+    tempPassword, // surface to admin so they can share manually if email fails
+  };
+
+  if (options.sendEmail !== false) {
+    try {
+      const sendResult = await emailService.sendStaffProvisionEmail(staff, tempPassword, resetLink);
+      // sendResult is { previewUrl, info } when available
+      if (sendResult && typeof sendResult === 'object') {
+        result.emailPreviewUrl = sendResult.previewUrl || null;
+        if (sendResult.info) {
+          result.smtpAccepted = !!(sendResult.info.accepted && sendResult.info.accepted.length > 0);
+          result.smtpRejected = sendResult.info.rejected || [];
+          result.smtpResponse = sendResult.info.response || null;
+        }
+      } else if (typeof sendResult === 'string') {
+        // Backward-compat: older callers got a string (preview URL)
+        result.emailPreviewUrl = sendResult;
+      }
+    } catch (emailErr) {
+      result.emailError = emailErr.message;
+      console.error('Failed to send staff provision email:', emailErr.message);
+    }
+  }
+
+  return result;
+}
 
 const { logActivity } = require('../utils/logger');
 router.get('/', protect, async (req, res) => {
@@ -48,6 +112,14 @@ router.post('/', protect, async (req, res) => {
       });
     }
 
+    const email = (req.body.email || '').trim().toLowerCase();
+    if (!isValidEmail(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'A valid team member email address is required.'
+      });
+    }
+
     // If admin provided an employeeId, make sure it's unique within their tenant
     if (requestedId) {
       const exists = await Staff.findOne({ user: req.user._id, employeeId: requestedId });
@@ -62,6 +134,7 @@ router.post('/', protect, async (req, res) => {
     // Build the staff document. Employee ID is intentionally optional.
     const staffPayload = {
       ...req.body,
+      email,
       user: req.user._id,
     };
 
@@ -96,6 +169,18 @@ router.post('/', protect, async (req, res) => {
     const staff = new Staff(staffPayload);
     await staff.save();
 
+    let portalAccess = null;
+    try {
+      portalAccess = await provisionStaffPortalAccess(staff, req, { sendEmail: true });
+    } catch (provisionErr) {
+      console.error('Failed to provision staff portal after creation:', provisionErr.message);
+      portalAccess = {
+        resetLink: null,
+        emailPreviewUrl: null,
+        emailError: 'Portal access was created, but password setup could not be generated.',
+      };
+    }
+
     await logActivity(
       req.user._id,
       'STAFF_CREATED',
@@ -112,7 +197,7 @@ router.post('/', protect, async (req, res) => {
       message: `New staff added: ${staff.fullName}${staff.employeeId ? ` (${staff.employeeId})` : ''} — ${staff.designation || 'N/A'}`
     }).save();
 
-    res.status(201).json({ success: true, data: staff });
+    res.status(201).json({ success: true, data: staff, portalAccess });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
@@ -148,6 +233,17 @@ router.put('/:id', protect, async (req, res) => {
       });
     }
 
+    if (req.body.email !== undefined) {
+      const email = String(req.body.email || '').trim().toLowerCase();
+      if (!isValidEmail(email)) {
+        return res.status(400).json({
+          success: false,
+          message: 'A valid team member email address is required.'
+        });
+      }
+      req.body.email = email;
+    }
+
     // Normalise PAN to uppercase before persisting
     if (req.body.panNumber) {
       req.body.panNumber = String(req.body.panNumber).toUpperCase().trim();
@@ -175,9 +271,7 @@ router.put('/:id', protect, async (req, res) => {
     if (!updatedStaff) {
       return res.status(404).json({ success: false, message: 'Staff member not found' });
     }
-
     await logActivity(req.user._id, 'STAFF_UPDATED', `Updated details for ${updatedStaff.fullName}`, { staffId: updatedStaff._id });
-
     res.json({ success: true, data: updatedStaff });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
@@ -208,75 +302,21 @@ router.post('/:id/provision-portal', protect, async (req, res) => {
     const staff = await Staff.findOne({ _id: req.params.id, user: req.user._id }).populate('user', 'companyName companyLogo');
     if (!staff) return res.status(404).json({ success: false, message: 'Staff not found' });
 
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours so staff has time to check email
-
-    // Generate a temporary portal password (hex, 12 chars)
-    const tempPassword = crypto.randomBytes(6).toString('hex');
-
-    staff.passwordResetToken = resetToken;
-    staff.passwordResetExpires = resetExpires;
-    staff.isPortalEnabled = true;
-    staff.mustChangePassword = true;
-    staff.portalPassword = tempPassword; // will be hashed by Staff pre-save hook
-    staff.loginAttempts = 0;
-    staff.lockUntil = undefined;
-
-    await staff.save();
-
-    // ─── Build a public-facing base URL for the reset link ───────────────────
-    // Priority: APP_URL env var → non-localhost origin → FRONTEND_URL
-    // Never send a localhost URL in an email — it won't work for the recipient.
-    const resolveBaseUrl = () => {
-      if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
-      const origin = req.get('origin') || '';
-      if (origin && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
-        return origin.replace(/\/$/, '');
-      }
-      const frontendUrl = process.env.FRONTEND_URL || '';
-      if (frontendUrl && !frontendUrl.includes('localhost') && !frontendUrl.includes('127.0.0.1')) {
-        return frontendUrl.replace(/\/$/, '');
-      }
-      // Last resort: use origin as-is (dev environment, staff is on same network)
-      return (origin || frontendUrl || 'http://localhost:3000').replace(/\/$/, '');
-    };
-
-    const baseUrl = resolveBaseUrl();
-    const resetLink = `${baseUrl}/portal/reset-password?token=${resetToken}`;
-
-    // Send email to staff.email with a password setup link
-    let emailPreviewUrl = null;
-    try {
-      if (emailService && emailService.sendStaffProvisionEmail) {
-        console.log(`📧 Sending staff provision email to: ${staff.email}`);
-        console.log(`📧 Reset link: ${resetLink}`);
-        emailPreviewUrl = await emailService.sendStaffProvisionEmail(staff, tempPassword, resetLink);
-        console.log(`✅ Provision email sent successfully to: ${staff.email}`);
-      } else {
-        console.warn('⚠️ emailService.sendStaffProvisionEmail is not defined. Password setup link:', resetLink);
-      }
-    } catch (emailErr) {
-      console.error('📧 Failed to send provision email:', emailErr.message);
-      // Portal is still provisioned — return the link so admin can share manually
-      return res.json({ 
-        success: true, 
-        message: `Portal provisioned, but email failed to send (${emailErr.message}). Share the link below manually.`,
-        resetLink,
-        emailError: emailErr.message,
-      });
-    }
+    const portalAccess = await provisionStaffPortalAccess(staff, req, { sendEmail: true });
 
     await logActivity(req.user._id, 'PORTAL_ACCESS_GRANTED', `Granted portal access to ${staff.fullName}`, { staffId: staff._id });
 
-    const responsePayload = {
+    const message = portalAccess.emailError
+      ? `Portal access granted, but email failed to send (${portalAccess.emailError}). Share the setup link below manually.`
+      : `Portal access granted. Login credentials emailed to ${staff.email}.`;
+
+    res.json({
       success: true,
-      message: `Portal access granted. Login credentials emailed to ${staff.email}.`,
-      resetLink,
-    };
-    if (emailPreviewUrl) {
-      responsePayload.emailPreviewUrl = emailPreviewUrl;
-    }
-    res.json(responsePayload);
+      message,
+      resetLink: portalAccess.resetLink,
+      emailPreviewUrl: portalAccess.emailPreviewUrl,
+      emailError: portalAccess.emailError,
+    });
   } catch (err) {
     console.error('Provisioning error:', err);
     res.status(500).json({ success: false, message: 'Server error provisioning portal' });

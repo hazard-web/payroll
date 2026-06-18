@@ -213,7 +213,7 @@ router.put('/:id', async (req, res) => {
       'otherEarnings', 'otherEarningsLabel', 'employerPF', 'stipend', 'annualCTC',
       'providentFund', 'esi', 'tds', 'professionalTax', 'loanDeduction',
       'otherDeductions', 'otherDeductionsLabel', 'notes', 'companyLogo',
-      'companyName', 'companyAddress', 'companyEmail', 'companyPhone', 'companyCIN',
+      'companyName', 'companyAddress', 'companyEmail', 'companyPhone', 'companyCIN', 'companyGST', 'companyWebsite',
     ];
     allowedFields.forEach(field => {
       if (req.body[field] !== undefined) payslip[field] = req.body[field];

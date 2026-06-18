@@ -119,6 +119,64 @@ router.get('/admin/today-punchins', authAdmin, async (req, res) => {
   }
 });
 
+// GET /api/attendance/admin/performance?date=YYYY-MM-DD — Today's team task performance
+router.get('/admin/performance', authAdmin, async (req, res) => {
+  try {
+    const targetDate = req.query.date ? new Date(req.query.date) : new Date();
+    targetDate.setUTCHours(0, 0, 0, 0);
+    const nextDate = new Date(targetDate);
+    nextDate.setUTCDate(targetDate.getUTCDate() + 1);
+
+    const records = await Attendance.find({
+      admin: req.user._id,
+      date: { $gte: targetDate, $lt: nextDate }
+    })
+      .populate('staff', 'fullName employeeId designation department')
+      .sort({ punchIn: -1 })
+      .lean();
+
+    const data = records.map((record) => {
+      const tasks = Array.isArray(record.tasks) ? record.tasks : [];
+      const completed = tasks.filter(t => t.status === 'Completed').length;
+      const inProgress = tasks.filter(t => t.status === 'In Progress').length;
+      const pending = tasks.filter(t => t.status === 'Pending').length;
+      const total = tasks.length;
+      return {
+        ...record,
+        taskStats: {
+          total,
+          completed,
+          inProgress,
+          pending,
+          completionRate: total ? parseFloat(((completed / total) * 100).toFixed(0)) : 0
+        }
+      };
+    });
+
+    const totalTasks = data.reduce((sum, record) => sum + record.taskStats.total, 0);
+    const completedTasks = data.reduce((sum, record) => sum + record.taskStats.completed, 0);
+    const inProgressTasks = data.reduce((sum, record) => sum + record.taskStats.inProgress, 0);
+    const pendingTasks = data.reduce((sum, record) => sum + record.taskStats.pending, 0);
+
+    res.json({
+      success: true,
+      data,
+      summary: {
+        date: targetDate.toISOString(),
+        presentCount: data.length,
+        totalTasks,
+        completedTasks,
+        inProgressTasks,
+        pendingTasks,
+        completionRate: totalTasks ? parseFloat(((completedTasks / totalTasks) * 100).toFixed(0)) : 0
+      }
+    });
+  } catch (err) {
+    console.error('Team performance error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch team performance' });
+  }
+});
+
 // POST /api/attendance/punch-in
 router.post('/punch-in', authStaff, async (req, res) => {
   try {

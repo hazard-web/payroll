@@ -56,8 +56,7 @@ export default function PortalDashboard() {
   const normalizeTasks = (items) => items.map(task => ({
     project: task.project?.trim() || 'General',
     description: task.description?.trim(),
-    status: ['Pending', 'In Progress', 'Completed'].includes(task.status) ? task.status : 'Pending',
-    notes: task.notes?.trim() || ''
+    status: ['Pending', 'In Progress', 'Completed'].includes(task.status) ? task.status : 'Pending'
   }))
 
   const getLocation = async () => {
@@ -76,15 +75,14 @@ export default function PortalDashboard() {
   const openTaskModal = (mode) => {
     setTaskMode(mode)
     if (mode === 'in') {
-      setTaskItems([{ project: staffUser?.clientAssignment || 'General', description: '', status: 'Pending', notes: '' }])
+      setTaskItems([{ project: staffUser?.clientAssignment || 'General', description: '', status: 'Pending' }])
     } else {
       const existing = activeShift?.tasks?.map(task => ({
         project: task.project || staffUser?.clientAssignment || 'General',
         description: task.description || '',
-        status: task.status || 'Pending',
-        notes: task.notes || ''
+        status: task.status || 'Pending'
       }))
-      setTaskItems(existing && existing.length > 0 ? existing : [{ project: staffUser?.clientAssignment || 'General', description: '', status: 'Pending', notes: '' }])
+      setTaskItems(existing && existing.length > 0 ? existing : [{ project: staffUser?.clientAssignment || 'General', description: '', status: 'Pending' }])
     }
     setShowTaskModal(true)
   }
@@ -94,8 +92,14 @@ export default function PortalDashboard() {
   }
 
   const addTaskItem = () => {
-    setTaskItems(prev => [...prev, { project: staffUser?.clientAssignment || 'General', description: '', status: 'Pending', notes: '' }])
+    if (taskItems.length >= 8) {
+      toast.error('Maximum 8 tasks can be added for one shift.')
+      return
+    }
+    setTaskItems(prev => [...prev, { project: staffUser?.clientAssignment || 'General', description: '', status: 'Pending' }])
   }
+
+  const canAddMoreTask = taskItems.length < 8
 
   const removeTaskItem = (index) => {
     setTaskItems(prev => prev.filter((_, idx) => idx !== index))
@@ -105,8 +109,12 @@ export default function PortalDashboard() {
     setTaskSubmitting(true)
     try {
       const cleanedTasks = normalizeTasks(taskItems)
+      if (taskMode === 'in' && cleanedTasks.filter(task => task.description).length < 2) {
+        toast.error('Please fill at least 2 tasks before punching in.')
+        return
+      }
       if (cleanedTasks.length === 0 || cleanedTasks.some(task => !task.description)) {
-        toast.error('Please add at least one task with a description.')
+        toast.error('Please fill all task descriptions.')
         return
       }
 
@@ -331,7 +339,6 @@ export default function PortalDashboard() {
                 ['Full Day', '8.5+ hours logged'],
                 ['Half Day', '4 to 7.9 hours logged'],
                 ['LOP', 'Less than 4 hours'],
-                ['Overtime', 'After 8.5h (Max 1h)'],
               ].map(([k, v]) => (
                 <div key={k} style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                   <span style={{ fontWeight: 600, color: 'var(--text)' }}>{k}:</span> {v}
@@ -372,7 +379,7 @@ export default function PortalDashboard() {
                   </button>
                 </div>
               </div>
-              <div style={{ padding: '20px 28px', display: 'grid', gap: 18 }}>
+              <div style={{ padding: '20px 28px', display: 'grid', gap: 18, maxHeight: '72vh', overflowY: 'auto' }}>
                 {taskItems.map((item, index) => (
                   <div key={index} style={{ borderRadius: 14, border: '1px solid var(--border)', background: 'var(--bg)', padding: 18 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
@@ -402,19 +409,37 @@ export default function PortalDashboard() {
                           </select>
                         </div>
                       )}
-                      <div>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>Notes (optional)</label>
-                        <textarea value={item.notes} onChange={(e) => updateTaskItem(index, 'notes', e.target.value)} rows={2} placeholder="Add progress notes or blockers" style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, outline: 'none', transition: 'border-color .15s', resize: 'vertical', minHeight: 56 }} />
-                      </div>
                     </div>
                   </div>
                 ))}
                 {taskMode === 'in' && (
-                  <button type="button" onClick={addTaskItem} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 16px', borderRadius: 12, border: '1px dashed var(--border)', background: 'transparent', color: 'var(--text)', fontWeight: 700, cursor: 'pointer' }}>
-                    <Plus size={16} /> Add another task
+                  <button
+                    type="button"
+                    onClick={addTaskItem}
+                    disabled={!canAddMoreTask}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 10,
+                      width: '100%',
+                      height: 50,
+                      padding: '0 18px',
+                      borderRadius: 14,
+                      border: canAddMoreTask ? '1px dashed var(--primary)' : '1px dashed var(--border)',
+                      background: canAddMoreTask ? 'rgba(88,131,59,0.1)' : 'transparent',
+                      color: canAddMoreTask ? 'var(--primary)' : 'var(--text-muted)',
+                      fontWeight: 800,
+                      fontSize: 15,
+                      cursor: canAddMoreTask ? 'pointer' : 'not-allowed',
+                      opacity: canAddMoreTask ? 1 : 0.55
+                    }}
+                  >
+                    <Plus size={18} /> Add New Task
+                    {!canAddMoreTask && <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.8 }}>Maximum 8 tasks</span>}
                   </button>
                 )}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, flexWrap: 'wrap', position: 'sticky', bottom: 0, paddingTop: 16, paddingBottom: 2, background: 'var(--surface)' }}>
                   <button type="button" onClick={() => setShowTaskModal(false)} style={{ border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', borderRadius: 12, padding: '12px 18px', cursor: 'pointer' }}>
                     Cancel
                   </button>

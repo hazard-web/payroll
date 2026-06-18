@@ -2,383 +2,591 @@ const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
 
-// Color palette — Three-tone BDA brand scheme
-// Primary: #58833b (Forest Green) — headers, net salary band, table headers
-// Secondary: #e5ebdd (Soft Sage) — employee info panel, alternate rows, totals row
-// Tertiary: #ffffff (White) — table body rows, page background
-const COLORS = {
-  primary: '#15803d',    // Accent Green — headers, badges, highlights
-  sage: '#f0fdf4',       // Soft light green tint — backgrounds
-  white: '#ffffff',      // White
-  primaryText: '#ffffff', // White text on green backgrounds
-  sageText: '#15803d',   // Green text on light backgrounds
-  greenText: '#15803d',  // Green text
-  gray: '#6b7280',       // Muted gray for labels
-  lightGray: '#e5e7eb',  // Light gray border
-  darkGray: '#111827',   // Near-black for values
-  earningGreen: '#15803d', // Green for earnings
-  deductionRed: '#b91c1c', // Red for deductions
-  // Legacy aliases for compatibility
-  navy: '#15803d',
-  gold: '#f0fdf4',
-  lightGold: '#f0fdf4',
-  offWhite: '#f0fdf4',
-  darkGray2: '#1f2937',
-  green: '#15803d',
-  red: '#b91c1c',
-  tableHeader: '#15803d',
-  tableRow1: '#ffffff',
-  tableRow2: '#ffffff',
-  netBg: '#f0fdf4',
-  totalNetRow: '#f0fdf4',
+// ─── Color Palette (matches reference image exactly) ──────────────────────────
+const C = {
+  green:       '#334e2b',   // dark olive green — net salary bar, table headers
+  greenDark:   '#2a3f23',   // slightly darker green
+  greenMid:    '#3e5d34',   // mid green
+  greenAccent: '#4a6e3f',   // accent
+  greenLight:  '#e4ecdf',   // very light grey-green — employee section bg
+  greenPale:   '#eef3eb',   // almost white green — employee details bg
+  rowAlt:      '#f5f8f3',   // alternating row color
+  white:       '#ffffff',
+  border:      '#d4ddd0',   // thin grey border
+  borderMed:   '#c0c9ba',   // medium grey border
+  borderDark:  '#aab3a4',   // darker grey
+  textDark:    '#1a1a1a',
+  textMid:     '#3a3a3a',
+  textMuted:   '#5a5a5a',
+  textLight:   '#777777',
+  totalRow:    '#d8dfd4',   // grey footer for totals row
 };
 
-// Font paths (Using process.cwd() for Vercel/production resilience)
-const FONT_REGULAR_PATH = path.resolve(process.cwd(), 'backend/assets/fonts/Inter-Regular.ttf');
-const FONT_BOLD_PATH = path.resolve(process.cwd(), 'backend/assets/fonts/Inter-Bold.ttf');
+// Font paths
+const FONT_DIR = path.resolve(process.cwd(), 'backend/assets/fonts');
 
-/**
- * Format a number as Indian Rupee string
- */
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 function formatINR(amount) {
   const num = parseFloat(amount) || 0;
-  if (isNaN(num)) return 'Rs. 0.00';
-  return 'Rs. ' + num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return 'Rs. ' + num.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
-/**
- * Convert number to words (Indian system)
- */
 function numberToWords(num) {
-  const amount = parseFloat(num) || 0;
-  if (isNaN(amount) || amount === 0) return 'Zero';
+  const amount = Math.round(parseFloat(num) || 0);
+  if (amount === 0) return 'Zero Rupees Only';
 
-  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+  const ones = [
+    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
     'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
-    'Seventeen', 'Eighteen', 'Nineteen'];
+    'Seventeen', 'Eighteen', 'Nineteen',
+  ];
   const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
 
   function convert(n) {
-    if (isNaN(n) || n === 0) return '';
+    if (n === 0) return '';
     if (n < 20) return ones[n] + ' ';
-    if (n < 100) return tens[Math.floor(n / 10)] + ' ' + ones[n % 10] + ' ';
+    if (n < 100) return tens[Math.floor(n / 10)] + (ones[n % 10] ? ' ' + ones[n % 10] : '') + ' ';
     if (n < 1000) return ones[Math.floor(n / 100)] + ' Hundred ' + convert(n % 100);
     if (n < 100000) return convert(Math.floor(n / 1000)) + 'Thousand ' + convert(n % 1000);
     if (n < 10000000) return convert(Math.floor(n / 100000)) + 'Lakh ' + convert(n % 100000);
     return convert(Math.floor(n / 10000000)) + 'Crore ' + convert(n % 10000000);
   }
 
-  const integer = Math.floor(amount);
-  const decimal = Math.round((amount - integer) * 100);
-  let words = convert(integer).trim() || 'Zero';
-  words = words + ' Rupees';
-  if (decimal > 0) words += ' and ' + convert(decimal).trim() + ' Paise';
-  words += ' Only';
-  return words;
+  const words = convert(amount).trim();
+  return words + ' Rupees Only';
 }
 
-/**
- * Core drawing logic shared between direct download and email attachments.
- * Embeds custom fonts for layout stability with robust fallback.
- */
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d)) return dateStr;
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
+function daysInMonth(monthName, year) {
+  const monthIndex = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ].indexOf(monthName);
+  if (monthIndex === -1) return 30;
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+// ─── BDA Logo Drawing (geometric monogram in green square) ────────────────────
+
+function drawBdaLogo(doc, x, y, size) {
+  const s = size;
+
+  // Outer dark green rounded square
+  doc.roundedRect(x, y, s, s, s * 0.08).fill(C.green);
+
+  // Three angled parallel bars in lighter green forming "BDA" monogram
+  const cx = x + s / 2;
+  const cy = y + s / 2;
+  const barW = s * 0.18;   // bar thickness
+  const barH = s * 0.55;   // bar length
+  const gap = s * 0.06;
+  const skew = s * 0.10;   // horizontal shift per bar
+  const startX = cx - (barW * 1.5 + gap);
+
+  doc.save();
+  for (let i = 0; i < 3; i++) {
+    const bx = startX + i * (barW + gap);
+    // Each bar is a slanted parallelogram (all positive coords)
+    doc.moveTo(bx + skew, cy - barH / 2)
+       .lineTo(bx + barW + skew, cy - barH / 2)
+       .lineTo(bx + barW, cy + barH / 2)
+       .lineTo(bx, cy + barH / 2)
+       .closePath()
+       .fill(C.greenLight);
+  }
+  doc.restore();
+}
+
+// ─── Icon Drawing Helpers ─────────────────────────────────────────────────────
+
+function drawLocationPin(doc, x, y, size) {
+  const s = size;
+  // Pin teardrop — circle top
+  doc.circle(x, y - s * 0.15, s * 0.35).fill(C.green);
+  // Tail of pin (triangle) — use path with absolute coords
+  doc.moveTo(x - s * 0.22, y - s * 0.0)
+     .lineTo(x + s * 0.22, y - s * 0.0)
+     .lineTo(x, y + s * 0.35)
+     .closePath()
+     .fill(C.green);
+  // Inner white circle
+  doc.circle(x, y - s * 0.15, s * 0.15).fill(C.white);
+}
+
+function drawEmailIcon(doc, x, y, size) {
+  const s = size;
+  // Envelope body
+  doc.rect(x - s * 0.5, y - s * 0.32, s, s * 0.62)
+    .strokeColor(C.green).lineWidth(0.7).stroke();
+  // Envelope flap
+  doc.moveTo(x - s * 0.5, y - s * 0.32)
+    .lineTo(x, y + s * 0.05)
+    .lineTo(x + s * 0.5, y - s * 0.32)
+    .strokeColor(C.green).lineWidth(0.7).stroke();
+}
+
+function drawWebIcon(doc, x, y, size) {
+  const s = size;
+  // Globe circle
+  doc.circle(x, y, s * 0.4).strokeColor(C.green).lineWidth(0.7).stroke();
+  // Equator
+  doc.moveTo(x - s * 0.4, y).lineTo(x + s * 0.4, y)
+    .strokeColor(C.green).lineWidth(0.5).stroke();
+  // Meridian (ellipse)
+  doc.ellipse(x, y, s * 0.15, s * 0.4)
+    .strokeColor(C.green).lineWidth(0.5).stroke();
+}
+
+function drawCalendarIcon(doc, x, y, width, height) {
+  const w = width;
+  const h = height;
+  // Calendar body (border)
+  doc.rect(x, y, w, h).strokeColor(C.green).lineWidth(0.6).stroke();
+  // Calendar top bar (green filled)
+  doc.rect(x, y, w, h * 0.32).fill(C.green);
+  // Body fill
+  doc.rect(x, y + h * 0.32, w, h * 0.68).fill(C.white);
+  // Tiny dots in body to look like grid
+  const dotY1 = y + h * 0.5;
+  const dotY2 = y + h * 0.75;
+  for (let i = 0; i < 3; i++) {
+    const dx = x + 3 + i * (w - 6) / 2;
+    doc.circle(dx, dotY1, 0.4).fill(C.green);
+    doc.circle(dx, dotY2, 0.4).fill(C.green);
+  }
+}
+
+function drawWalletIcon(doc, x, y, size) {
+  const s = size;
+  doc.save();
+  doc.translate(x, y);
+  // Outer wallet rectangle
+  doc.roundedRect(-s * 0.6, -s * 0.4, s * 1.2, s * 0.8, s * 0.08)
+    .fillAndStroke(C.white, C.white);
+  // Top fold line
+  doc.moveTo(-s * 0.6, -s * 0.15).lineTo(s * 0.6, -s * 0.15)
+    .strokeColor(C.green).lineWidth(0.6).stroke();
+  // Currency circle in the middle
+  doc.circle(-s * 0.15, s * 0.1, s * 0.18).fill(C.green);
+  // Bill sticking out on right
+  doc.rect(s * 0.1, -s * 0.3, s * 0.5, s * 0.5).fill(C.white).stroke(C.green).lineWidth(0.5);
+  // Bill inner line
+  doc.moveTo(s * 0.1, 0).lineTo(s * 0.6, 0)
+    .strokeColor(C.green).lineWidth(0.4).stroke();
+  doc.restore();
+}
+
+// ─── Main Drawing Function ─────────────────────────────────────────────────────
+
 function drawPayslip(doc, payslip) {
-  let fontRegular = 'Helvetica';
-  let fontBold = 'Helvetica-Bold';
+  // ── Page Geometry ────────────────────────────────────────────────────────────
+  const PW = 595.28; // A4 width
+  const PH = 841.89; // A4 height
+  const M  = 30;      // margin
+  const CW = PW - M * 2; // content width
 
-  // Register fonts defensively with double-layered catch logic
+  // ── Font Setup ───────────────────────────────────────────────────────────────
+  let fR = 'Helvetica';
+  let fB = 'Helvetica-Bold';
+
   try {
-    if (fs.existsSync(FONT_REGULAR_PATH)) {
-      try {
-        doc.registerFont('Inter', FONT_REGULAR_PATH);
-        fontRegular = 'Inter';
-      } catch (err) {
-        console.error(`❌ Inter Regular registration failed (Format Error): ${err.message}`);
-        fontRegular = 'Helvetica'; // Explicit fallback on format error
-      }
-    } else {
-      console.warn('⚠️ Inter Regular font file not found on disk.');
+    if (fs.existsSync(path.join(FONT_DIR, 'Inter-Regular.ttf'))) {
+      doc.registerFont('Inter', path.join(FONT_DIR, 'Inter-Regular.ttf'));
+      fR = 'Inter';
     }
+  } catch (e) { /* fallback */ }
 
-    if (fs.existsSync(FONT_BOLD_PATH)) {
-      try {
-        doc.registerFont('Inter-Bold', FONT_BOLD_PATH);
-        fontBold = 'Inter-Bold';
-      } catch (err) {
-        console.error(`❌ Inter Bold registration failed (Format Error): ${err.message}`);
-        fontBold = 'Helvetica-Bold'; // Explicit fallback on format error
-      }
-    } else {
-      console.warn('⚠️ Inter Bold font file not found on disk.');
+  try {
+    if (fs.existsSync(path.join(FONT_DIR, 'Inter-Bold.ttf'))) {
+      doc.registerFont('Inter-Bold', path.join(FONT_DIR, 'Inter-Bold.ttf'));
+      fB = 'Inter-Bold';
     }
-  } catch (err) {
-    console.error('CRITICAL: Font registration logic crash:', err.message);
-    fontRegular = 'Helvetica';
-    fontBold = 'Helvetica-Bold';
+  } catch (e) { /* fallback */ }
+
+  try { doc.font(fR); } catch { fR = 'Helvetica'; }
+
+  // ── Helper: thin horizontal rule ─────────────────────────────────────────────
+  const hr = (y, color = C.border, w = 0.4) => {
+    doc.moveTo(M, y).lineTo(PW - M, y).strokeColor(color).lineWidth(w).stroke();
+  };
+
+  // ── Helper: thick header rule ────────────────────────────────────────────────
+  const hrThick = (y, color = C.green, w = 2) => {
+    doc.moveTo(M, y).lineTo(PW - M, y).strokeColor(color).lineWidth(w).stroke();
+  };
+
+  // ── Helper: label + value row ────────────────────────────────────────────────
+  const infoRow = (label, value, lx, vx, y, maxVw = 130, labelWidth = 60) => {
+    doc.font(fR).fontSize(7).fillColor(C.textMuted)
+       .text(String(label), lx, y, { width: labelWidth });
+    doc.font(fB).fontSize(7.5).fillColor(C.textDark)
+       .text(String(value || '—'), vx, y, { width: maxVw });
+  };
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // SECTION 1: HEADER — Logo + Company Name + CIN/GST + Address + Contact
+  // ══════════════════════════════════════════════════════════════════════════════
+  const headerTop = 10;
+
+  // Logo on the left
+  const logoX = M;
+  const logoY = headerTop + 4;
+  const logoSz = 55;
+
+  let logoDrawn = false;
+  if (payslip.companyLogo && payslip.companyLogo.length > 100) {
+    try {
+      const b64 = payslip.companyLogo.replace(/^data:image\/[a-z]+;base64,/, '');
+      const imgBuf = Buffer.from(b64, 'base64');
+      doc.image(imgBuf, logoX, logoY, { width: logoSz, height: logoSz, fit: [logoSz, logoSz] });
+      logoDrawn = true;
+    } catch (e) { /* fallback */ }
   }
 
-  // Final validation of font choice
-  try {
-    doc.font(fontRegular);
-  } catch (e) {
-    console.error('Emergency font switch to Helvetica');
-    doc.font('Helvetica');
-    fontRegular = 'Helvetica';
+  if (!logoDrawn) {
+    drawBdaLogo(doc, logoX, logoY, logoSz);
   }
 
-  const PAGE_W = 595.28;
-  const PAGE_H = 841.89;
-  const MARGIN = 40;
-  const CONTENT_W = PAGE_W - MARGIN * 2;
+  // Company name and info — right of logo, taking most of the width
+  const compX = logoX + logoSz + 14;
+  const compW = CW * 0.65;
 
-  // ── HEADER SECTION ──────────────────────────────────────────────────────
-  // Stylized hexagonal logo on left
-  doc.path('M 56 40 L 70 48 L 70 64 L 56 72 L 42 64 L 42 48 Z').fill('#15803d');
-  doc.path('M 56 44 L 66 50 L 66 62 L 56 68 L 46 62 L 46 50 Z').fill(COLORS.white);
-  doc.path('M 56 48 L 62 52 L 62 60 L 56 64 L 50 60 L 50 52 Z').fill('#15803d');
+  // Company name — large bold dark green
+  doc.font(fB).fontSize(12).fillColor(C.green)
+     .text(payslip.companyName || 'BDA Technologies Private Limited', compX, logoY + 3, { width: compW });
 
-  // Company Name
-  doc.font(fontBold)
-     .fontSize(14)
-     .fillColor('#111827')
-     .text('BDA TECHNOLOGIES', 80, 44);
-  doc.font(fontRegular)
-     .fontSize(8.5)
-     .fillColor('#15803d')
-     .text('P V T.   L T D.', 80, 59, { characterSpacing: 1.5 });
+  // CIN and GST on one line
+  const cinGstParts = [];
+  if (payslip.companyCIN) cinGstParts.push(`CIN: ${payslip.companyCIN}`);
+  if (payslip.companyGST) cinGstParts.push(`GST No: ${payslip.companyGST}`);
+  if (cinGstParts.length) {
+    doc.font(fR).fontSize(6.2).fillColor(C.textMuted)
+       .text(cinGstParts.join('   '), compX, logoY + 19, { width: compW });
+  }
 
-  // Payslip title on right
-  doc.font(fontBold)
-     .fontSize(22)
-     .fillColor('#15803d')
-     .text('Payslip', MARGIN + CONTENT_W * 0.6, 40, { width: CONTENT_W * 0.4, align: 'right' });
-  doc.font(fontRegular)
-     .fontSize(10)
-     .fillColor('#1f2937')
-     .text(`${payslip.month} ${payslip.year}`, MARGIN + CONTENT_W * 0.6, 64, { width: CONTENT_W * 0.4, align: 'right' });
+  // Address with location pin icon
+  if (payslip.companyAddress) {
+    const addrY = logoY + 31;
+    drawLocationPin(doc, compX + 1, addrY + 4, 6);
+    doc.font(fR).fontSize(6).fillColor(C.textMid)
+       .text(payslip.companyAddress, compX + 10, addrY, { width: compW - 10 });
+  }
 
-  // Header separator line
-  doc.moveTo(MARGIN, 86).lineTo(PAGE_W - MARGIN, 86).strokeColor('#e5e7eb').lineWidth(1.2).stroke();
+  // Right side: Email and Website (positioned to not overlap)
+  const ctX = M + CW * 0.72;
+  const ctW = CW * 0.28;
+  let ctY = logoY + 4;
 
-  // ── METADATA ROW (Y: 96 to 132) ───────────────────────────────────────────
-  // Pay Period
-  doc.font(fontRegular).fontSize(7.5).fillColor(COLORS.gray).text('Pay Period', MARGIN, 96);
-  doc.font(fontBold).fontSize(8.5).fillColor(COLORS.darkGray).text(`01 ${payslip.month.slice(0, 3)} ${payslip.year} - 30 ${payslip.month.slice(0, 3)} ${payslip.year}`, MARGIN + 60, 96);
-  
-  // Pay Date
-  doc.font(fontRegular).fontSize(7.5).fillColor(COLORS.gray).text('Pay Date', MARGIN, 114);
-  doc.font(fontBold).fontSize(8.5).fillColor(COLORS.darkGray).text(payslip.payDate, MARGIN + 60, 114);
+  if (payslip.companyEmail) {
+    drawEmailIcon(doc, ctX, ctY + 5, 7);
+    doc.font(fR).fontSize(6.2).fillColor(C.textMid)
+       .text(payslip.companyEmail, ctX + 9, ctY, { width: ctW - 9 });
+    ctY += 13;
+  }
+  if (payslip.companyWebsite) {
+    drawWebIcon(doc, ctX, ctY + 5, 7);
+    doc.font(fR).fontSize(6.2).fillColor(C.textMid)
+       .text(payslip.companyWebsite, ctX + 9, ctY, { width: ctW - 9 });
+  }
 
-  // Vertical Separator Line
-  doc.moveTo(MARGIN + 185, 96).lineTo(MARGIN + 185, 126).strokeColor('#e5e7eb').lineWidth(1).stroke();
+  // Thin grey separator under header — positioned below the tallest element
+  let y = logoY + logoSz + 8;
+  hr(y, C.border, 0.5);
 
-  // Pay Person (Employee ID)
-  doc.font(fontRegular).fontSize(7.5).fillColor(COLORS.gray).text('Pay Person', MARGIN + 200, 96);
-  doc.font(fontBold).fontSize(8.5).fillColor(COLORS.darkGray).text(payslip.employeeId, MARGIN + 260, 96);
+  // ══════════════════════════════════════════════════════════════════════════════
+  // SECTION 2: PAY DATE + PAYSLIP PERIOD
+  // ══════════════════════════════════════════════════════════════════════════════
+  y += 8;
+  doc.font(fR).fontSize(8.5).fillColor(C.textMid)
+     .text('Pay Date: ', M, y, { continued: true })
+     .font(fB).fillColor(C.textDark).text(formatDate(payslip.payDate));
 
-  // BDA Company Details on right
-  const compDetailsX = MARGIN + CONTENT_W * 0.58;
-  doc.font(fontBold).fontSize(8).fillColor('#111827').text('BDA TECHNOLOGIES PVT. LTD.', compDetailsX, 96, { width: CONTENT_W * 0.42, align: 'right' });
-  doc.font(fontRegular).fontSize(7.2).fillColor('#4b5563')
-     .text('Plot No. 45, Sector 4, Vaishali,', compDetailsX, 107, { width: CONTENT_W * 0.42, align: 'right' })
-     .text('Ghaziabad, Uttar Pradesh - 201010, India', compDetailsX, 117, { width: CONTENT_W * 0.42, align: 'right' })
-     .text('Email: hr@bdatechnologies.com | Web: www.bdatechnologies.com', compDetailsX, 127, { width: CONTENT_W * 0.42, align: 'right' });
+  // Right side: "Payslip for the month of" + month/year — measure the prefix and right-align
+  const rightLabel = 'Payslip for the month of ';
+  doc.font(fR).fontSize(8.5);
+  const labelW = doc.widthOfString(rightLabel);
+  const monthYearStr = `${payslip.month} ${payslip.year}`;
+  doc.font(fB);
+  const monthYearW = doc.widthOfString(monthYearStr);
+  const totalRW = labelW + monthYearW;
+  const rightStartX = M + CW - totalRW;
 
-  // ── EMPLOYEE DETAILS SECTION ───────────────────────────────────────────
-  let y = 142;
-  // Rounded Box container
-  doc.roundedRect(MARGIN, y, CONTENT_W, 90, 6).strokeColor('#e5e7eb').lineWidth(1).stroke();
-  
-  // Icon avatar
-  doc.circle(MARGIN + 20, y + 17, 10).fill('#f0fdf4');
-  doc.circle(MARGIN + 20, y + 15, 3).fill('#15803d');
-  doc.path(`M ${MARGIN+15} ${y+23} Q ${MARGIN+20} ${y+19} ${MARGIN+25} ${y+23} Z`).fill('#15803d');
+  doc.font(fR).fillColor(C.textMid)
+     .text(rightLabel, rightStartX, y, { continued: true })
+     .font(fB).fillColor(C.textDark).text(monthYearStr);
 
-  // Box Header
-  doc.font(fontBold).fontSize(8.5).fillColor('#15803d').text('EMPLOYEE DETAILS', MARGIN + 36, y + 13);
+  y += 18;
+  hr(y, C.border, 0.5);
 
-  // Col grid
-  const empCol1 = [
+  // ══════════════════════════════════════════════════════════════════════════════
+  // SECTION 3: EMPLOYEE DETAILS (two columns with vertical divider)
+  // ══════════════════════════════════════════════════════════════════════════════
+  y += 6;
+
+  // Light green background for employee section
+  const empBgH = 92;
+  doc.rect(M, y, CW, empBgH).fill(C.greenPale);
+
+  // Thin vertical dividing line between columns
+  const divX = M + CW / 2;
+  doc.moveTo(divX, y + 4).lineTo(divX, y + empBgH - 4)
+    .strokeColor(C.border).lineWidth(0.5).stroke();
+
+  // Column positions
+  const col1Lx = M + 10;
+  const col1Vx = M + 78;
+  const col2Lx = divX + 10;
+  const col2Vx = divX + 60;
+  const empRowH = 15;
+  let empInnerY = y + 10;
+
+  // Left column
+  const col1Rows = [
     ['Employee Name', payslip.employeeName],
     ['Designation', payslip.designation],
     ['Department', payslip.department],
-    ['Date of Joining', payslip.dateOfJoining || '—'],
+    ['Pay Period', `01 ${payslip.month} ${payslip.year} - ${daysInMonth(payslip.month, payslip.year)} ${payslip.month} ${payslip.year}`],
+    ['Pay Person', payslip.employeeId],
   ];
-  const empCol2 = [
-    ['PAN Number', payslip.panNumber || '—'],
+
+  col1Rows.forEach(([label, value]) => {
+    infoRow(label, value, col1Lx, col1Vx, empInnerY, CW / 2 - col1Vx + M - 10, 65);
+    empInnerY += empRowH;
+  });
+
+  // Right column
+  const col2Rows = [
     ['PF Number', payslip.pfNumber || '—'],
-    ['Bank Account', payslip.bankAccount ? `**** ${payslip.bankAccount.slice(-4)}` : '—'],
+    ['PAN Number', payslip.panNumber || '—'],
+    ['Bank Account', payslip.bankAccount ? `**** ${String(payslip.bankAccount).slice(-4)}` : '—'],
     ['Bank Name', payslip.bankName || '—'],
   ];
 
-  empCol1.forEach((f, idx) => {
-    const fy = y + 36 + idx * 12.5;
-    doc.font(fontRegular).fontSize(7.5).fillColor(COLORS.gray).text(f[0], MARGIN + 20, fy);
-    doc.font(fontBold).fontSize(8).fillColor(COLORS.darkGray).text(f[1], MARGIN + 115, fy);
+  empInnerY = y + 10;
+  col2Rows.forEach(([label, value]) => {
+    infoRow(label, value, col2Lx, col2Vx, empInnerY, CW / 2 - col2Vx + M - 10, 50);
+    empInnerY += empRowH;
   });
 
-  empCol2.forEach((f, idx) => {
-    const fy = y + 36 + idx * 12.5;
-    doc.font(fontRegular).fontSize(7.5).fillColor(COLORS.gray).text(f[0], MARGIN + 270, fy);
-    doc.font(fontBold).fontSize(8).fillColor(COLORS.darkGray).text(f[1], MARGIN + 355, fy);
-  });
+  y += empBgH + 2;
 
-  // ── ATTENDANCE SUMMARY SECTION ───────────────────────────────────────────
-  y += 98;
-  const daysData = [
-    { label: 'Working Days', val: payslip.workingDays, type: 'working' },
-    { label: 'Paid Days', val: payslip.paidDays, type: 'paid' },
-    { label: 'Loss of Pay Days', val: payslip.workingDays - payslip.paidDays, type: 'lop' },
+  // ══════════════════════════════════════════════════════════════════════════════
+  // SECTION 4: ATTENDANCE SUMMARY (3 calendar icon chips)
+  // ══════════════════════════════════════════════════════════════════════════════
+  y += 8;
+
+  const chipTotalW = CW;
+  const chipGap = 8;
+  const chipW = (chipTotalW - 2 * chipGap) / 3;
+  const chipH = 28;
+  const chipIconW = 18;
+  const chipIconH = 16;
+  const chipIconXOffset = 10;
+  const chipLabelXOffset = 33;
+
+  const chips = [
+    { label: 'Working Days',    val: payslip.workingDays ?? 26 },
+    { label: 'Paid Days',       val: payslip.paidDays ?? 26 },
+    { label: 'Loss of Pay Days', val: Math.max(0, (payslip.workingDays ?? 26) - (payslip.paidDays ?? 26)) },
   ];
 
-  daysData.forEach((item, idx) => {
-    const bx = MARGIN + idx * 175;
-    doc.roundedRect(bx, y, 165, 36, 5).strokeColor('#e5e7eb').lineWidth(1).stroke();
-    
-    // Circle container
-    doc.circle(bx + 18, y + 18, 9).fill('#f0fdf4');
-    doc.rect(bx + 14, y + 14, 8, 8).strokeColor('#15803d').lineWidth(1).stroke();
-    doc.moveTo(bx + 14, 16 + y).lineTo(bx + 22, 16 + y).stroke();
-    if (item.type === 'paid') {
-      doc.moveTo(bx + 16, y + 18).lineTo(bx + 18, y + 20).lineTo(bx + 21, y + 17).stroke();
-    } else if (item.type === 'lop') {
-      doc.moveTo(bx + 16, y + 17).lineTo(bx + 20, y + 21).stroke();
-      doc.moveTo(bx + 20, y + 17).lineTo(bx + 16, y + 21).stroke();
-    } else {
-      doc.moveTo(bx + 16, y + 19).lineTo(bx + 20, y + 19).stroke();
-    }
+  chips.forEach((chip, i) => {
+    const cx = M + i * (chipW + chipGap);
+    // Chip border
+    doc.rect(cx, y, chipW, chipH).strokeColor(C.border).lineWidth(0.5).stroke();
 
-    doc.font(fontRegular).fontSize(7).fillColor(COLORS.gray).text(item.label, bx + 34, y + 8);
-    doc.font(fontBold).fontSize(11).fillColor('#15803d').text(String(item.val), bx + 34, y + 18);
+    // Calendar icon
+    const iconX = cx + chipIconXOffset;
+    const iconY = y + (chipH - chipIconH) / 2;
+    drawCalendarIcon(doc, iconX, iconY, chipIconW, chipIconH);
+
+    // Label + value
+    const labelX = cx + chipLabelXOffset;
+    const labelY = y + 9;
+    doc.font(fR).fontSize(7).fillColor(C.textMuted)
+       .text(`${chip.label} - `, labelX, labelY, { continued: true })
+       .font(fB).fillColor(C.textDark).text(String(chip.val));
   });
 
-  // ── EARNINGS & DEDUCTIONS TABLES ───────────────────────────────────────────
-  y += 48;
-  const tableW = 250;
-  const leftCol = MARGIN;
-  const rightCol = MARGIN + 265;
+  y += chipH + 12;
 
-  // Headers
-  doc.rect(leftCol, y, tableW, 18).fill('#15803d');
-  doc.rect(rightCol, y, tableW, 18).fill('#15803d');
+  // ══════════════════════════════════════════════════════════════════════════════
+  // SECTION 5: EARNINGS & DEDUCTIONS TABLE
+  // ══════════════════════════════════════════════════════════════════════════════
+  const tW    = CW / 2 - 6;
+  const tL    = M;
+  const tR    = M + CW / 2 + 6;
+  const tAmtW = 72;
+  const ROW_H = 15;
 
-  doc.font(fontBold).fontSize(7.5).fillColor(COLORS.white)
-     .text('EARNINGS', leftCol + 10, y + 5)
-     .text('AMOUNT (Rs.)', leftCol + 160, y + 5, { width: 80, align: 'right' })
-     .text('DEDUCTIONS', rightCol + 10, y + 5)
-     .text('AMOUNT (Rs.)', rightCol + 160, y + 5, { width: 80, align: 'right' });
+  // Build earnings rows
+  const isIntern = payslip.employmentType === 'intern';
+  let earningsRows = [];
+  if (isIntern) {
+    earningsRows = [['Monthly Stipend', payslip.stipend || payslip.grossEarnings || 0]];
+  } else {
+    earningsRows = [
+      ['Basic Salary (50%)', payslip.basicSalary],
+      ['House Rent Allowance (25%)', payslip.hra],
+      ['Special Allowance', payslip.specialAllowance],
+      ['Internet Allowance', payslip.internetAllowance || 0],
+      ['Performance Incentive', payslip.performanceIncentive || 0],
+    ].filter(r => (parseFloat(r[1]) || 0) > 0);
+
+    if ((payslip.conveyanceAllowance || 0) > 0)
+      earningsRows.push(['Conveyance Allowance', payslip.conveyanceAllowance]);
+    if ((payslip.medicalAllowance || 0) > 0)
+      earningsRows.push(['Medical Allowance', payslip.medicalAllowance]);
+    if ((payslip.employerPF || 0) > 0)
+      earningsRows.push(['Employer PF Contribution', payslip.employerPF]);
+    if ((payslip.otherEarnings || 0) > 0)
+      earningsRows.push([payslip.otherEarningsLabel || 'Other Earnings', payslip.otherEarnings]);
+  }
+
+  // Build deductions rows
+  const deductionRows = [
+    [`Employee PF (12% of Basic)`, payslip.providentFund],
+    ['Employee ESI', payslip.esi],
+    ['Income Tax (TDS)', payslip.tds],
+    ['Adjustment / Other Deduction', payslip.otherDeductions || payslip.professionalTax || 0],
+  ].map(r => [r[0], parseFloat(r[1]) || 0]).filter(r => r[1] > 0 || r[0] !== 'Adjustment / Other Deduction');
+
+  // Ensure at least 5 rows for clean layout
+  const maxRows = Math.max(earningsRows.length, deductionRows.length, 5);
+
+  // Table header — dark green background, white text
+  doc.rect(tL, y, tW, 18).fill(C.green);
+  doc.rect(tR, y, tW, 18).fill(C.green);
+  doc.font(fB).fontSize(7).fillColor(C.white)
+     .text('EARNINGS', tL + 8, y + 5)
+     .text('AMOUNT (Rs.)', tL + tW - tAmtW - 8, y + 5, { width: tAmtW, align: 'right' })
+     .text('DEDUCTIONS', tR + 8, y + 5)
+     .text('AMOUNT (Rs.)', tR + tW - tAmtW - 8, y + 5, { width: tAmtW, align: 'right' });
 
   y += 18;
 
-  const earnings = payslip.employmentType === 'intern' 
-    ? [['Monthly Stipend', payslip.stipend || payslip.grossEarnings]]
-    : [
-        ['Basic Salary (50%)', payslip.basicSalary],
-        ['House Rent Allowance (40%)', payslip.hra],
-        ['Special Allowance', payslip.specialAllowance],
-        ['Employer PF Contribution', payslip.employerPF],
-      ];
-
-  if (payslip.otherEarnings > 0) earnings.push([payslip.otherEarningsLabel || 'Other Earnings', payslip.otherEarnings]);
-
-  const deductions = [
-    ['Employee PF', payslip.providentFund],
-    ['ESI', payslip.esi],
-    ['Professional Tax', payslip.professionalTax],
-    ['Tax Deducted (TDS)', payslip.tds],
-    ['Loan Deduction', payslip.loanDeduction],
-    [payslip.otherDeductionsLabel || 'Other Deductions', payslip.otherDeductions],
-  ].filter((d) => d[1] > 0);
-
-  const maxRows = Math.max(earnings.length, deductions.length, 5);
-  const ROW_H = 16;
-
+  // Table rows — alternating white / light grey-green
   for (let i = 0; i < maxRows; i++) {
-    const bg = i % 2 === 0 ? '#ffffff' : '#f9fafb';
-    doc.rect(leftCol, y, tableW, ROW_H).fill(bg);
-    doc.rect(rightCol, y, tableW, ROW_H).fill(bg);
+    const bg = i % 2 === 0 ? C.white : C.rowAlt;
+    doc.rect(tL, y, tW, ROW_H).fill(bg);
+    doc.rect(tR, y, tW, ROW_H).fill(bg);
 
-    if (earnings[i]) {
-      doc.font(fontRegular).fontSize(7.5).fillColor('#374151').text(earnings[i][0], leftCol + 10, y + 4);
-      doc.font(fontBold).fontSize(7.5).fillColor('#111827').text(formatINR(earnings[i][1]), leftCol + 160, y + 4, { width: 80, align: 'right' });
+    // Thin horizontal row separator
+    doc.moveTo(tL, y + ROW_H).lineTo(tL + tW, y + ROW_H).strokeColor(C.border).lineWidth(0.3).stroke();
+    doc.moveTo(tR, y + ROW_H).lineTo(tR + tW, y + ROW_H).strokeColor(C.border).lineWidth(0.3).stroke();
+
+    if (earningsRows[i]) {
+      doc.font(fR).fontSize(7).fillColor(C.textDark)
+         .text(String(earningsRows[i][0]), tL + 8, y + 4, { width: tW - tAmtW - 16 });
+      doc.font(fB).fontSize(7).fillColor(C.textDark)
+         .text(formatINR(earningsRows[i][1]), tL + tW - tAmtW - 8, y + 4, { width: tAmtW, align: 'right' });
     }
-    if (deductions[i]) {
-      doc.font(fontRegular).fontSize(7.5).fillColor('#374151').text(deductions[i][0], rightCol + 10, y + 4);
-      doc.font(fontBold).fontSize(7.5).fillColor('#111827').text(formatINR(deductions[i][1]), rightCol + 160, y + 4, { width: 80, align: 'right' });
+
+    const ded = deductionRows[i];
+    if (ded) {
+      doc.font(fR).fontSize(7).fillColor(C.textDark)
+         .text(String(ded[0]), tR + 8, y + 4, { width: tW - tAmtW - 16 });
+      doc.font(fB).fontSize(7).fillColor(C.textDark)
+         .text(formatINR(ded[1]), tR + tW - tAmtW - 8, y + 4, { width: tAmtW, align: 'right' });
     }
+
     y += ROW_H;
   }
 
-  // Totals Row
-  doc.rect(leftCol, y, tableW, 18).fill('#f0fdf4');
-  doc.rect(rightCol, y, tableW, 18).fill('#f0fdf4');
+  // Totals footer row — slightly darker grey-green background
+  doc.rect(tL, y, tW, 18).fill(C.totalRow);
+  doc.rect(tR, y, tW, 18).fill(C.totalRow);
+  doc.moveTo(tL, y + 18).lineTo(tL + tW, y + 18).strokeColor(C.border).lineWidth(0.5).stroke();
+  doc.moveTo(tR, y + 18).lineTo(tR + tW, y + 18).strokeColor(C.border).lineWidth(0.5).stroke();
 
-  doc.font(fontBold).fontSize(7.5).fillColor('#15803d')
-     .text('GROSS EARNINGS', leftCol + 10, y + 5)
-     .text(formatINR(payslip.grossEarnings), leftCol + 160, y + 5, { width: 80, align: 'right' })
-     .text('TOTAL DEDUCTIONS', rightCol + 10, y + 5)
-     .text(formatINR(payslip.totalDeductions), rightCol + 160, y + 5, { width: 80, align: 'right' });
+  doc.font(fB).fontSize(7.5).fillColor(C.textDark)
+     .text('GROSS EARNINGS', tL + 8, y + 5)
+     .text(formatINR(payslip.grossEarnings), tL + tW - tAmtW - 8, y + 5, { width: tAmtW, align: 'right' })
+     .text('TOTAL DEDUCTIONS', tR + 8, y + 5)
+     .text(formatINR(payslip.totalDeductions), tR + tW - tAmtW - 8, y + 5, { width: tAmtW, align: 'right' });
 
-  y += 28;
+  y += 26;
 
-  // ── NET SALARY PAYABLE ───────────────────────────────────────────────────
-  doc.roundedRect(MARGIN, y, CONTENT_W, 40, 5).fill('#f0fdf4');
-  doc.roundedRect(MARGIN, y, CONTENT_W, 40, 5).strokeColor('#d1fae5').lineWidth(1).stroke();
+  // ══════════════════════════════════════════════════════════════════════════════
+  // SECTION 6: NET SALARY PAYABLE (solid dark green bar)
+  // ══════════════════════════════════════════════════════════════════════════════
+  const netH = 50;
+  const netY = y;
 
-  // Green circle and wallet icon on left
-  doc.circle(MARGIN + 18, y + 20, 10).fill('#15803d');
-  doc.rect(MARGIN + 13, y + 16, 10, 8, 1.5).fill(COLORS.white);
-  doc.circle(MARGIN + 18, y + 20, 2).fill('#15803d');
+  // Dark olive green background box
+  doc.rect(M, netY, CW, netH).fill(C.green);
 
-  doc.font(fontBold).fontSize(8.5).fillColor('#15803d').text(payslip.employmentType === 'intern' ? 'NET STIPEND PAYABLE' : 'NET SALARY PAYABLE', MARGIN + 36, y + 8);
-  doc.font(fontRegular).fontSize(7.5).fillColor('#4b5563').text(`(${numberToWords(payslip.netSalary)})`, MARGIN + 36, y + 22, { width: CONTENT_W - 200 });
-  
-  doc.font(fontBold).fontSize(14).fillColor('#15803d')
-     .text(formatINR(payslip.netSalary), MARGIN + CONTENT_W - 190, y + 13, { width: 180, align: 'right' });
+  // Wallet icon on the left
+  const walletX = M + 18;
+  const walletY = netY + netH / 2;
+  drawWalletIcon(doc, walletX, walletY, 22);
 
-  // Notes
-  y += 50;
-  if (payslip.notes) {
-    doc.font(fontBold).fontSize(7.5).fillColor('#15803d').text('Notes:', MARGIN, y);
-    doc.font(fontRegular).fontSize(7.5).fillColor(COLORS.gray).text(payslip.notes, MARGIN + 40, y, { width: CONTENT_W - 40 });
-    y += Math.max(15, doc.heightOfString(payslip.notes, { width: CONTENT_W - 40 }));
-  }
+  // "NET SALARY PAYABLE" label
+  const netLabel = isIntern ? 'NET STIPEND PAYABLE' : 'NET SALARY PAYABLE';
+  doc.font(fB).fontSize(9).fillColor(C.white)
+     .text(netLabel, M + 48, netY + 10);
 
-  // Centered thank you message
-  y += 10;
-  doc.font(fontBold).fontSize(9).fillColor('#15803d').text('Thank you for your hard work and dedication!', MARGIN, y, { width: CONTENT_W, align: 'center' });
+  // Amount in words
+  const inWords = numberToWords(payslip.netSalary);
+  doc.font(fR).fontSize(6.8).fillColor('rgba(255,255,255,0.85)')
+     .text(`(In Words)   ${inWords}`, M + 48, netY + 24, { width: CW * 0.55 });
 
-  // Contact details
-  y += 24;
-  doc.font(fontRegular).fontSize(7).fillColor('#4b5563').text(`✉  ${payslip.companyEmail || 'hr@bdatechnologies.com'}`, MARGIN, y, { width: 170, align: 'center' });
-  doc.font(fontRegular).fontSize(7).fillColor('#4b5563').text(`🌐  ${payslip.companyWebsite || 'www.bdatechnologies.com'}`, MARGIN + 172, y, { width: 170, align: 'center' });
-  doc.font(fontRegular).fontSize(7).fillColor('#4b5563').text(`📞  ${payslip.companyPhone || '+91 120 456 7890'}`, MARGIN + 344, y, { width: 170, align: 'center' });
+  // Large amount on the right
+  doc.font(fB).fontSize(16).fillColor(C.white)
+     .text(formatINR(payslip.netSalary), M + CW - 8, netY + 16, { width: CW * 0.40, align: 'right' });
 
-  // Solid green bottom bar
-  doc.rect(0, PAGE_H - 24, PAGE_W, 24).fill('#15803d');
-  doc.font(fontRegular).fontSize(7.5).fillColor(COLORS.white)
-     .text('This is a system generated payslip and does not require any signature.', 0, PAGE_H - 16, { width: PAGE_W, align: 'center' });
+  y += netH + 18;
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // SECTION 7: FOOTER
+  // ══════════════════════════════════════════════════════════════════════════════
+  const footerY = PH - 36;
+
+  // Horizontal line above footer (thin grey)
+  hr(footerY - 10, C.border, 0.4);
+
+  // "Thank you" message
+  doc.font(fB).fontSize(8).fillColor(C.textMuted)
+     .text('Thank you for your hard work and dedication!', M, footerY, { width: CW, align: 'center' });
+
+  // System generated note
+  doc.font(fR).fontSize(6.5).fillColor(C.textLight)
+     .text('This is a system generated payslip and does not require any signature.', M, footerY + 14, { width: CW, align: 'center' });
 
   doc.end();
 }
 
-/**
- * Generate a payslip PDF and pipe it to the response
- */
+// ─── Public API ──────────────────────────────────────────────────────────────
+
 function generatePayslipPDF(payslip, res) {
   const doc = new PDFDocument({
     size: 'A4',
     margin: 0,
     info: {
       Title: `Payslip - ${payslip.employeeName} - ${payslip.month} ${payslip.year}`,
-      Author: payslip.companyName,
-      Subject: 'Payslip',
+      Author: payslip.companyName || 'Payroll System',
+      Subject: 'Employee Payslip',
     },
   });
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader(
     'Content-Disposition',
-    `attachment; filename="Payslip_${payslip.employeeName.replace(/\s+/g, '_')}_${payslip.month}_${payslip.year}.pdf"`
+    `attachment; filename="Payslip_${(payslip.employeeName || 'Employee').replace(/\s+/g, '_')}_${payslip.month}_${payslip.year}.pdf"`
   );
 
   doc.pipe(res);
@@ -387,15 +595,26 @@ function generatePayslipPDF(payslip, res) {
   } catch (err) {
     console.error('CRITICAL: PDF drawing error:', err);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Critical error during PDF generation', details: err.message });
+      res.status(500).json({ error: 'PDF generation failed', details: err.message });
+    } else {
+      doc.end();
     }
   }
 }
 
-/**
- * Main PDF drawing function (Internal & Exported)
- */
-module.exports = { 
-  generatePayslipPDF,
-  drawPayslip 
-};
+function generatePayslipBuffer(payslip) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margin: 0 });
+    const chunks = [];
+    doc.on('data', chunk => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+    try {
+      drawPayslip(doc, payslip);
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+module.exports = { generatePayslipPDF, generatePayslipBuffer, drawPayslip };

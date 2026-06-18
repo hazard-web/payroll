@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Mail, Loader2, ArrowLeft, FileSpreadsheet, ShieldCheck } from 'lucide-react'
+import { Mail, Loader2, ArrowLeft, FileSpreadsheet, ShieldCheck, KeyRound, ExternalLink, Inbox } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api'
 import { motion } from 'framer-motion'
@@ -9,14 +9,27 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
+  const [devResetLink, setDevResetLink] = useState(null)
+  const [devEmailPreview, setDevEmailPreview] = useState(null)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     try {
-      await api.post('/auth/forgot-password', { email })
+      const res = await api.post('/auth/forgot-password', { email })
       setSent(true)
-      toast.success('Reset link dispatched — check your inbox.')
+      // In dev mode (or when SMTP is not configured), the backend returns
+      // a usable reset link in the response so users can still recover.
+      if (res?.data?.devResetLink) {
+        setDevResetLink(res.data.devResetLink)
+        toast.success('SMTP not configured — use the dev link below to reset your password.', { duration: 5000 })
+      } else if (res?.data?.devEmailPreview) {
+        // Ethereal was used — the email was "sent" to a test inbox, can be viewed at this URL
+        setDevEmailPreview(res.data.devEmailPreview)
+        toast.success('Reset link dispatched (Ethereal test SMTP).', { duration: 5000 })
+      } else {
+        toast.success('Reset link dispatched — check your inbox.')
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Something went wrong. Please try again.')
     } finally {
@@ -152,9 +165,108 @@ export default function ForgotPassword() {
               <p style={{ color: 'var(--text-muted)', fontSize: 15, lineHeight: 1.7, marginBottom: 8 }}>
                 If <strong style={{ color: 'var(--primary)' }}>{email}</strong> is registered, you will receive a password reset link shortly.
               </p>
-              <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 40 }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: (devResetLink || devEmailPreview) ? 20 : 40 }}>
                 The link expires in <strong>1 hour</strong>. Check your spam folder if you don't see it.
               </p>
+
+              {devEmailPreview && !devResetLink && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.1 }}
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(88, 131, 59, 0.08), rgba(15, 23, 42, 0.04))',
+                    border: '2px dashed rgba(88, 131, 59, 0.5)',
+                    borderRadius: 14, padding: 20, marginBottom: 24, textAlign: 'left',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 10,
+                      background: '#57833B',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Inbox size={18} color="#fff" strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#57833B' }}>
+                        Test email preview (Ethereal)
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
+                        Real SMTP not configured — view the captured test email
+                      </div>
+                    </div>
+                  </div>
+                  <a
+                    href={devEmailPreview}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      width: '100%', padding: '14px 18px',
+                      background: '#57833B', color: 'white',
+                      borderRadius: 10, textDecoration: 'none',
+                      fontWeight: 800, fontSize: 14, letterSpacing: '0.02em',
+                    }}
+                  >
+                    View Test Email <ExternalLink size={16} strokeWidth={2.5} />
+                  </a>
+                </motion.div>
+              )}
+
+              {devResetLink && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.1 }}
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(15, 23, 42, 0.04))',
+                    border: '2px dashed rgba(245, 158, 11, 0.5)',
+                    borderRadius: 14,
+                    padding: 20,
+                    marginBottom: 28,
+                    textAlign: 'left',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 10,
+                      background: 'var(--primary)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <KeyRound size={18} color="var(--navy-dark)" strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--primary)' }}>
+                        SMTP not configured
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
+                        Use this link to reset your password now
+                      </div>
+                    </div>
+                  </div>
+                  <a
+                    href={devResetLink}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      width: '100%', padding: '14px 18px',
+                      background: 'var(--primary)', color: 'var(--navy-dark)',
+                      borderRadius: 10, textDecoration: 'none',
+                      fontWeight: 800, fontSize: 14, letterSpacing: '0.02em',
+                      boxShadow: '0 10px 20px -8px rgba(245, 158, 11, 0.5)',
+                    }}
+                  >
+                    Reset Password Now <ExternalLink size={16} strokeWidth={2.5} />
+                  </a>
+                  <div style={{
+                    marginTop: 10, fontSize: 11, color: 'var(--text-muted)',
+                    wordBreak: 'break-all', fontFamily: 'monospace', lineHeight: 1.4,
+                  }}>
+                    {devResetLink}
+                  </div>
+                </motion.div>
+              )}
+
               <Link to="/login" style={{ color: 'var(--primary)', fontWeight: 800, textDecoration: 'none', fontSize: 15 }}>
                 ← Back to Login
               </Link>

@@ -7,8 +7,36 @@ const { generatePayslipPDFBuffer } = require('./pdfBuffer');
  * displayName is the sender label shown in email clients.
  */
 function buildFromAddress(displayName) {
-  const fromEmail = (process.env.EMAIL_FROM || process.env.EMAIL_USER || '').trim();
-  return `"${displayName}" <${fromEmail}>`;
+  const fromEmail = sanitizeEmailValue(process.env.EMAIL_FROM) || sanitizeEmailValue(process.env.EMAIL_USER);
+  const safeDisplayName = String(displayName || 'PaySlip Pro').replace(/"/g, '').trim() || 'PaySlip Pro';
+  return `"${safeDisplayName}" <${fromEmail}>`;
+}
+
+/**
+ * Sanitize a value that may have been wrapped in markdown link syntax
+ * (e.g. "[rkg98521@gmail.com](mailto:rkg98521@gmail.com)" → "rkg98521@gmail.com").
+ * This happens when a user pastes a value from rendered markdown.
+ */
+function sanitizeEmailValue(value) {
+  if (!value) return '';
+  let v = String(value).trim();
+  // Strip surrounding markdown link like [addr](mailto:addr)
+  const m = v.match(/^\[(.+?)\]\(mailto:.+?\)$/i) || v.match(/^\[(.+?)\]\((.+?)\)$/);
+  if (m) v = m[1];
+  return v.trim();
+}
+
+/**
+ * Detect if the configured credentials look like placeholders.
+ */
+function hasRealCredentials() {
+  const user = sanitizeEmailValue(process.env.EMAIL_USER);
+  const pass = (process.env.EMAIL_PASS || '').trim();
+  if (!user || !pass) return false;
+  if (pass.includes('PASTE_') || pass.includes('YOUR_') || pass.includes('XXXX')) return false;
+  // Gmail App Passwords are exactly 16 chars (letters + digits + spaces)
+  if (pass.replace(/\s/g, '').length < 10) return false;
+  return true;
 }
 
 /**
@@ -17,38 +45,58 @@ function buildFromAddress(displayName) {
  * Falls back to Ethereal test account ONLY if credentials are missing.
  */
 async function createSMTPTransporter() {
-  const emailUser = (process.env.EMAIL_USER || '').trim();
+  const emailUser = sanitizeEmailValue(process.env.EMAIL_USER);
   const emailPass = (process.env.EMAIL_PASS || '').trim();
 
-  if (emailUser && emailPass) {
-    // Use Gmail SMTP with TLS. rejectUnauthorized:false handles corporate/Windows
-    // SSL certificate chain issues without compromising actual auth security.
+  if (hasRealCredentials()) {
+    // Port 587 + STARTTLS works better on corporate/Windows networks than port 465.
     const transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
+      port: 587,
+      secure: false, // use STARTTLS
+      requireTLS: true,
       auth: {
         user: emailUser,
         pass: emailPass,
       },
       tls: {
-        rejectUnauthorized: false, // Fix: avoid self-signed cert errors on Windows/corporate networks
+        rejectUnauthorized: false, // tolerate corporate SSL chains
       },
     });
 
     try {
       await transporter.verify();
-      console.log('✅ Gmail SMTP verified — real emails will be sent');
+      console.log(`✅ Gmail SMTP verified — real emails will be sent (user=${emailUser})`);
     } catch (verifyErr) {
-      // Log the warning but still return the transporter — sendMail may still work
-      // even if verify() fails (verify checks the connection, sendMail does the actual auth)
-      console.warn('⚠️ Gmail SMTP verify() warning (will still attempt send):', verifyErr.message);
+      // Log a clear hint so devs know how to fix credentials
+      console.warn('⚠️  Gmail SMTP verify() failed.');
+      console.warn('   Error:', verifyErr.message);
+      console.warn('   Fix:');
+      console.warn('   1. Enable 2-Step Verification on your Google account');
+      console.warn('   2. Generate a Gmail App Password: https://myaccount.google.com/apppasswords');
+      console.warn('   3. Set EMAIL_PASS in backend/.env to that 16-character password');
+      console.warn('   4. Restart the backend');
+      console.warn('   Will still attempt sendMail (it sometimes succeeds where verify fails).');
     }
 
     return transporter;
   }
 
-  console.warn('⚠️ EMAIL_USER / EMAIL_PASS not configured. Using Ethereal test account for development email delivery.');
+  // Helpful diagnostic when SMTP isn't configured
+  const passLooksEmpty = !emailPass;
+  const passIsPlaceholder = emailPass.includes('PASTE_') || emailPass.includes('YOUR_') || emailPass.includes('XXXX');
+  console.warn('────────────────────────────────────────────────────');
+  console.warn('⚠️  Email credentials missing or invalid.');
+  if (!emailUser) console.warn('   • EMAIL_USER is empty in .env');
+  if (passLooksEmpty) console.warn('   • EMAIL_PASS is empty in .env');
+  if (passIsPlaceholder) console.warn('   • EMAIL_PASS is still a placeholder ("' + emailPass.substring(0, 30) + '...")');
+  console.warn('   To enable real email delivery, set:');
+  console.warn('   EMAIL_USER=your.address@gmail.com');
+  console.warn('   EMAIL_PASS=your-16-char-gmail-app-password');
+  console.warn('   (Generate at https://myaccount.google.com/apppasswords)');
+  console.warn('   Falling back to Ethereal test SMTP for development...');
+  console.warn('────────────────────────────────────────────────────');
+
   const testAccount = await nodemailer.createTestAccount();
   return nodemailer.createTransport({
     host: testAccount.smtp.host,
@@ -283,7 +331,7 @@ function buildEmailHTML(payslip) {
 // ─────────────────────────────────────────────────────────────
 // Send password-reset email with a secure link
 // ─────────────────────────────────────────────────────────────
-async function sendPasswordResetEmail(user, token, origin, customLink) {
+async function sendPasswordResetEmail(user, token, origin, customLink, kind = 'admin') {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     console.warn('⚠️ Email credentials missing — using Ethereal test SMTP for password reset email.');
   }
@@ -291,17 +339,34 @@ async function sendPasswordResetEmail(user, token, origin, customLink) {
   const finalAppUrl = (origin || '').replace(/\/$/, '') ||
     process.env.FRONTEND_URL ||
     'https://payslip-gen-rouge.vercel.app';
-  
+
   const resetUrl = customLink || `${finalAppUrl}/reset-password?token=${token}`;
 
-  console.log(`✉️ Sending password reset email to: ${user.email}`);
+  // Determine subject + greeting based on the recipient kind
+  const isStaff = kind === 'staff';
+  const subject = isStaff
+    ? 'Set Up Your Staff Portal Password'
+    : 'Reset Your PaySlip Pro Password';
+  const greetingName = isStaff
+    ? (user.fullName || user.email)
+    : (user.companyName || user.email || 'there');
+  const introLine = isStaff
+    ? 'Welcome to the staff portal. Use the button below to set your portal password and start using your account.'
+    : `We received a request to reset the password for your PaySlip Pro account linked to <strong>${user.email}</strong>.`;
+  const buttonText = isStaff ? 'Set My Portal Password' : 'Reset My Password';
+  const buttonColor = isStaff ? '#57833B' : '#1e3a5f';
+  const headerColor = isStaff ? '#57833B' : '#1e3a5f';
+  const headerSubtitle = isStaff ? 'Staff Portal Access' : 'Professional Payroll Management';
+
+  console.log(`✉️ Sending ${isStaff ? 'staff portal ' : ''}password reset email to: ${user.email}`);
 
   const transporter = await createSMTPTransporter();
 
   const mailOptions = {
-    from: buildFromAddress('PaySlip Pro'),
+    from: buildFromAddress(isStaff ? (user.user?.companyName || 'Your Company') : 'PaySlip Pro'),
     to: user.email,
-    subject: `Reset Your PaySlip Pro Password`,
+    replyTo: sanitizeEmailValue(process.env.EMAIL_FROM) || sanitizeEmailValue(process.env.EMAIL_USER),
+    subject,
     html: `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -316,32 +381,32 @@ async function sendPasswordResetEmail(user, token, origin, customLink) {
         <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 12px; overflow: hidden;">
           <tr><td height="6" bgcolor="#FFBE11" style="font-size: 0; line-height: 0;">&nbsp;</td></tr>
           <tr>
-            <td bgcolor="#1e3a5f" style="padding: 40px 45px; text-align: center;">
+            <td bgcolor="${headerColor}" style="padding: 40px 45px; text-align: center;">
               <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800;">PaySlip Pro</h1>
-              <p style="margin: 8px 0 0 0; color: #a8c0d6; font-size: 14px;">Professional Payroll Management</p>
+              <p style="margin: 8px 0 0 0; color: ${isStaff ? '#d0e8c0' : '#a8c0d6'}; font-size: 14px;">${headerSubtitle}</p>
             </td>
           </tr>
           <tr>
             <td style="padding: 40px 45px;">
-              <p style="margin: 0 0 20px 0; font-size: 18px; font-weight: 700; color: #374151;">Hi ${user.companyName || 'there'},</p>
+              <p style="margin: 0 0 20px 0; font-size: 18px; font-weight: 700; color: #374151;">Hi ${escapeHtml(greetingName)},</p>
               <p style="margin: 0 0 10px 0; font-size: 15px; color: #6b7280; line-height: 1.6;">
-                We received a request to reset the password for your PaySlip Pro account linked to <strong>${user.email}</strong>.
+                ${isStaff ? `An administrator has set up your staff portal access for <strong>${escapeHtml(user.user?.companyName || 'your company')}</strong>. ` : ''}${introLine}
               </p>
               <p style="margin: 0 0 30px 0; font-size: 15px; color: #6b7280; line-height: 1.6;">
-                Click the button below to set a new password. This link expires in <strong>1 hour</strong>.
+                Click the button below to ${isStaff ? 'set your portal password' : 'set a new password'}. This link ${isStaff ? 'expires in <strong>15 minutes</strong>' : 'expires in <strong>1 hour</strong>'}.
               </p>
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                   <td align="center">
-                    <a href="${resetUrl}" style="display: inline-block; background: #1e3a5f; color: #ffffff; padding: 16px 36px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px;">
-                      Reset My Password
+                    <a href="${resetUrl}" style="display: inline-block; background: ${buttonColor}; color: #ffffff; padding: 16px 36px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px;">
+                      ${buttonText}
                     </a>
                   </td>
                 </tr>
               </table>
               <p style="margin: 30px 0 0 0; font-size: 12px; color: #9ca3af;">
-                Or copy this link: <a href="${resetUrl}" style="color: #1e3a5f;">${resetUrl}</a><br/>
-                If you didn't request a password reset, you can safely ignore this email.
+                Or copy this link: <a href="${resetUrl}" style="color: ${buttonColor};">${resetUrl}</a><br/>
+                ${isStaff ? 'If you did not expect this email, please contact your administrator.' : "If you didn't request a password reset, you can safely ignore this email."}
               </p>
             </td>
           </tr>
@@ -358,6 +423,18 @@ async function sendPasswordResetEmail(user, token, origin, customLink) {
 </html>
     `,
   };
+
+  // Add anti-spam headers + fix From name to match the actual sender domain.
+  // Gmail often marks emails as spam when the From display name doesn't
+  // match the sender's email domain (e.g. "BDA Technologies" <gmail.com>).
+  mailOptions.headers = {
+    'List-Unsubscribe': `<mailto:${sanitizeEmailValue(process.env.EMAIL_FROM) || sanitizeEmailValue(process.env.EMAIL_USER)}?subject=unsubscribe>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    'X-Mailer': 'PaySlip Pro Mailer',
+  };
+  // Force the From name to match the actual sending domain. The company
+  // name still appears in the email body (Hi, [Company Name] section).
+  mailOptions.from = buildFromAddress('PaySlip Pro');
 
   try {
     const info = await transporter.sendMail(mailOptions);
@@ -366,7 +443,18 @@ async function sendPasswordResetEmail(user, token, origin, customLink) {
       console.log(`📭 Password reset email preview available at: ${previewUrl}`);
       return previewUrl;
     }
-    console.log(`✅ Password reset email sent to: ${user.email}`);
+    console.log(`✅ Password reset email accepted by SMTP`);
+    console.log(`   To: ${user.email}`);
+    console.log(`   Message ID: ${info.messageId}`);
+    console.log(`   Accepted: ${JSON.stringify(info.accepted)}`);
+    console.log(`   Rejected: ${JSON.stringify(info.rejected)}`);
+    console.log(`   SMTP response: ${info.response}`);
+    if (info.rejected && info.rejected.length > 0) {
+      console.warn(`⚠️ Recipient ${info.rejected.join(', ')} was REJECTED. Email NOT delivered.`);
+    }
+    if (!info.accepted || info.accepted.length === 0) {
+      console.warn(`⚠️ No recipients accepted the email. Email NOT delivered.`);
+    }
     return null;
   } catch (err) {
     console.error(`❌ Password reset email SMTP error: ${err.message}`);
@@ -374,19 +462,111 @@ async function sendPasswordResetEmail(user, token, origin, customLink) {
   }
 }
 
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
+}
+
+async function sendMailWithRetry(transporter, mailOptions, attempts = 3) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await transporter.sendMail(mailOptions);
+    } catch (err) {
+      lastError = err;
+      if (attempt < attempts) {
+        await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 // ─────────────────────────────────────────────────────────────
 // Send staff portal provisioning email with a password setup link
 // ─────────────────────────────────────────────────────────────
 async function sendStaffProvisionEmail(staff, tempPassword, setupUrl) {
-  console.log(`✉️ Sending staff provision email to: ${staff.email}`);
+  const to = String(staff?.email || '').trim().toLowerCase();
+  const companyName = staff?.user?.companyName || 'Your Company';
+
+  if (!isValidEmail(to)) {
+    throw new Error('Staff email is missing or invalid.');
+  }
+
+  console.log(`✉️ Sending staff provision email to: ${to}`);
 
   const transporter = await createSMTPTransporter();
 
   const mailOptions = {
-    from: buildFromAddress('PaySlip Pro'),
-    to: staff.email,
-    subject: `Welcome to the Staff Portal — ${staff.user?.companyName || 'Your Company'}`,
-    html: `
+    from: buildFromAddress(companyName),
+    to,
+    replyTo: sanitizeEmailValue(process.env.EMAIL_FROM) || sanitizeEmailValue(process.env.EMAIL_USER),
+    subject: `Welcome to the ${companyName} Staff Portal`,
+    html: buildStaffProvisionEmailHTML(staff, tempPassword, setupUrl),
+    text: buildStaffProvisionEmailText(staff, tempPassword, setupUrl),
+  };
+
+  // Add headers that help email providers (especially Gmail) deliver to inbox
+  // instead of spam. The key insight: when From display name doesn't match the
+  // actual sender domain, Gmail often marks the message as spam/phishing.
+  // Solution: use a generic "PaySlip Pro" display name (not the company name)
+  // and include proper List-Unsubscribe + In-Reply-To headers.
+  const senderDomain = (sanitizeEmailValue(process.env.EMAIL_FROM) || sanitizeEmailValue(process.env.EMAIL_USER) || '').split('@')[1] || 'localhost';
+  mailOptions.headers = {
+    'List-Unsubscribe': `<mailto:${sanitizeEmailValue(process.env.EMAIL_FROM) || sanitizeEmailValue(process.env.EMAIL_USER)}?subject=unsubscribe>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    'X-Mailer': 'PaySlip Pro Mailer',
+    'X-Entity-ID': `payslip-pro-${Date.now()}`,
+  };
+  // Override the From to use a clean name that matches the actual sender domain.
+  // This is the #1 fix for Gmail spam-folder delivery.
+  mailOptions.from = buildFromAddress('PaySlip Pro');
+
+  try {
+    const info = await sendMailWithRetry(transporter, mailOptions);
+    const previewUrl = nodemailer.getTestMessageUrl(info);
+    if (previewUrl) {
+      console.log(`📭 Staff provision email preview available at: ${previewUrl}`);
+      return { previewUrl, info };
+    }
+    // Log SMTP delivery details so issues can be diagnosed
+    console.log(`✅ Staff provision email accepted by SMTP server`);
+    console.log(`   To: ${to}`);
+    console.log(`   Message ID: ${info.messageId}`);
+    console.log(`   Accepted: ${JSON.stringify(info.accepted)}`);
+    console.log(`   Rejected: ${JSON.stringify(info.rejected)}`);
+    console.log(`   SMTP response: ${info.response}`);
+    if (info.rejected && info.rejected.length > 0) {
+      console.warn(`⚠️ Recipient ${info.rejected.join(', ')} was REJECTED by SMTP. Email NOT delivered.`);
+    }
+    if (!info.accepted || info.accepted.length === 0) {
+      console.warn(`⚠️ No recipients accepted the email. Email NOT delivered.`);
+    }
+    return { previewUrl: null, info };
+  } catch (err) {
+    console.error(`❌ Staff provision email SMTP error: ${err.message}`);
+    throw err;
+  }
+}
+
+function buildStaffProvisionEmailHTML(staff, tempPassword, setupUrl) {
+  const fullName = escapeHtml(staff?.fullName || 'there');
+  const companyName = escapeHtml(staff?.user?.companyName || 'Your Company');
+  const staffEmail = escapeHtml(staff?.email || '');
+  const safeSetupUrl = escapeHtml(setupUrl || '');
+  const safeTempPassword = escapeHtml(tempPassword);
+
+  return `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -394,48 +574,53 @@ async function sendStaffProvisionEmail(staff, tempPassword, setupUrl) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f4f6fa; font-family: 'Segoe UI', Arial, sans-serif;">
-  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f6fa; padding: 40px 10px;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f6fa; padding: 32px 10px;">
     <tr>
       <td align="center">
-        <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 12px; overflow: hidden;">
+        <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);">
           <tr><td height="6" bgcolor="#FFBE11" style="font-size: 0; line-height: 0;">&nbsp;</td></tr>
           <tr>
-            <td bgcolor="#1e3a5f" style="padding: 40px 45px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800;">Staff Portal Access</h1>
-              <p style="margin: 8px 0 0 0; color: #a8c0d6; font-size: 14px;">${staff.user?.companyName || ''}</p>
+            <td bgcolor="#57833B" style="padding: 36px 42px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">Welcome to the Staff Portal</h1>
+              <p style="margin: 8px 0 0 0; color: #e6f2d8; font-size: 14px; font-weight: 600;">${companyName}</p>
             </td>
           </tr>
           <tr>
-            <td style="padding: 40px 45px;">
-              <p style="margin: 0 0 20px 0; font-size: 18px; font-weight: 700; color: #374151;">Hi ${staff.fullName},</p>
-              <p style="margin: 0 0 10px 0; font-size: 15px; color: #6b7280; line-height: 1.6;">
-                An administrator has granted you access to the Staff Portal.
+            <td style="padding: 36px 42px;">
+              <p style="margin: 0 0 18px 0; font-size: 18px; font-weight: 800; color: #111827;">Hi ${fullName},</p>
+              <p style="margin: 0 0 16px 0; font-size: 15px; color: #374151; line-height: 1.65;">
+                You have been added to the team at <strong>${companyName}</strong>. Use the secure button below to set your portal password and complete your access.
               </p>
-              <p style="margin: 0 0 20px 0; font-size: 15px; color: #6b7280; line-height: 1.6;">
-                Click the button below to set your password and complete your profile.
+              <p style="margin: 0 0 24px 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
+                Portal email: <strong>${staffEmail}</strong>
               </p>
-              ${tempPassword ? `
-              <p style="margin: 0 0 12px 0; font-size: 15px; color: #6b7280; line-height: 1.6;">
-                Your temporary password: <strong style="font-family: monospace;">${tempPassword}</strong>
-              </p>
-              <p style="margin: 0 0 18px 0; font-size: 13px; color: #9ca3af;">Use this to login once, then set a new password.</p>
-              ` : ''}
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                   <td align="center">
-                    <a href="${setupUrl}" style="display: inline-block; background: #1e3a5f; color: #ffffff; padding: 16px 36px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px;">
-                      Set Your Password
+                    <a href="${safeSetupUrl}" style="display: inline-block; background: #57833B; color: #ffffff; padding: 15px 34px; border-radius: 10px; text-decoration: none; font-weight: 800; font-size: 15px;">
+                      Set Up My Portal Access
                     </a>
                   </td>
                 </tr>
               </table>
-              <p style="margin: 30px 0 0 0; font-size: 12px; color: #9ca3af;">
-                Or copy this link: <a href="${setupUrl}" style="color: #1e3a5f;">${setupUrl}</a>
+              ${safeTempPassword ? `
+              <div style="margin: 24px 0 0 0; padding: 16px; border-radius: 10px; background: #fff7ed; border: 1px solid #fed7aa;">
+                <p style="margin: 0 0 8px 0; font-size: 13px; color: #9a3412; font-weight: 800;">Temporary password</p>
+                <p style="margin: 0; font-size: 16px; color: #111827; font-weight: 800; font-family: 'Courier New', monospace; letter-spacing: 1px;">${safeTempPassword}</p>
+                <p style="margin: 10px 0 0 0; font-size: 12px; color: #9a3412;">If you use this password to log in, you will be asked to change it immediately.</p>
+              </div>
+              ` : ''}
+              <p style="margin: 24px 0 0 0; font-size: 13px; color: #6b7280; line-height: 1.6;">
+                If the button does not work, copy and paste this link into your browser:<br/>
+                <a href="${safeSetupUrl}" style="color: #57833B; font-weight: 700; word-break: break-all;">${safeSetupUrl}</a>
+              </p>
+              <p style="margin: 24px 0 0 0; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; line-height: 1.6;">
+                This setup link is valid for 24 hours. If you did not expect this email, please contact your administrator.
               </p>
             </td>
           </tr>
           <tr>
-            <td bgcolor="#f9fafb" style="padding: 20px 45px; text-align: center;">
+            <td bgcolor="#f9fafb" style="padding: 22px 42px; text-align: center;">
               <p style="margin: 0; color: #9ca3af; font-size: 11px;">&copy; 2026 PaySlip Pro. All rights reserved.</p>
             </td>
           </tr>
@@ -445,27 +630,18 @@ async function sendStaffProvisionEmail(staff, tempPassword, setupUrl) {
   </table>
 </body>
 </html>
-    `,
-  };
-
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    const previewUrl = nodemailer.getTestMessageUrl(info);
-    if (previewUrl) {
-      console.log(`📭 Staff provision email preview available at: ${previewUrl}`);
-      return previewUrl;
-    }
-    console.log(`✅ Staff provision email sent to: ${staff.email}`);
-    return null;
-  } catch (err) {
-    console.error(`❌ Staff provision email SMTP error: ${err.message}`);
-    throw err;
-  }
+  `;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Send punch-out reminder / overstay email
-// ─────────────────────────────────────────────────────────────
+function buildStaffProvisionEmailText(staff, tempPassword, setupUrl) {
+  const companyName = staff?.user?.companyName || 'Your Company';
+  const fullName = staff?.fullName || 'there';
+  const staffEmail = staff?.email || '';
+  const passwordLine = tempPassword ? `\n\nTemporary password: ${tempPassword}\nUse it to log in once, then set a new password.` : '';
+
+  return `Hi ${fullName},\n\nYou have been added to the team at ${companyName}.\n\nPortal email: ${staffEmail}\n\nSet up your portal access here:\n${setupUrl}${passwordLine}\n\nThis setup link is valid for 24 hours. If you did not expect this email, please contact your administrator.`;
+}
+
 async function sendPunchOutReminderEmail(staff, loginUrl, details = {}) {
   console.log(`✉️ Sending punch-out reminder email to: ${staff.email}`);
 

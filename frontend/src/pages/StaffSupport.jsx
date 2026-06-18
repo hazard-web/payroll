@@ -125,7 +125,6 @@ function ContextView({ type, data, loading }) {
             {att.totalHours > 0 && (
               <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', display: 'flex', gap: 16, fontSize: 12 }}>
                 <span><span style={{ color: 'var(--text-muted)' }}>Hours:</span> <strong style={{ color: 'var(--text)' }}>{att.totalHours.toFixed(2)}h</strong></span>
-                {att.overtimeHours > 0 && <span><span style={{ color: 'var(--text-muted)' }}>OT:</span> <strong style={{ color: '#7c3aed' }}>{att.overtimeHours.toFixed(2)}h</strong></span>}
                 <span>
                   <span style={{ color: 'var(--text-muted)' }}>Status:</span>{' '}
                   <strong style={{ color: att.status === 'complete' ? '#15803d' : '#b45309' }}>{att.status}</strong>

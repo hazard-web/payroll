@@ -17,17 +17,17 @@ const userSchema = new mongoose.Schema({
   companyName: {
     type: String,
     trim: true,
-    default: 'BDA TECHNOLOGIES PVT. LTD.'
+    default: 'BDA Technologies Private Limited'
   },
   companyAddress: {
     type: String,
     trim: true,
-    default: 'Plot No. 45, Sector 4, Vaishali, Ghaziabad, Uttar Pradesh - 201010, India'
+    default: 'Flat No. 207, Plot No. 31A, Unione Residency, Akbarpur, Behrampur, Ghaziabad, Uttar Pradesh, India, 201009'
   },
   companyPhone: {
     type: String,
     trim: true,
-    default: '+91 120 456 7890'
+    default: ''
   },
   companyEmail: {
     type: String,
@@ -37,7 +37,17 @@ const userSchema = new mongoose.Schema({
   companyCIN: {
     type: String,
     trim: true,
-    default: 'U72900UP2026PTC123456'
+    default: 'U74999UP2017PTC096671'
+  },
+  companyGST: {
+    type: String,
+    trim: true,
+    default: '09AAHCB4248F1ZO'
+  },
+  companyWebsite: {
+    type: String,
+    trim: true,
+    default: 'www.bdatechnologies.com'
   },
   companyLogo: {
     type: String, // Base64 string

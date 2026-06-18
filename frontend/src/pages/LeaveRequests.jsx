@@ -700,9 +700,6 @@ function AttendanceTab() {
                     {/* Worked */}
                     <div style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>
                       {record.totalHours ? fmtHours(record.totalHours) : active ? <span style={{ fontSize:11, color:'var(--text-muted)' }}>In progress</span> : '—'}
-                      {record.overtimeHours > 0 && (
-                        <div style={{ fontSize:10, color:'#6b21a8', marginTop:1 }}>+{fmtHours(record.overtimeHours)} OT</div>
-                      )}
                     </div>
 
                     {/* Status */}

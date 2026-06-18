@@ -66,6 +66,29 @@ if (!process.env.VERCEL) {
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('Server Error:', err);
+
+  // Detect MongoDB connection problems and surface a clear, actionable message
+  const msg = (err?.message || '').toLowerCase();
+  const isMongoDown =
+    err?.name === 'MongooseServerSelectionError' ||
+    err?.name === 'MongoServerSelectionError' ||
+    msg.includes('whitelisted') ||
+    msg.includes('could not connect to any servers') ||
+    msg.includes('econnrefused') ||
+    msg.includes('mongonetworkerror') ||
+    msg.includes('buffering timed out') ||
+    msg.includes('no primary found') ||
+    msg.includes('replicasetnoprimary');
+
+  if (isMongoDown) {
+    return res.status(503).json({
+      success: false,
+      message:
+        'Database is unreachable. If using MongoDB Atlas, add your current IP to the cluster whitelist (Network Access → Add IP Address → Allow Access from Anywhere for testing).',
+      code: 'DB_UNREACHABLE',
+    });
+  }
+
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal server error',
@@ -74,50 +97,54 @@ app.use((err, req, res, next) => {
 
 // Connect to MongoDB then start server
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/payslip_generator';
+console.log('🔍 MONGODB_URI =', process.env.MONGODB_URI);
 const { runShiftCheck } = require('./utils/cronJobs');
 const http = require('http');
 
+if (!process.env.VERCEL) {
+  // Start the HTTP server FIRST so requests get clean error responses
+  // even when the database is down. This avoids HTTP 000 / connection-refused.
+  const server = http.createServer(app);
+  server.listen(PORT, () => {
+    console.log(`🚀 Server running → http://localhost:${PORT}`);
+    console.log(`📋 API Health   → http://localhost:${PORT}/api/health`);
+  });
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.warn(`⚠️  Port ${PORT} is in use. Exiting so nodemon can restart cleanly...`);
+      process.exit(0);
+    } else {
+      console.error('❌ Server error:', err.message);
+      process.exit(1);
+    }
+  });
+
+  // In development Vercel crons don't fire, so run the shift-check locally every hour
+  const ONE_HOUR = 60 * 60 * 1000;
+  setInterval(async () => {
+    console.log('⏰ [local cron] Running shift check...');
+    try {
+      const r = await runShiftCheck();
+      console.log(`✅ [local cron] autoClosed=${r.autoClosed} remindersSent=${r.remindersSent}`);
+    } catch (err) {
+      console.error('❌ [local cron] Shift check failed:', err.message);
+    }
+  }, ONE_HOUR);
+  console.log('⏰ Local shift-check cron scheduled (every 1 hour)');
+}
+
 mongoose
-  .connect(MONGO_URI)
+  .connect(MONGO_URI, {
+    serverSelectionTimeoutMS: 10000,
+  })
   .then(() => {
     console.log('✅ Connected to MongoDB');
-    if (!process.env.VERCEL) {
-      const server = http.createServer(app);
-
-      server.listen(PORT, () => {
-        console.log(`🚀 Server running → http://localhost:${PORT}`);
-        console.log(`📋 API Health   → http://localhost:${PORT}/api/health`);
-      });
-
-      // If port is already in use, exit cleanly so nodemon restarts fresh
-      server.on('error', (err) => {
-        if (err.code === 'EADDRINUSE') {
-          console.warn(`⚠️  Port ${PORT} is in use. Exiting so nodemon can restart cleanly...`);
-          process.exit(0);
-        } else {
-          console.error('❌ Server error:', err.message);
-          process.exit(1);
-        }
-      });
-
-      // In development Vercel crons don't fire, so run the shift-check locally every hour
-      const ONE_HOUR = 60 * 60 * 1000;
-      setInterval(async () => {
-        console.log('⏰ [local cron] Running shift check...');
-        try {
-          const r = await runShiftCheck();
-          console.log(`✅ [local cron] autoClosed=${r.autoClosed} remindersSent=${r.remindersSent}`);
-        } catch (err) {
-          console.error('❌ [local cron] Shift check failed:', err.message);
-        }
-      }, ONE_HOUR);
-      console.log('⏰ Local shift-check cron scheduled (every 1 hour)');
-    }
   })
-  .catch((err) => {
-    console.error('❌ MongoDB connection failed:', err.message);
-    // On Vercel, we don't want to exit the process; let the next request retry or fail gracefully
-  });
+ .catch((err) => {
+  console.error('❌ MongoDB connection error (server is still up — requests will return DB_UNREACHABLE until DB is reachable):');
+  console.error(err.message);
+});
+
 
 // Export the app so Vercel Serverless Functions can use it
 module.exports = app;

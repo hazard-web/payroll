@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Building2, MapPin, Mail, Phone, Hash, Loader2, Save, Image as ImageIcon, Camera, ShieldCheck } from 'lucide-react'
+import { Building2, MapPin, Mail, Phone, Hash, Globe, Loader2, Save, Image as ImageIcon, Camera, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api'
 import { useAuth } from '../context/AuthContext'
@@ -16,18 +16,22 @@ export default function Profile() {
     companyEmail: '',
     companyPhone: '',
     companyCIN: '',
+    companyGST: '',
+    companyWebsite: '',
     companyLogo: ''
   })
 
   useEffect(() => {
     if (user) {
       setForm({
-        companyName: user.companyName || 'BDA TECHNOLOGIES PVT. LTD.',
-        companyAddress: user.companyAddress || 'Plot No. 45, Sector 4, Vaishali, Ghaziabad, Uttar Pradesh - 201010, India',
-        companyEmail: user.companyEmail || 'hr@bdatechnologies.com',
-        companyPhone: user.companyPhone || '+91 120 456 7890',
-        companyCIN: user.companyCIN || 'U72900UP2026PTC123456',
-        companyLogo: user.companyLogo || BDA_LOGO_BASE64
+        companyName:    user.companyName    || '',
+        companyAddress: user.companyAddress || '',
+        companyEmail:   user.companyEmail   || '',
+        companyPhone:   user.companyPhone   || '',
+        companyCIN:     user.companyCIN     || '',
+        companyGST:     user.companyGST     || '',
+        companyWebsite: user.companyWebsite || '',
+        companyLogo:    user.companyLogo    || ''
       })
     }
   }, [user])
@@ -165,6 +169,7 @@ export default function Profile() {
                     type="email" value={form.companyEmail}
                     onChange={e => setForm({ ...form, companyEmail: e.target.value })}
                     className="profile-premium-input"
+                    placeholder="e.g. hr@yourcompany.com"
                   />
                 </div>
               </div>
@@ -177,6 +182,33 @@ export default function Profile() {
                     type="text" value={form.companyPhone}
                     onChange={e => setForm({ ...form, companyPhone: e.target.value })}
                     className="profile-premium-input"
+                    placeholder="e.g. +91 98765 43210"
+                  />
+                </div>
+              </div>
+
+              <div className="profile-form-field">
+                <label className="profile-input-label">GST Number</label>
+                <div style={{ position: 'relative' }}>
+                  <Hash size={16} className="profile-input-icon" />
+                  <input 
+                    type="text" value={form.companyGST}
+                    onChange={e => setForm({ ...form, companyGST: e.target.value })}
+                    className="profile-premium-input"
+                    placeholder="e.g. 09AAHCB4248F1ZO"
+                  />
+                </div>
+              </div>
+
+              <div className="profile-form-field">
+                <label className="profile-input-label">Website URL</label>
+                <div style={{ position: 'relative' }}>
+                  <Globe size={16} className="profile-input-icon" />
+                  <input 
+                    type="text" value={form.companyWebsite}
+                    onChange={e => setForm({ ...form, companyWebsite: e.target.value })}
+                    className="profile-premium-input"
+                    placeholder="e.g. www.yourcompany.com"
                   />
                 </div>
               </div>

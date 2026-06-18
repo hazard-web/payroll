@@ -27,7 +27,7 @@ const auth = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────
 // POST /api/auth/register — Register a new company
 // ─────────────────────────────────────────────────────────────
-router.post('/register', async (req, res) => {
+router.post('/register', async (req, res, next) => {
   try {
     const email = req.body.email?.trim().toLowerCase();
     const { password, companyName, companyAddress } = req.body;
@@ -67,14 +67,14 @@ router.post('/register', async (req, res) => {
     });
   } catch (err) {
     console.error('Register error:', err);
-    res.status(500).json({ success: false, message: err.message || 'Registration failed' });
+    return next(err);
   }
 });
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/auth/login — Login to company account
 // ─────────────────────────────────────────────────────────────
-router.post('/login', async (req, res) => {
+router.post('/login', async (req, res, next) => {
   try {
     const email = req.body.email?.trim().toLowerCase();
     const { password } = req.body;
@@ -84,19 +84,23 @@ router.post('/login', async (req, res) => {
     }
 
     const user = await User.findOne({ email });
-    
+    console.log(`🔐 Login attempt for "${email}" → user ${user ? 'FOUND' : 'NOT FOUND in DB'}`);
+
     let passwordMatches = false;
     if (user) {
       try {
         passwordMatches = await user.comparePassword(password);
+        console.log(`   Password match: ${passwordMatches}`);
       } catch (compareErr) {
         console.error('Password compare failed:', compareErr);
       }
     }
 
     if (!user || !passwordMatches) {
+      console.log(`   ❌ Login FAILED for "${email}" — user=${!!user}, pwd=${passwordMatches}`);
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
+    console.log(`   ✅ Login SUCCESS for "${email}"`);
 
     const isProduction = process.env.NODE_ENV === 'production';
     const skipEmailVerification =
@@ -111,7 +115,7 @@ router.post('/login', async (req, res) => {
     res.json({ success: true, token, user: { email: user.email, companyName: user.companyName } });
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ success: false, message: 'Login failed' });
+    return next(err);
   }
 });
 
@@ -191,9 +195,9 @@ router.get('/profile', auth, async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 // PUT /api/auth/profile — Update company profile & logo
 // ─────────────────────────────────────────────────────────────
-router.put('/profile', auth, async (req, res) => {
+router.put('/profile', auth, async (req, res, next) => {
   try {
-    const updates = ['companyName', 'companyAddress', 'companyPhone', 'companyEmail', 'companyCIN', 'companyLogo'];
+    const updates = ['companyName', 'companyAddress', 'companyPhone', 'companyEmail', 'companyCIN', 'companyGST', 'companyWebsite', 'companyLogo'];
     updates.forEach(field => {
       if (req.body[field] !== undefined) req.user[field] = req.body[field];
     });
@@ -202,14 +206,14 @@ router.put('/profile', auth, async (req, res) => {
     res.json({ success: true, message: 'Profile updated', user: req.user });
   } catch (err) {
     console.error('Profile update error:', err);
-    res.status(500).json({ success: false, message: 'Failed to update profile' });
+    return next(err);
   }
 });
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/auth/forgot-password — Send reset link to email
 // ─────────────────────────────────────────────────────────────
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', async (req, res, next) => {
   try {
     const email = req.body.email?.trim().toLowerCase();
     if (!email) return res.status(400).json({ success: false, message: 'Email is required.' });
@@ -225,26 +229,55 @@ router.post('/forgot-password', async (req, res) => {
     user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
     await user.save();
 
-    try {
-      const { sendPasswordResetEmail } = require('../utils/emailService');
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      const origin = req.get('origin') || frontendUrl;
-      await sendPasswordResetEmail(user, resetToken, origin);
-    } catch (emailErr) {
-      console.error('📧 Password reset email failed:', emailErr.message);
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const origin = req.get('origin') || frontendUrl;
+    const resetLink = `${origin}/reset-password?token=${resetToken}`;
+
+    // In dev (no NODE_ENV=production), always print the link to the terminal
+    // so devs can recover accounts even without a working SMTP setup.
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('\n────────────────────────────────────────────────────');
+      console.log('🔑 DEV MODE — Password Reset Link');
+      console.log(`   For: ${user.email}`);
+      console.log(`   Link: ${resetLink}`);
+      console.log('   (Valid for 1 hour)');
+      console.log('────────────────────────────────────────────────────\n');
     }
 
-    res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
+    try {
+      const { sendPasswordResetEmail } = require('../utils/emailService');
+      const previewUrl = await sendPasswordResetEmail(user, resetToken, origin);
+      // If SMTP is not configured and Ethereal is used, the function returns a previewUrl.
+      // Surface it so the frontend can show "View test email" link.
+      if (previewUrl && process.env.NODE_ENV !== 'production') {
+        console.log(`📭 Ethereal preview URL: ${previewUrl}`);
+      }
+      res.json({
+        success: true,
+        message: 'If that email exists, a reset link has been sent.',
+        // Surface the link in non-production so the UI can offer a "Use this link" button
+        ...(process.env.NODE_ENV !== 'production' && { devResetLink: resetLink }),
+        // If using Ethereal, give a way to view the actual email
+        ...(previewUrl && process.env.NODE_ENV !== 'production' && { devEmailPreview: previewUrl }),
+      });
+    } catch (emailErr) {
+      console.error('📧 Password reset email failed (dev link above still works):', emailErr.message);
+      res.json({
+        success: true,
+        message: 'If that email exists, a reset link has been sent.',
+        ...(process.env.NODE_ENV !== 'production' && { devResetLink: resetLink }),
+      });
+    }
   } catch (err) {
     console.error('Forgot-password error:', err);
-    res.status(500).json({ success: false, message: 'Something went wrong. Please try again.' });
+    return next(err);
   }
 });
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/auth/reset-password — Set new password using token
 // ─────────────────────────────────────────────────────────────
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', async (req, res, next) => {
   try {
     const { token, password } = req.body;
     if (!token || !password) {
@@ -271,8 +304,30 @@ router.post('/reset-password', async (req, res) => {
     res.json({ success: true, message: 'Password reset successful. You can now log in with your new password.' });
   } catch (err) {
     console.error('Reset-password error:', err);
-    res.status(500).json({ success: false, message: 'Something went wrong. Please try again.' });
+    return next(err);
   }
+});
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/auth/dev-latest-reset-link — DEV-ONLY
+// Returns the latest active reset link for an email so devs can
+// recover accounts when SMTP is broken. Disabled in production.
+// ─────────────────────────────────────────────────────────────
+router.post('/dev-latest-reset-link', async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(404).json({ success: false, message: 'Not found' });
+  }
+  const email = req.body.email?.trim().toLowerCase();
+  if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
+
+  const user = await User.findOne({ email });
+  if (!user || !user.resetPasswordToken || user.resetPasswordExpires < Date.now()) {
+    return res.status(404).json({ success: false, message: 'No active reset link for that email. Trigger a forgot-password first.' });
+  }
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const link = `${frontendUrl}/reset-password?token=${user.resetPasswordToken}`;
+  console.log('🔑 DEV latest-reset-link served for', email, '→', link);
+  res.json({ success: true, link });
 });
 
 module.exports = { router, auth };

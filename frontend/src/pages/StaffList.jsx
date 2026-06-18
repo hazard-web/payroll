@@ -1,51 +1,26 @@
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Search, Briefcase, ChevronRight, X, Loader2, User, Mail, Phone, Key, Ban, Edit, Info, Clock, FileText, Eye, FilePlus, Zap } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
+import {
+  Plus, Briefcase, Loader2, Key, FilePlus, Eye
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api'
-import { useTheme } from '../context/ThemeContext'
-import PageShell, { PageHeader } from '../components/PageShell'
+import PageShell, { PageHeader, PageLoading } from '../components/PageShell'
+import {
+  InputField, SegmentedControl, Modal, Avatar, EmptyState, SearchInput
+} from '../components/UI'
 
-function InputField({
-  label,
-  name,
-  value,
-  onChange,
-  type = 'text',
-  placeholder,
-  required,
-  readOnly = false,
-  hint,
-  pattern,
-  inputMode,
-  maxLength
-}) {
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <label className="label">
-        {label}{required && <span style={{ color: 'var(--primary)' }}>*</span>}
-      </label>
-      <input
-        type={type}
-        name={name}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        required={required}
-        readOnly={readOnly}
-        pattern={pattern}
-        inputMode={inputMode}
-        maxLength={maxLength}
-        className="input-field"
-        style={{ width: '100%', background: readOnly ? 'var(--bg)' : 'var(--surface)', cursor: readOnly ? 'not-allowed' : 'text' }}
-      />
-      {hint && (
-        <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)' }}>{hint}</div>
-      )}
-    </div>
-  )
-}
+const TYPE_OPTIONS = [
+  { value: 'Employee', label: 'Employee' },
+  { value: 'Intern', label: 'Intern' },
+]
+
+const FILTER_OPTIONS = [
+  { value: 'All', label: 'All' },
+  { value: 'Employee', label: 'Employee' },
+  { value: 'Intern', label: 'Intern' },
+]
 
 export default function StaffList() {
   const [staff, setStaff] = useState([])
@@ -55,20 +30,17 @@ export default function StaffList() {
   const [showModal, setShowModal] = useState(false)
   const [editingStaff, setEditingStaff] = useState(null)
   const [submitting, setSubmitting] = useState(false)
-  const [actionLoading, setActionLoading] = useState(null) // ID of staff being modified
+  const [actionLoading, setActionLoading] = useState(null)
   const [manualResetLink, setManualResetLink] = useState('')
   const [emailPreviewUrl, setEmailPreviewUrl] = useState('')
   const navigate = useNavigate()
-  const { theme } = useTheme()
 
   const [formData, setFormData] = useState({
     fullName: '', employeeId: '', email: '', phone: '', designation: '', department: '',
     type: 'Employee', joiningDate: '', annualCTC: '', baseSalary: ''
   })
 
-  useEffect(() => {
-    fetchStaff()
-  }, [])
+  useEffect(() => { fetchStaff() }, [])
 
   const fetchStaff = async () => {
     try {
@@ -88,18 +60,6 @@ export default function StaffList() {
     setFormData(prev => ({ ...prev, [name]: nextValue }))
   }
 
-  const handlePanChange = (e) => {
-    const { name, value } = e.target
-    const sanitized = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)
-    setFormData(prev => ({ ...prev, [name]: sanitized }))
-  }
-
-  const handleAccountNumberChange = (e) => {
-    const { name, value } = e.target
-    const sanitized = value.replace(/\D/g, '')
-    setFormData(prev => ({ ...prev, [name]: sanitized }))
-  }
-
   const handlePhoneChange = (e) => {
     const { name, value } = e.target
     const sanitized = value.replace(/\D/g, '').slice(0, 10)
@@ -110,8 +70,6 @@ export default function StaffList() {
     e.preventDefault()
     setSubmitting(true)
     try {
-      // Build a clean payload — admin only sends basic info.
-      // PAN / DOB / Address / Bank / Emergency are filled by the employee later.
       const payload = {
         fullName: formData.fullName,
         email: formData.email,
@@ -125,7 +83,6 @@ export default function StaffList() {
           baseSalary: parseFloat(formData.baseSalary) || 0
         }
       }
-      // employeeId is OPTIONAL — only include if admin typed one
       if (formData.employeeId && formData.employeeId.trim()) {
         payload.employeeId = formData.employeeId.trim()
       }
@@ -137,8 +94,16 @@ export default function StaffList() {
         toast.success('Team details updated')
       } else {
         res = await api.post('/staff', payload)
+        const portalAccess = res.data.portalAccess
+        setManualResetLink(portalAccess?.emailError ? portalAccess.resetLink || '' : '')
+        setEmailPreviewUrl(portalAccess?.emailPreviewUrl || '')
+
+        if (portalAccess?.emailError) {
+          toast.error(`Team member added, but portal email failed: ${portalAccess.emailError}`)
+        } else {
+          toast.success('Team member added and portal access email sent')
+        }
         setStaff([res.data.data, ...staff])
-        toast.success('Team member added successfully. They can complete their profile from the Team Portal.')
       }
 
       setShowModal(false)
@@ -189,10 +154,13 @@ export default function StaffList() {
         const res = await api.post(`/staff/${person._id}/provision-portal`)
         const resetLink = res?.data?.resetLink
         const previewUrl = res?.data?.emailPreviewUrl
-        setManualResetLink(resetLink || '')
+        const emailError = res?.data?.emailError
+        setManualResetLink(emailError ? resetLink || '' : '')
         setEmailPreviewUrl(previewUrl || '')
 
-        if (resetLink) {
+        if (emailError) {
+          toast.error(`Portal provisioned, but email failed: ${emailError}`)
+        } else if (resetLink) {
           try {
             await navigator.clipboard.writeText(resetLink)
             toast.success('Portal provisioned — password setup link copied to clipboard')
@@ -204,7 +172,7 @@ export default function StaffList() {
           toast.success('Portal access granted')
         }
       }
-      fetchStaff() // Refresh to get updated status
+      fetchStaff()
     } catch (err) {
       console.error('Portal access update failed:', err)
       const msg = err?.message || 'Failed to update portal access'
@@ -214,27 +182,15 @@ export default function StaffList() {
     }
   }
 
-  const handleToggleOvertime = async (e, person) => {
-    e.stopPropagation()
-    setActionLoading(person._id + '_ot')
-    try {
-      await api.put(`/staff/${person._id}`, { overtimeEligible: !person.overtimeEligible })
-      toast.success(`Overtime ${!person.overtimeEligible ? 'enabled' : 'disabled'}`)
-      fetchStaff()
-    } catch (err) {
-      toast.error('Failed to update overtime status')
-    } finally {
-      setActionLoading(null)
-    }
-  }
-
   const filteredStaff = staff.filter(s => {
-    const matchesSearch = (s.fullName?.toLowerCase() || '').includes(search.toLowerCase()) || 
+    const matchesSearch = (s.fullName?.toLowerCase() || '').includes(search.toLowerCase()) ||
                           (s.email?.toLowerCase() || '').includes(search.toLowerCase()) ||
                           (s.designation?.toLowerCase() || '').includes(search.toLowerCase())
     const matchesType = filterType === 'All' || s.type === filterType
     return matchesSearch && matchesType
   })
+
+  if (loading) return <PageLoading label="Loading team…" />
 
   return (
     <PageShell wide>
@@ -242,70 +198,50 @@ export default function StaffList() {
         title="Team Management"
         subtitle="Manage your regular employees and interns."
         actions={
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-          <div style={{ display: 'flex', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 100, padding: 4, height: 48, alignItems: 'center' }}>
-            {['All', 'Employee', 'Intern'].map(type => (
-              <button
-                key={type}
-                onClick={() => setFilterType(type)}
-                style={{
-                  padding: '8px 24px', border: 'none', borderRadius: 100, fontSize: 14, fontWeight: 700,
-                  background: filterType === type ? 'var(--primary)' : 'transparent',
-                  color: filterType === type ? '#ffffff' : 'var(--text-muted)',
-                  cursor: 'pointer', transition: 'all 0.2s',
-                  height: '100%'
-                }}
-              >
-                {type}
-              </button>
-            ))}
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+            <SegmentedControl
+              options={FILTER_OPTIONS}
+              value={filterType}
+              onChange={setFilterType}
+              style={{ width: 320, height: 48 }}
+            />
+            <button onClick={() => setShowModal(true)} className="btn-primary" style={{ height: 48, padding: '0 24px' }}>
+              <Plus size={20} strokeWidth={2.5} /> Add new team member
+            </button>
           </div>
-          <button 
-            onClick={() => setShowModal(true)}
-            className="btn-primary"
-            style={{ height: 48, padding: '0 24px', borderRadius: 6 }}
-          >
-            <Plus size={20} strokeWidth={2.5} /> Add new team member
-          </button>
-        </div>
         }
       />
 
-      <div style={{ position: 'relative', marginBottom: 32 }}>
-        <Search size={20} style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-light)' }} />
-        <input 
-          type="text" placeholder="Search team members..." 
-          value={search} onChange={e => setSearch(e.target.value)}
-          style={{ 
-            width: '100%', border: 'none', background: 'transparent', 
-            padding: '12px 0 12px 32px', fontSize: 16, color: 'var(--text)', 
-            outline: 'none', borderBottom: '1px solid var(--border)' 
-          }}
+      <div style={{ marginBottom: 'var(--space-6)', maxWidth: 480 }}>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search team members..."
         />
       </div>
 
-      {loading ? (
-        <div style={{ padding: 40, textAlign: 'center' }}>
-          <Loader2 size={40} className="animate-spin text-muted" style={{ margin: '0 auto' }} />
-        </div>
-      ) : filteredStaff.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 60, background: 'var(--surface)', borderRadius: 12, border: '1px dashed var(--border)' }}>
-          <Briefcase size={48} color="var(--text-light)" style={{ marginBottom: 16 }} />
-          <h3 style={{ color: 'var(--text)', marginBottom: 8 }}>No team members found</h3>
-          <p style={{ color: 'var(--text-muted)' }}>Try adjusting your search criteria or add a new team member.</p>
-        </div>
+      {filteredStaff.length === 0 ? (
+        <EmptyState
+          icon={Briefcase}
+          title="No team members found"
+          description="Try adjusting your search criteria or add a new team member."
+          action={
+            <button onClick={() => setShowModal(true)} className="btn-primary btn-md">
+              <Plus size={16} /> Add team member
+            </button>
+          }
+        />
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 16px' }}>
+        <div className="table-card" style={{ overflowX: 'auto' }}>
+          <table className="data-table">
             <thead>
-              <tr style={{ textAlign: 'left' }}>
-                <th style={{ padding: '0 12px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employee</th>
-                <th style={{ padding: '0 12px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Role</th>
-                <th style={{ padding: '0 12px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
-                <th style={{ padding: '0 12px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profile</th>
-                <th style={{ padding: '0 12px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Compensation</th>
-                <th style={{ padding: '0 12px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>OT</th>
-                <th style={{ padding: '0 12px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Actions</th>
+              <tr>
+                <th>Employee</th>
+                <th>Role</th>
+                <th>Type</th>
+                <th>Profile</th>
+                <th>Compensation</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -315,154 +251,73 @@ export default function StaffList() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.03 }}
-                  style={{ 
-                    background: 'var(--surface)',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-                    cursor: 'default'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.05)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.02)';
-                  }}
                 >
-                  {/* ... previous tds ... */}
-                  <td style={{ padding: '12px', borderTopLeftRadius: 12, borderBottomLeftRadius: 12 }}>
+                  <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                      <div style={{ 
-                        width: 48, height: 48, borderRadius: 12, 
-                        background: person.type === 'Intern' ? '#1e40af' : '#3f6212', 
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                        color: '#ffffff', fontSize: 16, fontWeight: 700, flexShrink: 0,
-                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
-                      }}>
-                        {person.fullName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??'}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>{person.fullName}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      <Avatar
+                        name={person.fullName}
+                        className={person.type === 'Intern' ? 'avatar--intern' : 'avatar--employee'}
+                        style={{ width: 48, height: 48, fontSize: 16, borderRadius: 12 }}
+                      />
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>{person.fullName}</div>
+                            <div className="text-muted" style={{ fontSize: 12 }}>
                           {person.employeeId || <em style={{ opacity: 0.7 }}>No ID assigned</em>}
                         </div>
                       </div>
                     </div>
                   </td>
 
-                  {/* Role */}
-                  <td style={{ padding: '12px' }}>
+                  <td>
                     <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{person.designation || 'No Designation'}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>{person.department || 'N/A'}</div>
+                    <div className="text-muted" style={{ fontSize: 11, fontWeight: 500 }}>{person.department || 'N/A'}</div>
                   </td>
 
-                  {/* Type Badge */}
-                  <td style={{ padding: '12px' }}>
-                    <span style={{
-                      padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700,
-                      background: person.type === 'Intern' ? 'rgba(30, 64, 175, 0.1)' : 'rgba(63, 98, 18, 0.1)',
-                      color: person.type === 'Intern' ? '#1e40af' : '#3f6212',
-                      border: `1px solid ${person.type === 'Intern' ? 'rgba(30, 64, 175, 0.2)' : 'rgba(63, 98, 18, 0.2)'}`
-                    }}>
+                  <td>
+                    <span className={`badge ${person.type === 'Intern' ? 'badge-navy' : 'badge-emerald'}`}>
                       {person.type}
                     </span>
                   </td>
 
-                  {/* Profile Status Badge */}
-                  <td style={{ padding: '12px' }}>
-                    {person.profileCompleted ? (
-                      <span style={{
-                        padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700,
-                        background: 'rgba(63, 98, 18, 0.1)', color: '#3f6212',
-                        border: '1px solid rgba(63, 98, 18, 0.2)'
-                      }}>
-                        ✓ Profile Complete
-                      </span>
-                    ) : (
-                      <span style={{
-                        padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700,
-                        background: 'rgba(234, 88, 12, 0.1)', color: '#c2410c',
-                        border: '1px solid rgba(234, 88, 12, 0.2)'
-                      }}>
-                        Profile Incomplete
-                      </span>
-                    )}
+                  <td>
+                    {person.profileCompleted
+                      ? <span className="badge badge-emerald">✓ Profile Complete</span>
+                      : <span className="badge badge-red">Profile Incomplete</span>
+                    }
                   </td>
 
-                  {/* Compensation */}
-                  <td style={{ padding: '12px' }}>
+                  <td>
                     <div>
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>
+                      <div className="text-muted" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>
                         {person.type === 'Employee' ? 'Annual CTC' : 'Monthly Stipend'}
                       </div>
                       <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primary)' }}>
-                        ₹{person.type === 'Employee' ? (person.salaryDetails?.annualCTC?.toLocaleString() || 0) : (person.salaryDetails?.baseSalary?.toLocaleString() || 0)}
+                        ₹{person.type === 'Employee'
+                          ? (person.salaryDetails?.annualCTC?.toLocaleString() || 0)
+                          : (person.salaryDetails?.baseSalary?.toLocaleString() || 0)
+                        }
                       </div>
                     </div>
                   </td>
 
-                  {/* OT Status */}
-                  <td style={{ padding: '12px' }}>
-                    <span style={{ 
-                      padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700,
-                      background: person.overtimeEligible ? 'rgba(63, 98, 18, 0.1)' : 'rgba(0,0,0,0.05)',
-                      color: person.overtimeEligible ? '#3f6212' : 'var(--text-muted)',
-                      border: `1px solid ${person.overtimeEligible ? 'rgba(63, 98, 18, 0.2)' : 'rgba(0,0,0,0.1)'}`
-                    }}>
-                      {person.overtimeEligible ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </td>
-
-                  {/* Actions */}
-                  <td style={{ padding: '12px', textAlign: 'right', borderTopRightRadius: 12, borderBottomRightRadius: 12, whiteSpace: 'nowrap' }}>
-                    <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', alignItems: 'center' }}>
-                      <button 
-                        onClick={(e) => handleToggleAccess(e, person)}
-                        title={person.isPortalEnabled ? "Revoke Access" : "Give Access"}
-                        className="btn-action-glass"
-                        style={{ width: 40, height: 40, border: '1px solid var(--border)' }}
-                      >
+                  <td style={{ textAlign: 'right' }}>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+                      <button onClick={(e) => handleToggleAccess(e, person)} className="btn-icon" title={person.isPortalEnabled ? "Revoke Access" : "Give Access"}>
                         {actionLoading === person._id ? <Loader2 size={16} className="animate-spin" /> : <Key size={16} />}
                       </button>
-                      <button 
-                        onClick={(e) => handleToggleOvertime(e, person)}
-                        title={person.overtimeEligible ? "Disable OT" : "Enable OT"}
-                        className="btn-action-glass"
-                        style={{ width: 40, height: 40, border: '1px solid var(--border)' }}
-                      >
-                        {actionLoading === person._id + '_ot' ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} color={person.overtimeEligible ? '#6fa945' : 'var(--text-muted)'} />}
-                      </button>
-                      <button 
+                      <button
                         onClick={(e) => { e.stopPropagation(); navigate(`/generate?staffId=${person._id}`); }}
+                        className="btn-icon"
                         title="Generate Payslip"
-                        className="btn-action-glass"
-                        style={{ width: 40, height: 40, border: '1px solid var(--border)' }}
                       >
                         <FilePlus size={16} />
                       </button>
-                      <button 
+                      <button
                         onClick={(e) => { e.stopPropagation(); navigate(`/staff/${person._id}`); }}
-                        title="View Full Details"
-                        style={{ 
-                          padding: '10px 24px', 
-                          background: 'var(--primary)', 
-                          color: '#ffffff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          fontSize: 14,
-                          fontWeight: 700,
-                          borderRadius: 12,
-                          border: 'none',
-                          cursor: 'pointer',
-                          boxShadow: '0 4px 12px rgba(88, 131, 59, 0.2)',
-                          transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                        className="btn-primary btn-sm"
+                        style={{ padding: '8px 16px' }}
                       >
-                        <Eye size={18} />
-                        View Details
+                        <Eye size={14} /> View Details
                       </button>
                     </div>
                   </td>
@@ -474,38 +329,38 @@ export default function StaffList() {
       )}
 
       {manualResetLink && (
-        <div style={{ marginTop: 28, padding: 24, borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <h3 style={{ margin: 0, color: 'var(--primary)', fontSize: 18 }}>Manual Portal Setup Link</h3>
-              <p style={{ margin: '8px 0 0', color: 'var(--text-muted)', maxWidth: 760 }}>
-                Email delivery failed, so this password setup link can be shared directly with the staff member.
-              </p>
+        <div className="section-card" style={{ marginTop: 'var(--space-6)' }}>
+          <div className="section-card__body">
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h3 className="section-card__title">Manual Portal Setup Link</h3>
+                <p className="section-card__subtitle" style={{ maxWidth: 760 }}>
+                  Email delivery failed, so this password setup link can be shared directly with the staff member.
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(manualResetLink)
+                    toast.success('Password setup link copied to clipboard')
+                  } catch (err) {
+                    toast.error('Unable to copy automatically. Use the text field below.')
+                  }
+                }}
+                className="btn-primary"
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                Copy link
+              </button>
             </div>
-            <button
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(manualResetLink)
-                  toast.success('Password setup link copied to clipboard')
-                } catch (err) {
-                  toast.error('Unable to copy automatically. Use the text field below.')
-                }
-              }}
-              className="btn-primary"
-              style={{ whiteSpace: 'nowrap' }}
-            >
-              Copy link
-            </button>
-          </div>
-
-          <div style={{ marginTop: 18, display: 'grid', gap: 12 }}>
             <input
               readOnly
               value={manualResetLink}
-              style={{ width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+              className="input-field"
+              style={{ marginTop: 'var(--space-4)', width: '100%', background: 'var(--bg)' }}
             />
             {emailPreviewUrl && (
-              <a href={emailPreviewUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 700 }}>
+              <a href={emailPreviewUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 12, color: 'var(--primary)', fontWeight: 700 }}>
                 Open email preview
               </a>
             )}
@@ -513,93 +368,75 @@ export default function StaffList() {
         </div>
       )}
 
-      {/* Add Staff Modal */}
-      <AnimatePresence>
-        {showModal && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'absolute', inset: 0, background: 'rgba(26, 26, 26, 0.6)', backdropFilter: 'blur(4px)' }} onClick={() => setShowModal(false)} />
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              style={{ background: 'var(--surface)', borderRadius: 12, width: '100%', maxWidth: 700, maxHeight: '90vh', display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1, overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}
-            >
-              <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, color: 'var(--primary)' }}>{editingStaff ? 'Edit Team Member' : 'Add New Team Member'}</h2>
-                <button onClick={() => { setShowModal(false); setEditingStaff(null); resetForm(); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-light)' }}><X size={24} /></button>
-              </div>
-              
-              <div style={{ padding: 32, overflowY: 'auto', flex: 1 }}>
-                <form id="addStaffForm" onSubmit={handleSubmit}>
-                  <div style={{ display: 'flex', gap: 10, marginBottom: 24, background: 'var(--bg)', padding: 6, borderRadius: 12 }}>
-                    {['Employee', 'Intern'].map(type => (
-                      <button 
-                        key={type} type="button" onClick={() => setFormData({ ...formData, type })}
-                        style={{ 
-                          flex: 1, padding: '10px', borderRadius: 12, border: 'none', fontWeight: 700,
-                          background: formData.type === type ? 'var(--primary)' : 'transparent',
-                          color: formData.type === type ? '#ffffff' : 'var(--text-muted)',
-                          boxShadow: formData.type === type ? 'var(--shadow-sm)' : 'none', cursor: 'pointer'
-                        }}
-                      >{type}</button>
-                    ))}
-                  </div>
+      <Modal
+        open={showModal}
+        onClose={() => { setShowModal(false); setEditingStaff(null); resetForm(); }}
+        title={editingStaff ? 'Edit Team Member' : 'Add New Team Member'}
+        size="md"
+      >
+        <form id="addStaffForm" onSubmit={handleSubmit}>
+          <SegmentedControl
+            options={TYPE_OPTIONS}
+            value={formData.type}
+            onChange={(v) => setFormData({ ...formData, type: v })}
+            style={{ marginBottom: 'var(--space-6)' }}
+          />
 
-                  <h4 style={{ color: 'var(--primary)', marginBottom: 16 }}>Basic Information</h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                    <InputField label="Full Name" name="fullName" value={formData.fullName} onChange={handleInputChange} required />
-                    <InputField
-                      label="Employee ID (optional)"
-                      name="employeeId"
-                      value={formData.employeeId}
-                      onChange={handleInputChange}
-                      placeholder="Leave blank to assign later"
-                    />
-                    <InputField label="Email Address" type="email" name="email" value={formData.email} onChange={handleInputChange} required />
-                    <InputField
-                      label="Phone Number"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handlePhoneChange}
-                      required
-                      inputMode="numeric"
-                      pattern="[0-9]{10}"
-                      maxLength={10}
-                      hint="Enter 10-digit number"
-                    />
-                    <InputField label="Department" name="department" value={formData.department} onChange={handleInputChange} required />
-                    <InputField label="Designation" name="designation" value={formData.designation} onChange={handleInputChange} required />
-                    <InputField label="Joining Date" type="date" name="joiningDate" value={formData.joiningDate} onChange={handleInputChange} required />
-                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                      <div style={{ width: '100%', padding: 12, background: 'var(--bg)', borderRadius: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-                        <strong>New flow:</strong> PAN, DOB, Address, Bank & Emergency details are now filled by the employee from the Team Portal after first login.
-                      </div>
-                    </div>
-                  </div>
-
-                  <h4 style={{ color: 'var(--primary)', marginTop: 24, marginBottom: 16 }}>Salary Structure</h4>
-                  {formData.type === 'Employee' ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
-                      <InputField label="Annual CTC (in ₹)" type="number" name="annualCTC" value={formData.annualCTC} onChange={handleInputChange} required />
-                      <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Note: For Regular Employees, the payslip engine derives HRA, PF, etc., automatically from the CTC.</p>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
-                      <InputField label="Monthly Stipend (Base Salary)" type="number" name="baseSalary" value={formData.baseSalary} onChange={handleInputChange} required />
-                      <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Note: For Interns, this base amount is used to calculate the final stipend after absence deductions.</p>
-                    </div>
-                  )}
-                </form>
+          <h4 className="panel-title" style={{ marginBottom: 'var(--space-4)' }}>Basic Information</h4>
+          <div className="form-grid-2">
+            <InputField label="Full Name" name="fullName" value={formData.fullName} onChange={handleInputChange} required />
+            <InputField
+              label="Employee ID (optional)"
+              name="employeeId"
+              value={formData.employeeId}
+              onChange={handleInputChange}
+              placeholder="Leave blank to assign later"
+            />
+            <InputField label="Email Address" type="email" name="email" value={formData.email} onChange={handleInputChange} required />
+            <InputField
+              label="Phone Number"
+              name="phone"
+              value={formData.phone}
+              onChange={handlePhoneChange}
+              required
+              placeholder="10-digit mobile"
+              hint="Enter 10-digit number"
+            />
+            <InputField label="Department" name="department" value={formData.department} onChange={handleInputChange} required />
+            <InputField label="Designation" name="designation" value={formData.designation} onChange={handleInputChange} required />
+            <InputField label="Joining Date" type="date" name="joiningDate" value={formData.joiningDate} onChange={handleInputChange} required />
+            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+              <div style={{ width: '100%', padding: 12, background: 'var(--bg)', borderRadius: 8, fontSize: 12, color: 'var(--text-muted)' }}>
+                <strong>New flow:</strong> PAN, DOB, Address, Bank & Emergency details are filled by the employee from the Team Portal after first login.
               </div>
-
-              <div style={{ padding: '24px 32px', borderTop: '1px solid var(--border)', background: 'var(--bg)', display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                <button type="button" onClick={() => { setShowModal(false); setEditingStaff(null); resetForm(); }} style={{ padding: '12px 24px', borderRadius: 12, border: '2px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-                <button type="submit" form="addStaffForm" disabled={submitting} style={{ padding: '12px 24px', borderRadius: 12, border: 'none', background: 'var(--primary)', color: '#ffffff', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {submitting ? <Loader2 size={18} className="animate-spin" /> : (editingStaff ? 'Update Team Member' : 'Save Team Member')}
-                </button>
-              </div>
-            </motion.div>
+            </div>
           </div>
-        )}
-      </AnimatePresence>
+
+          <h4 className="panel-title" style={{ marginTop: 'var(--space-6)', marginBottom: 'var(--space-4)' }}>Salary Structure</h4>
+          {formData.type === 'Employee' ? (
+            <div>
+              <InputField label="Annual CTC (in ₹)" type="number" name="annualCTC" value={formData.annualCTC} onChange={handleInputChange} required />
+              <p className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>
+                Note: For Regular Employees, the payslip engine derives HRA, PF, etc., automatically from the CTC.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <InputField label="Monthly Stipend (Base Salary)" type="number" name="baseSalary" value={formData.baseSalary} onChange={handleInputChange} required />
+              <p className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>
+                Note: For Interns, this base amount is used to calculate the final stipend after absence deductions.
+              </p>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 12, marginTop: 'var(--space-6)', justifyContent: 'flex-end' }}>
+            <button type="button" onClick={() => { setShowModal(false); setEditingStaff(null); resetForm(); }} className="btn-ghost">Cancel</button>
+            <button type="submit" disabled={submitting} className="btn-primary">
+              {submitting ? <Loader2 size={18} className="animate-spin" /> : (editingStaff ? 'Update Team Member' : 'Save Team Member')}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </PageShell>
   )
 }

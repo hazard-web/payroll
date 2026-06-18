@@ -1,36 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Filter, Eye, Download, Mail, Trash2, FileText, ChevronLeft, ChevronRight, Loader2, Copy, Plus, Share2 } from 'lucide-react'
+import {
+  Search, Filter, Eye, Download, Mail, Trash2, FileText,
+  ChevronLeft, ChevronRight, Loader2, Copy, Plus, Share2
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api'
 import PageShell, { PageHeader } from '../components/PageShell'
+import { Avatar, EmptyState, SearchInput } from '../components/UI'
 
-const MONTHS = ['','January','February','March','April','May','June','July','August','September','October','November','December']
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const CURRENT_YEAR = new Date().getFullYear()
-const YEARS = ['', ...Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 2 + i)]
-
-const EmptyState = React.memo(({ filtered }) => {
-  return (
-    <tr>
-      <td colSpan={7}>
-        <div style={{ padding: '80px 24px', textAlign: 'center' }}>
-          <div style={{ 
-            width: 80, height: 80, borderRadius: '50%', background: 'var(--bg)', 
-            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' 
-          }}>
-            <FileText size={32} color="var(--text-light)" />
-          </div>
-          <h3 style={{ color: 'var(--primary)', marginBottom: 8 }}>
-            {filtered ? 'No search results' : 'Your archive is empty'}
-          </h3>
-          <p style={{ fontSize: 14, color: 'var(--text-muted)', maxWidth: 300, margin: '0 auto' }}>
-            {filtered ? 'We couldn\'t find any payslips matching those specific filters.' : 'Generate your first professional payslip to see it appear here.'}
-          </p>
-        </div>
-      </td>
-    </tr>
-  )
-});
+const YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 2 + i)
 
 const ActionBtn = React.memo(({ icon: Icon, label, onClick, color = 'var(--text-muted)', loading }) => {
   return (
@@ -38,18 +19,13 @@ const ActionBtn = React.memo(({ icon: Icon, label, onClick, color = 'var(--text-
       onClick={e => { e.stopPropagation(); onClick(); }}
       title={label}
       disabled={loading}
-      style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 34, height: 34, border: '1px solid var(--border)', borderRadius: 10,
-        background: 'var(--surface)', cursor: loading ? 'wait' : 'pointer',
-        color, transition: 'all 0.2s',
-      }}
-      className="btn-hover"
+      className="btn-icon btn-hover"
+      style={{ width: 34, height: 34, borderRadius: 10, color }}
     >
       {loading ? <Loader2 size={14} className="animate-spin" /> : <Icon size={15} />}
     </button>
   )
-});
+})
 
 export default function PayslipList() {
   const navigate = useNavigate()
@@ -173,23 +149,16 @@ export default function PayslipList() {
         }
       />
 
-      {/* Filter Management Bar */}
+      {/* Filter Bar */}
       <div className="fade-in glass" style={{
-        padding: '16px 20px', marginBottom: 24,
+        padding: 'var(--space-4) var(--space-5)', marginBottom: 'var(--space-6)',
         display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap',
       }}>
-        <div style={{ position: 'relative', flex: '1 1 300px' }}>
-          <Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-light)' }} />
-          <input
+        <div style={{ flex: '1 1 300px' }}>
+          <SearchInput
             value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1) }}
+            onChange={(v) => { setSearch(v); setPage(1) }}
             placeholder="Filter by employee, ID, or department..."
-            style={{
-              width: '100%', padding: '12px 16px 12px 42px',
-              border: '1.5px solid var(--border)', borderRadius: 12,
-              fontSize: 14, color: 'var(--text)', outline: 'none',
-              background: 'var(--bg)', fontWeight: 500
-            }}
           />
         </div>
 
@@ -199,35 +168,28 @@ export default function PayslipList() {
             <select
               value={filterMonth}
               onChange={e => { setFilterMonth(e.target.value); setPage(1) }}
-              style={{
-                border: '1.5px solid var(--border)', borderRadius: 10, background: 'var(--surface)',
-                padding: '10px 14px', fontSize: 13, color: 'var(--text)', outline: 'none', cursor: 'pointer', fontWeight: 600
-              }}
+              className="input-field"
+              style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600, width: 'auto' }}
             >
               <option value="">Month</option>
-              {MONTHS.slice(1).map(m => <option key={m} value={m}>{m}</option>)}
+              {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
 
           <select
             value={filterYear}
             onChange={e => { setFilterYear(e.target.value); setPage(1) }}
-            style={{
-              border: '1.5px solid var(--border)', borderRadius: 10, background: 'var(--surface)',
-              padding: '10px 14px', fontSize: 13, color: 'var(--text)', outline: 'none', cursor: 'pointer', fontWeight: 600
-            }}
+            className="input-field"
+            style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600, width: 'auto' }}
           >
             <option value="">Year</option>
-            {YEARS.slice(1).map(y => <option key={y} value={y}>{y}</option>)}
+            {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
 
           {isFiltered && (
             <button
               onClick={() => { setSearch(''); setFilterMonth(''); setFilterYear(''); setPage(1) }}
-              style={{
-                background: 'var(--bg)', color: 'var(--primary)', border: '1px solid var(--primary)',
-                borderRadius: 10, padding: '10px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-              }}
+              className="btn-secondary btn-sm"
             >
               Reset Filters
             </button>
@@ -235,17 +197,17 @@ export default function PayslipList() {
         </div>
       </div>
 
-      {/* Racked Data View */}
+      {/* Data Table */}
       <div className="fade-in glass" style={{ animationDelay: '100ms', overflow: 'hidden' }}>
-        <div style={{ width: '100%', overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+        <div className="table-card" style={{ border: 'none' }}>
+          <table className="data-table" style={{ minWidth: 800 }}>
             <thead>
-              <tr style={{ background: '#58833b' }}>
+              <tr style={{ background: 'var(--primary)' }}>
                 {['Employee Details', 'Period', 'Compensation', 'Tracking', 'Portal', 'Actions'].map((h, i) => (
                   <th key={h} style={{
-                    padding: '16px 20px', textAlign: i === 5 ? 'right' : 'left',
-                    fontSize: 11, fontWeight: 800, color: '#ffffff',
-                    letterSpacing: '0.1em', textTransform: 'uppercase',
+                    textAlign: i === 5 ? 'right' : 'left',
+                    color: 'var(--primary-text)',
+                    padding: 'var(--space-4) var(--space-5)',
                   }}>
                     {h}
                   </th>
@@ -255,40 +217,37 @@ export default function PayslipList() {
             <tbody>
               {loading ? (
                 [...Array(5)].map((_, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
-                    {[...Array(5)].map((_, j) => (
-                      <td key={j} style={{ padding: '20px' }}>
+                  <tr key={i}>
+                    {[...Array(6)].map((_, j) => (
+                      <td key={j}>
                         <div className="skeleton" style={{ height: 18, width: '80%', borderRadius: 6 }} />
                       </td>
                     ))}
                   </tr>
                 ))
               ) : payslips.length === 0 ? (
-                <EmptyState filtered={!!isFiltered} />
+                <tr>
+                  <td colSpan={6}>
+                    <div style={{ padding: '60px 24px' }}>
+                      <EmptyState
+                        icon={FileText}
+                        title={isFiltered ? 'No search results' : 'Your archive is empty'}
+                        description={isFiltered ? "We couldn't find any payslips matching those specific filters." : 'Generate your first professional payslip to see it appear here.'}
+                      />
+                    </div>
+                  </td>
+                </tr>
               ) : (
-                payslips.map((p, idx) => (
+                payslips.map((p) => (
                   <tr
                     key={p._id}
                     onClick={() => navigate(`/payslips/${p._id}`)}
-                    style={{
-                      borderBottom: '1px solid var(--border)',
-                      cursor: 'pointer', transition: 'all 0.2s',
-                      background: idx % 2 === 0 ? 'var(--surface)' : 'var(--bg)',
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--surface)'}
+                    style={{ cursor: 'pointer' }}
                   >
                     {/* Employee Identity */}
-                    <td style={{ padding: '16px 20px' }}>
+                    <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                        <div style={{
-                          width: 42, height: 42, borderRadius: 12,
-                          background: 'var(--primary)', color: '#ffffff',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontWeight: 900, fontSize: 15, flexShrink: 0,
-                          boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
-                        }}>
-                          {p.employeeName.charAt(0).toUpperCase()}
-                        </div>
+                        <Avatar name={p.employeeName} size="lg" style={{ width: 42, height: 42, fontSize: 15, borderRadius: 12, background: 'var(--primary)' }} />
                         <div style={{ overflow: 'hidden' }}>
                           <div style={{ fontWeight: 800, fontSize: 14.5, color: 'var(--text)', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{p.employeeName}</div>
                           <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>{p.employeeId} · <span style={{ color: 'var(--primary)' }}>{p.department}</span></div>
@@ -297,35 +256,35 @@ export default function PayslipList() {
                     </td>
 
                     {/* Timeline */}
-                    <td style={{ padding: '16px 20px' }}>
+                    <td>
                       <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--primary)' }}>{p.month}</div>
                       <div style={{ fontSize: 12, color: 'var(--text-light)', fontWeight: 600 }}>CY {p.year}</div>
                     </td>
 
                     {/* Salary */}
-                    <td style={{ padding: '16px 20px' }}>
+                    <td>
                       <div style={{ fontWeight: 900, color: 'var(--primary)', fontSize: 15 }}>{fmt(p.netSalary)}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Statutory Net</div>
                     </td>
 
-                    {/* Status Tracking */}
-                    <td style={{ padding: '16px 20px' }}>
+                    {/* Status */}
+                    <td>
                       {p.emailSent
-                        ? <div className="badge badge-green">✓ Dispatched</div>
-                        : <div className="badge" style={{ background: 'var(--bg)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>Draft Only</div>
+                        ? <span className="badge badge-green">✓ Dispatched</span>
+                        : <span className="badge" style={{ background: 'var(--bg)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>Draft Only</span>
                       }
                     </td>
 
                     {/* Portal Visibility */}
-                    <td style={{ padding: '16px 20px' }}>
-                      {p.isPushedToPortal 
-                        ? <div className="badge badge-emerald">Live</div>
-                        : <div className="badge badge-red">Hidden</div>
+                    <td>
+                      {p.isPushedToPortal
+                        ? <span className="badge badge-emerald">Live</span>
+                        : <span className="badge badge-red">Hidden</span>
                       }
                     </td>
 
-                    {/* Professional Actions */}
-                    <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                    {/* Actions */}
+                    <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: 6 }}>
                         <ActionBtn icon={Eye} label="View Full Slip" onClick={() => navigate(`/payslips/${p._id}`)} color="var(--primary)" />
                         <ActionBtn icon={Share2} label="Push to Portal" loading={actionLoading[`push_${p._id}`]} onClick={() => handlePush(p._id)} color="var(--primary)" />
@@ -342,42 +301,26 @@ export default function PayslipList() {
           </table>
         </div>
 
-        {/* Global Pagination Console */}
+        {/* Pagination */}
         {pagination.totalPages > 1 && (
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '20px 32px', borderTop: '1.5px solid var(--border)',
-            background: 'var(--bg)',
-          }}>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
+          <div className="pagination-bar">
+            <div className="text-muted" style={{ fontSize: 13, fontWeight: 600 }}>
               Viewing {((page - 1) * 10) + 1} – {Math.min(page * 10, pagination.total)} of {pagination.total} records
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 onClick={() => setPage(p => Math.max(p - 1, 1))}
                 disabled={page === 1}
-                className="btn-hover"
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '10px 16px', border: '1.5px solid var(--border)',
-                  borderRadius: 12, background: 'var(--surface)',
-                  cursor: page === 1 ? 'not-allowed' : 'pointer',
-                  color: page === 1 ? 'var(--text-light)' : 'var(--primary)', fontSize: 13, fontWeight: 700
-                }}
+                className="btn-ghost btn-hover"
+                style={{ color: page === 1 ? 'var(--text-light)' : 'var(--primary)' }}
               >
                 <ChevronLeft size={16} /> Prev
               </button>
               <button
                 onClick={() => setPage(p => Math.min(p + 1, pagination.totalPages))}
                 disabled={page === pagination.totalPages}
-                className="btn-hover"
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '10px 16px', border: '1.5px solid var(--border)',
-                  borderRadius: 12, background: 'var(--surface)',
-                  cursor: page === pagination.totalPages ? 'not-allowed' : 'pointer',
-                  color: page === pagination.totalPages ? 'var(--text-light)' : 'var(--primary)', fontSize: 13, fontWeight: 700
-                }}
+                className="btn-ghost btn-hover"
+                style={{ color: page === pagination.totalPages ? 'var(--text-light)' : 'var(--primary)' }}
               >
                 Next <ChevronRight size={16} />
               </button>

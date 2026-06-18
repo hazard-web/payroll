@@ -70,7 +70,7 @@ const authStaff = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────
 // POST /api/portal/login — Staff Login
 // ─────────────────────────────────────────────────────────────
-router.post('/login', async (req, res) => {
+router.post('/login', async (req, res, next) => {
   try {
     const { email, password } = req.body;
     
@@ -128,7 +128,7 @@ router.post('/login', async (req, res) => {
 
   } catch (err) {
     console.error('Staff login error:', err);
-    res.status(500).json({ success: false, message: 'Login failed' });
+    return next(err);
   }
 });
 
@@ -159,6 +159,9 @@ router.post('/change-password', authStaff, async (req, res) => {
 
     req.staff.portalPassword = newPassword;
     req.staff.mustChangePassword = false;
+    if (typeof req.staff.markModified === 'function') {
+      req.staff.markModified('portalPassword');
+    }
     await req.staff.save();
 
     res.json({ success: true, message: 'Password updated successfully' });
@@ -172,7 +175,7 @@ router.post('/change-password', authStaff, async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 // POST /api/portal/forgot-password — Send Reset Link
 // ─────────────────────────────────────────────────────────────
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', async (req, res, next) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
@@ -193,22 +196,50 @@ router.post('/forgot-password', async (req, res) => {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       const origin = req.get('origin') || frontendUrl;
       const resetLink = `${(origin || frontendUrl).replace(/\/$/, '')}/portal/reset-password?token=${resetToken}`;
-      await sendPasswordResetEmail(staff, resetToken, origin, resetLink);
+
+      // Dev-mode: print the reset link to the terminal so devs can recover
+      // accounts even when SMTP is not configured.
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('\n────────────────────────────────────────────────────');
+        console.log('🔑 DEV MODE — Portal Password Reset Link');
+        console.log(`   For: ${staff.email}`);
+        console.log(`   Link: ${resetLink}`);
+        console.log('   (Valid for 15 minutes)');
+        console.log('────────────────────────────────────────────────────\n');
+      }
+
+      const previewUrl = await sendPasswordResetEmail(staff, resetToken, origin, resetLink, 'staff');
+      if (previewUrl && process.env.NODE_ENV !== 'production') {
+        console.log(`📭 Ethereal preview URL: ${previewUrl}`);
+      }
+      res.json({
+        success: true,
+        message: 'If that email exists and has portal access, a reset link has been sent.',
+        ...(process.env.NODE_ENV !== 'production' && {
+          devResetLink: resetLink,
+        }),
+        ...(previewUrl && process.env.NODE_ENV !== 'production' && { devEmailPreview: previewUrl }),
+      });
     } catch (emailErr) {
       console.error('Password reset email failed:', emailErr.message);
+      res.json({
+        success: true,
+        message: 'If that email exists and has portal access, a reset link has been sent.',
+        ...(process.env.NODE_ENV !== 'production' && {
+          devResetLink: `${(req.get('origin') || process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '')}/portal/reset-password?token=${resetToken}`,
+        }),
+      });
     }
-
-    res.json({ success: true, message: 'If that email exists and has portal access, a reset link has been sent.' });
   } catch (err) {
     console.error('Forgot password error:', err);
-    res.status(500).json({ success: false, message: 'Something went wrong' });
+    return next(err);
   }
 });
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/portal/reset-password — Set New Password
 // ─────────────────────────────────────────────────────────────
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', async (req, res, next) => {
   try {
     const { token, password } = req.body;
     
@@ -232,7 +263,10 @@ router.post('/reset-password', async (req, res) => {
     staff.portalPassword = password;
     staff.passwordResetToken = undefined;
     staff.passwordResetExpires = undefined;
-    staff.mustChangePassword = false; // They just set it
+    staff.mustChangePassword = false;
+    if (typeof staff.markModified === 'function') {
+      staff.markModified('portalPassword');
+    }
     await staff.save();
 
     res.json({ success: true, message: 'Password reset successful' });

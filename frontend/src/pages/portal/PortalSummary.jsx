@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, BarChart3, Clock, AlertCircle, TrendingUp, Award, Zap, Loader2, CheckCircle2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, BarChart3, Clock, AlertCircle, TrendingUp, Award, Loader2, CheckCircle2 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import api from '../../api'
 import PageShell, { PageHeader } from '../../components/PageShell'
@@ -78,7 +78,6 @@ export default function PortalSummary() {
   const { label: weekLabel } = getWeekRange()
 
   const totalHours  = summary?.totalHours  || 0
-  const totalOT     = summary?.totalOT     || 0
   const presentDays = summary?.presentDays || 0
   const avgHours    = summary?.avgHours    || 0
   const completedTasks = summary?.completedTasks || 0
@@ -152,7 +151,6 @@ export default function PortalSummary() {
             <div style={{ display:'flex', gap:32, marginTop:20, flexWrap:'wrap' }}>
               {[
                 { label:'Days Worked', value:`${presentDays} / 7` },
-                { label:'Overtime',    value:`${totalOT.toFixed(1)}h` },
                 { label:'Avg Shift',   value:`${avgHours.toFixed(1)}h` },
                 { label:'Tasks Completed', value:`${completedTasks}` },
                 { label:'Completion Rate', value:`${taskCompletionRate}%` },
@@ -239,31 +237,6 @@ export default function PortalSummary() {
                     style={{ background: taskCompletionRate >= 80 ? '#15803d' : '#1d4ed8' }} />
                 </div>
               </div>
-            </motion.div>
-
-            {/* Overtime */}
-            <motion.div initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} transition={{ delay:.15 }} className="ps-stat">
-              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <div className="ps-icon" style={{ background:'#faf5ff' }}><Zap size={18} color="#6b21a8" /></div>
-                <div>
-                  <div style={{ fontSize:10, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.05em' }}>Overtime</div>
-                  <div style={{ fontSize:24, fontWeight:900, color: totalOT > 0 ? '#6b21a8' : 'var(--text)', lineHeight:1.1 }}>
-                    {totalOT > 0 ? `+${totalOT.toFixed(1)}` : '0'}<span style={{ fontSize:14, color:'var(--text-muted)', fontWeight:500 }}>h</span>
-                  </div>
-                </div>
-              </div>
-              <div style={{ fontSize:12, color:'var(--text-muted)' }}>
-                {totalOT > 0
-                  ? `Great effort! ${totalOT.toFixed(1)}h extra this week.`
-                  : 'No overtime logged this week.'}
-              </div>
-              {totalOT > 0 && (
-                <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
-                  {Array.from({ length: Math.min(5, Math.ceil(totalOT)) }).map((_, i) => (
-                    <div key={i} style={{ height:4, flex:1, minWidth:16, borderRadius:2, background:'#a855f7' }} />
-                  ))}
-                </div>
-              )}
             </motion.div>
 
             {/* Efficiency */}

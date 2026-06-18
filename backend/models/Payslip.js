@@ -24,6 +24,7 @@ const payslipSchema = new mongoose.Schema(
     companyPhone: { type: String, trim: true, default: '' },
     companyWebsite: { type: String, trim: true, default: '' },
     companyCIN: { type: String, trim: true, default: '' },
+    companyGST: { type: String, trim: true, default: '' },
 
     // ── Employee Info ─────────────────────────────────
     employeeName: { type: String, required: true, trim: true },
@@ -80,14 +81,20 @@ const payslipSchema = new mongoose.Schema(
 
 // Auto-compute totals before saving
 payslipSchema.pre('save', function (next) {
-  this.grossEarnings =
-    (this.basicSalary || 0) +
-    (this.hra || 0) +
-    (this.conveyanceAllowance || 0) +
-    (this.medicalAllowance || 0) +
-    (this.specialAllowance || 0) +
-    (this.otherEarnings || 0) +
-    (this.stipend || 0);
+  if (this.employmentType === 'intern') {
+    // For interns: gross = stipend only (basicSalary, hra, special are 0)
+    this.grossEarnings = (this.stipend || 0) + (this.otherEarnings || 0);
+  } else {
+    // For regular employees: gross = salary components (stipend is 0)
+    this.grossEarnings =
+      (this.basicSalary || 0) +
+      (this.hra || 0) +
+      (this.conveyanceAllowance || 0) +
+      (this.medicalAllowance || 0) +
+      (this.specialAllowance || 0) +
+      (this.otherEarnings || 0) +
+      (this.employerPF || 0);
+  }
 
   this.totalDeductions =
     (this.providentFund || 0) +

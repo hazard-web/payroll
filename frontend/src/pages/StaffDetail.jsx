@@ -182,7 +182,6 @@ export default function StaffDetail() {
   const [provisioning, setProvisioning] = useState(false)
   const [revoking, setRevoking] = useState(false)
   const [resetLink, setResetLink] = useState('')
-  const [savingOT, setSavingOT] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
@@ -279,7 +278,11 @@ export default function StaffDetail() {
     setResetLink('')
     try {
       const res = await api.post(`/staff/${id}/provision-portal`)
-      toast.success(res.data.message || 'Portal provisioned')
+      if (res.data.emailError) {
+        toast.error(`Portal provisioned, but email failed: ${res.data.emailError}`)
+      } else {
+        toast.success(res.data.message || 'Portal provisioned')
+      }
       if (res.data.resetLink) setResetLink(res.data.resetLink)
       const staffRes = await api.get(`/staff/${id}`)
       setStaff(staffRes.data.data)
@@ -316,19 +319,6 @@ export default function StaffDetail() {
     } catch (err) {
       toast.error('Failed to delete')
       setDeleting(false)
-    }
-  }
-
-  const handleToggleOvertimeEligible = async () => {
-    setSavingOT(true)
-    try {
-      const res = await api.put(`/staff/${id}`, { overtimeEligible: !staff.overtimeEligible })
-      setStaff(res.data.data)
-      toast.success(`Weekend overtime ${!staff.overtimeEligible ? 'enabled' : 'disabled'}`)
-    } catch (err) {
-      toast.error('Failed to update overtime eligibility')
-    } finally {
-      setSavingOT(false)
     }
   }
 
@@ -471,34 +461,6 @@ export default function StaffDetail() {
                   <DossierField label="Department" value={staff.department} />
                   <DossierField label="Designation" value={staff.designation} />
                   {staff.pfNumber && <DossierField label="PF Number" value={staff.pfNumber} />}
-                  
-                  {/* Weekend Overtime Action Row */}
-                  <div className="dossier-action-cell dossier-span-2">
-                    <div>
-                      <div className="dossier-field-label">Weekend Overtime</div>
-                      <div className="dossier-field-value">
-                        {staff.overtimeEligible ? 'Enabled (Sat/Sun allowed)' : 'Not Eligible'}
-                      </div>
-                    </div>
-                    <button 
-                      onClick={handleToggleOvertimeEligible} 
-                      disabled={savingOT}
-                      className="btn-hover"
-                      style={{
-                        padding: '6px 14px',
-                        borderRadius: 6,
-                        border: '1px solid var(--border)',
-                        background: 'var(--bg)',
-                        color: 'var(--primary)',
-                        fontSize: 12,
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      {savingOT ? <Loader2 size={12} className="spin" /> : (staff.overtimeEligible ? 'Disable' : 'Enable')}
-                    </button>
-                  </div>
 
                   {/* Portal Access Action Row */}
                   <div className="dossier-action-cell dossier-span-2">
@@ -746,7 +708,6 @@ export default function StaffDetail() {
                           </td>
                           <td style={{ padding: 16, color: 'var(--text-muted)' }}>
                             {record.totalHours > 0 ? `${record.totalHours.toFixed(2)}h` : '—'}
-                            {record.overtimeHours > 0 && <span style={{ marginLeft: 8, color: 'var(--primary)', fontSize: 12 }}>+{record.overtimeHours.toFixed(2)}h OT</span>}
                           </td>
                           <td style={{ padding: 16 }}><AttendanceStatusBadge record={record} /></td>
                         </tr>
