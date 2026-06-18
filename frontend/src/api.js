@@ -1,8 +1,7 @@
 import axios from 'axios'
 
 // API base URL resolution:
-// - In DEV: use '/api' so the Vite proxy (vite.config.js) forwards to
-//   http://127.0.0.1:5001
+// - In DEV: use '/api' so the Vite proxy (vite.config.js) forwards to the local backend.
 // - In PROD: prefer VITE_API_BASE_URL (set in Vercel env vars or .env),
 //   fall back to the hardcoded production backend URL so the deployed
 //   bundle always points at the right place even if the env var is missing.
