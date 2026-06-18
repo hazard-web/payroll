@@ -1,7 +1,12 @@
 import axios from 'axios'
 
+// In production, VITE_API_BASE_URL points at the deployed backend
+// (e.g. https://payslip-gen-backend.vercel.app). In dev, leave it unset so
+// the Vite proxy in vite.config.js can forward /api -> http://127.0.0.1:5001.
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE ? `${API_BASE}/api` : '/api',
   timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
 })
