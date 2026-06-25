@@ -54,9 +54,10 @@ export default function PortalDashboard() {
   const [taskSubmitting, setTaskSubmitting] = useState(false)
 
   const normalizeTasks = (items) => items.map(task => ({
-    project: task.project?.trim() || 'General',
-    description: task.description?.trim(),
-    status: ['Pending', 'In Progress', 'Completed'].includes(task.status) ? task.status : 'Pending'
+    project: (task.project || '').trim(),
+    description: (task.description || '').trim(),
+    status: ['Pending', 'In Progress', 'Completed'].includes(task.status) ? task.status : 'Pending',
+    notes: (task.notes || '').trim()
   }))
 
   const getLocation = async () => {
@@ -75,14 +76,18 @@ export default function PortalDashboard() {
   const openTaskModal = (mode) => {
     setTaskMode(mode)
     if (mode === 'in') {
-      setTaskItems([{ project: staffUser?.clientAssignment || 'General', description: '', status: 'Pending' }])
+      // Default project to staffUser.clientAssignment if set (it's a real
+      // project name the admin pre-assigned), otherwise start empty so the
+      // user must explicitly pick a project — never auto-fill "General".
+      const preset = (staffUser?.clientAssignment || '').trim()
+      setTaskItems([{ project: preset, description: '', status: 'Pending' }])
     } else {
       const existing = activeShift?.tasks?.map(task => ({
-        project: task.project || staffUser?.clientAssignment || 'General',
+        project: task.project || '',
         description: task.description || '',
         status: task.status || 'Pending'
       }))
-      setTaskItems(existing && existing.length > 0 ? existing : [{ project: staffUser?.clientAssignment || 'General', description: '', status: 'Pending' }])
+      setTaskItems(existing && existing.length > 0 ? existing : [{ project: '', description: '', status: 'Pending' }])
     }
     setShowTaskModal(true)
   }
@@ -96,7 +101,8 @@ export default function PortalDashboard() {
       toast.error('Maximum 8 tasks can be added for one shift.')
       return
     }
-    setTaskItems(prev => [...prev, { project: staffUser?.clientAssignment || 'General', description: '', status: 'Pending' }])
+    const preset = (staffUser?.clientAssignment || '').trim()
+    setTaskItems(prev => [...prev, { project: preset, description: '', status: 'Pending' }])
   }
 
   const canAddMoreTask = taskItems.length < 8
@@ -109,12 +115,17 @@ export default function PortalDashboard() {
     setTaskSubmitting(true)
     try {
       const cleanedTasks = normalizeTasks(taskItems)
-      if (taskMode === 'in' && cleanedTasks.filter(task => task.description).length < 2) {
-        toast.error('Please fill at least 2 tasks before punching in.')
+      // Validate: at least one task, every task must have a project AND a description.
+      if (cleanedTasks.length === 0) {
+        toast.error('Please add at least one task before Punch In.')
         return
       }
-      if (cleanedTasks.length === 0 || cleanedTasks.some(task => !task.description)) {
-        toast.error('Please fill all task descriptions.')
+      if (cleanedTasks.some(task => !task.project)) {
+        toast.error('Please select a project.')
+        return
+      }
+      if (cleanedTasks.some(task => !task.description)) {
+        toast.error('Please add at least one task before Punch In.')
         return
       }
 
@@ -126,7 +137,7 @@ export default function PortalDashboard() {
       setShowTaskModal(false)
       await fetchActiveShift()
     } catch (err) {
-      toast.error(err.response?.data?.message || `Failed to ${taskMode === 'in' ? 'punch in' : 'punch out'}`)
+      toast.error(err.response?.data?.message || err.message || `Failed to ${taskMode === 'in' ? 'punch in' : 'punch out'}`)
     } finally {
       setTaskSubmitting(false)
     }
@@ -286,8 +297,8 @@ export default function PortalDashboard() {
               {activeShift.tasks.slice(0, 3).map((task, index) => (
                 <div key={index} style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--bg)', border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{task.project || 'General'}</div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: task.status === 'Completed' ? '#15803d' : task.status === 'In Progress' ? '#c2410c' : '#475569', textTransform: 'uppercase' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{task.project || '—'}</div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: task.status === 'Completed' ? '#636B2F' : task.status === 'In Progress' ? '#c2410c' : '#475569', textTransform: 'uppercase' }}>
                       {task.status}
                     </span>
                   </div>
@@ -393,7 +404,7 @@ export default function PortalDashboard() {
                     <div style={{ display: 'grid', gap: 12 }}>
                       <div>
                         <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>Project</label>
-                        <input value={item.project} onChange={(e) => updateTaskItem(index, 'project', e.target.value)} placeholder="Project name" style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, outline: 'none', transition: 'border-color .15s' }} />
+                        <input value={item.project} onChange={(e) => updateTaskItem(index, 'project', e.target.value)} placeholder="Select a Project" required style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, outline: 'none', transition: 'border-color .15s' }} />
                       </div>
                       <div>
                         <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>Task description</label>

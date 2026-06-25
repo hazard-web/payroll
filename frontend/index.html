@@ -8,15 +8,74 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <!-- Cache-busting: tell browser to always revalidate -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <style>
+      /* Inline critical CSS so the user sees content even before React mounts */
+      html, body { margin: 0; padding: 0; background: #f4f6fa; color: #1a1a1a; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+      #root:empty::before { content: 'Loading PaySlip Pro…'; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-size: 16px; color: #636B2F; font-weight: 600; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
     <script>
-      window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        window.deferredPrompt = e;
+      // AUTO-CLEANUP: kill any legacy service workers / caches left over from
+      // the old VitePWA build. Those old SWs intercept /portal and other
+      // routes and return a blank page. They live in Chrome's SW storage
+      // even after the VitePWA config is removed. We unregister them on
+      // every page load until none are left. This block is idempotent
+      // and safe to run repeatedly.
+      (function purgeLegacySW() {
+        if (!('serviceWorker' in navigator)) return;
+        try {
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            if (!regs || !regs.length) return;
+            regs.forEach(function (r) {
+              try { r.unregister(); } catch (_) { /* ignore */ }
+            });
+          });
+        } catch (_) { /* ignore */ }
+        // Also clear any Cache Storage buckets the old SW may have populated
+        if ('caches' in window) {
+          try {
+            caches.keys().then(function (keys) {
+              keys.forEach(function (k) { try { caches.delete(k); } catch (_) { /* ignore */ } });
+            });
+          } catch (_) { /* ignore */ }
+        }
+      })();
+    </script>
+    <script>
+      // CRITICAL: catch any uncaught error in main.jsx or its imports and
+      // surface it visibly in the page (not just the DevTools console).
+      // Without this, a single import-time throw leaves a blank page and
+      // the user has no idea why.
+      window.__bootErrors = [];
+      function showBootError(err) {
+        try {
+          var root = document.getElementById('root');
+          if (!root) return;
+          var msg = (err && (err.stack || err.message)) || String(err);
+          // truncate
+          if (msg.length > 2000) msg = msg.substring(0, 2000) + '…';
+          root.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#f4f6fa;font-family:system-ui,sans-serif;color:#1a1a1a;"><div style="max-width:720px;width:100%;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:32px;box-shadow:0 10px 30px -10px rgba(0,0,0,0.08);"><h1 style="font-size:22px;font-weight:800;margin:0 0 8px;color:#b91c1c;">PaySlip Pro — Boot Error</h1><p style="font-size:14px;color:#6b7280;margin:0 0 16px;">The app failed to start. Details below (also check the browser console with F12 → Console):</h1><pre style="font-size:12px;background:#f4f6fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px;overflow:auto;max-height:280px;white-space:pre-wrap;word-break:break-word;color:#991b1b;margin:0 0 20px;">' + msg.replace(/</g, '&lt;') + '</pre><button onclick="localStorage.clear();sessionStorage.clear();indexedDB.databases && indexedDB.databases().then(dbs => dbs.forEach(db => indexedDB.deleteDatabase(db.name)));if(\'serviceWorker\' in navigator){navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()))};caches.keys().then(ks => ks.forEach(k => caches.delete(k))).then(() => location.reload())" style="padding:10px 18px;border-radius:8px;border:none;background:#636B2F;color:#fff;font-weight:700;font-size:13px;cursor:pointer;margin-right:8px;">Clear all storage & reload</button><button onclick="location.reload()" style="padding:10px 18px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#374151;font-weight:700;font-size:13px;cursor:pointer;">Just reload</button></div></div>';
+        } catch (_) { /* ignore */ }
+      }
+      window.addEventListener('error', function (e) {
+        window.__bootErrors.push(e.error || e.message);
+        if (document.getElementById('root') && (!document.getElementById('root').children || document.getElementById('root').children.length === 0)) {
+          showBootError(e.error || e.message);
+        }
+      });
+      window.addEventListener('unhandledrejection', function (e) {
+        window.__bootErrors.push(e.reason);
+        if (document.getElementById('root') && (!document.getElementById('root').children || document.getElementById('root').children.length === 0)) {
+          showBootError(e.reason);
+        }
       });
     </script>
-    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

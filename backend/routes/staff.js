@@ -30,33 +30,38 @@ function resolvePortalBaseUrl(req) {
 }
 
 async function provisionStaffPortalAccess(staff, req, options = {}) {
-  const resetToken = crypto.randomBytes(32).toString('hex');
-  const tempPassword = crypto.randomBytes(6).toString('hex');
+  // Generate a secure 64-char hex setup token. The Staff model's existing
+  // passwordResetToken / passwordResetExpires fields are reused as the
+  // "setup" token (24h expiry). The employee clicks the link, sets their
+  // own password, and the token is cleared. No default password is ever
+  // generated or sent.
+  const setupToken = crypto.randomBytes(32).toString('hex');
 
-  staff.passwordResetToken = resetToken;
-  staff.passwordResetExpires = Date.now() + 24 * 60 * 60 * 1000;
+  staff.passwordResetToken = setupToken;
+  staff.passwordResetExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
   staff.isPortalEnabled = true;
-  staff.mustChangePassword = true;
-  staff.portalPassword = tempPassword;
   staff.loginAttempts = 0;
   staff.lockUntil = undefined;
+  // Intentionally do NOT set staff.portalPassword or staff.mustChangePassword here.
+  // The account stays in an "invited" state until the employee sets their password
+  // via /api/portal/setup-password. Until then, portal login attempts will fail
+  // because portalPassword is undefined and the pre-save bcrypt hook skips it.
 
   await staff.save();
 
-  const resetLink = `${resolvePortalBaseUrl(req)}/portal/reset-password?token=${resetToken}`;
+  const setupLink = `${resolvePortalBaseUrl(req)}/portal/setup-password?token=${setupToken}`;
   const result = {
-    resetLink,
+    resetLink: setupLink, // keep the field name stable for downstream consumers
     emailPreviewUrl: null,
     emailError: null,
     smtpAccepted: false,
     smtpRejected: [],
     smtpResponse: null,
-    tempPassword, // surface to admin so they can share manually if email fails
   };
 
   if (options.sendEmail !== false) {
     try {
-      const sendResult = await emailService.sendStaffProvisionEmail(staff, tempPassword, resetLink);
+      const sendResult = await emailService.sendTeamMemberOnboarding(staff, setupLink);
       // sendResult is { previewUrl, info } when available
       if (sendResult && typeof sendResult === 'object') {
         result.emailPreviewUrl = sendResult.previewUrl || null;
@@ -71,7 +76,7 @@ async function provisionStaffPortalAccess(staff, req, options = {}) {
       }
     } catch (emailErr) {
       result.emailError = emailErr.message;
-      console.error('Failed to send staff provision email:', emailErr.message);
+      console.error('Failed to send team member onboarding email:', emailErr.message);
     }
   }
 
@@ -81,7 +86,13 @@ async function provisionStaffPortalAccess(staff, req, options = {}) {
 const { logActivity } = require('../utils/logger');
 router.get('/', protect, async (req, res) => {
   try {
-    const staff = await Staff.find({ user: req.user._id }).sort({ createdAt: -1 });
+    // .lean() returns plain JS objects (no Mongoose overhead).
+    // Projection drops large embedded fields the list view doesn't use
+    // (documents.* files, full financials, embedded bankDetails blobs).
+    const staff = await Staff.find({ user: req.user._id })
+      .sort({ createdAt: -1 })
+      .lean()
+      .select('-documents -financials -address -emergencyContact -bankDetails');
     res.json({ success: true, data: staff });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -206,7 +217,8 @@ router.post('/', protect, async (req, res) => {
 // Get a specific staff member
 router.get('/:id', protect, async (req, res) => {
   try {
-    const staff = await Staff.findOne({ _id: req.params.id, user: req.user._id });
+    // lean() — read-only detail fetch never mutates; no need for a Mongoose doc
+    const staff = await Staff.findOne({ _id: req.params.id, user: req.user._id }).lean();
     if (!staff) {
       return res.status(404).json({ success: false, message: 'Staff member not found' });
     }

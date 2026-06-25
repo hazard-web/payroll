@@ -31,7 +31,7 @@ export default function ForgotPassword() {
         toast.success('Reset link dispatched — check your inbox.')
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Something went wrong. Please try again.')
+      toast.error(err.response?.data?.message || err.message || 'Something went wrong. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -175,21 +175,21 @@ export default function ForgotPassword() {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.1 }}
                   style={{
-                    background: 'linear-gradient(135deg, rgba(88, 131, 59, 0.08), rgba(15, 23, 42, 0.04))',
-                    border: '2px dashed rgba(88, 131, 59, 0.5)',
+                    background: 'linear-gradient(135deg, rgba(99, 107, 47, 0.08), rgba(15, 23, 42, 0.04))',
+                    border: '2px dashed rgba(99, 107, 47, 0.5)',
                     borderRadius: 14, padding: 20, marginBottom: 24, textAlign: 'left',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                     <div style={{
                       width: 36, height: 36, borderRadius: 10,
-                      background: '#57833B',
+                      background: '#636B2F',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
                       <Inbox size={18} color="#fff" strokeWidth={2.5} />
                     </div>
                     <div>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: '#57833B' }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#636B2F' }}>
                         Test email preview (Ethereal)
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
@@ -204,7 +204,7 @@ export default function ForgotPassword() {
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                       width: '100%', padding: '14px 18px',
-                      background: '#57833B', color: 'white',
+                      background: '#636B2F', color: 'white',
                       borderRadius: 10, textDecoration: 'none',
                       fontWeight: 800, fontSize: 14, letterSpacing: '0.02em',
                     }}

@@ -3,12 +3,14 @@ import {
   Calendar, Clock, Loader2, CheckCircle2, XCircle,
   Search, MessageSquare, Download, ChevronLeft, ChevronRight,
   UserCheck, AlertTriangle, ClipboardList, TrendingUp, MapPin,
-  Briefcase, Save, RotateCcw
+  Briefcase, Save, RotateCcw, FileText
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '../api'
 import PageShell, { PageHeader } from '../components/PageShell'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 // ─── styles ──────────────────────────────────────────────────────────────────
 const pageStyles = `
@@ -16,7 +18,7 @@ const pageStyles = `
   .la-tab  { padding:8px 20px; border-radius:7px; font-size:13px; font-weight:600; cursor:pointer; border:none; transition:all 0.18s; color:var(--text-muted); background:transparent; }
   .la-tab.active { background:var(--surface); color:var(--text); box-shadow:0 1px 4px rgba(0,0,0,0.10); }
   .la-pill { display:inline-flex; align-items:center; gap:3px; padding:2px 10px; border-radius:999px; font-size:11px; font-weight:700; white-space:nowrap; }
-  .la-pill-green  { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+  .la-pill-green  { background:#e5ebdd; color:#636B2F; border:1px solid rgba(99, 107, 47, 0.25); }
   .la-pill-orange { background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; }
   .la-pill-blue   { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
   .la-pill-yellow { background:#fefce8; color:#854d0e; border:1px solid #fde047; }
@@ -357,130 +359,179 @@ function AttendanceTab() {
   const totalHrsAll   = filtered.reduce((s, r) => s + (r.totalHours || 0), 0)
   const avgHrs        = totalRecords ? totalHrsAll / totalRecords : 0
 
-  // CSV export
-  const exportCSV = () => {
+  // PDF export — full report
+  const exportPDF = () => {
     const sortedForExport = [...filtered].sort((a, b) => new Date(a.date) - new Date(b.date))
     const reportLabel = viewMode === 'day' ? getSelectedDate() : `${MONTHS[month - 1]} ${year}`
-    const rows = [
-      ['Report Date', reportLabel],
-      [],
-      [
-        'Year',
-        'Month',
-        'Date',
-        'Day',
-        'Employee',
-        'Employee ID',
-        'Designation',
-        'Punch In (Date Time)',
-        'Punch Out (Date Time)',
-        'Punch In Location',
-        'Punch Out Location',
-        'Hours Worked (Decimal)',
-        'Hours Worked (HH:MM)',
-        'Work Status',
-        'Record Status',
-        'Late'
-      ]
-    ]
-    sortedForExport.forEach(r => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+
+    // Header
+    doc.setFillColor(87, 131, 59)
+    doc.rect(0, 0, 297, 22, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Attendance Report', 14, 10)
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Period: ${reportLabel}   |   Generated: ${new Date().toLocaleString('en-IN')}`, 14, 17)
+
+    // Summary row
+    doc.setTextColor(50, 50, 50)
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.text(
+      `Total: ${totalRecords}   Full Days: ${fullDays}   Half Days: ${halfDays}   Late: ${lateArrivals}   Avg Hrs/Day: ${avgHrs.toFixed(1)}h`,
+      14, 30
+    )
+
+    // Table
+    const tableRows = sortedForExport.map((r, i) => {
       const d = new Date(r.date)
-      const punchInDT = r.punchIn ? new Date(r.punchIn).toLocaleString('en-GB') : 'N/A'
-      const punchOutDT = r.punchOut ? new Date(r.punchOut).toLocaleString('en-GB') : 'N/A'
-      const locIn  = r.locationIn?.lat  ? `${r.locationIn.lat},${r.locationIn.lng}`   : 'N/A'
-      const locOut = r.locationOut?.lat ? `${r.locationOut.lat},${r.locationOut.lng}` : 'N/A'
-      rows.push([
-        String(d.getFullYear()),
-        MONTHS[d.getMonth()],
+      const active = !r.punchOut &&
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate()
+      const lateFlag = getLateInfo(r.punchIn).isLate ? 'Yes' : 'No'
+      return [
+        i + 1,
+        r.staff?.fullName || 'Unknown',
+        r.staff?.employeeId || '—',
+        r.staff?.designation || '—',
         d.toLocaleDateString('en-GB'),
-        d.toLocaleDateString('en-GB', { weekday: 'long' }),
-        r.staff?.fullName || 'N/A',
-        r.staff?.employeeId || 'N/A',
-        r.staff?.designation || 'N/A',
-        punchInDT,
-        punchOutDT,
-        locIn,
-        locOut,
-        r.totalHours ? r.totalHours.toFixed(2) : '0.00',
-        fmtHours(r.totalHours || 0),
-        r.workStatus || 'N/A',
-        r.status || 'N/A',
-        getLateInfo(r.punchIn).isLate ? 'Yes' : 'No'
-      ])
+        d.toLocaleDateString('en-GB', { weekday: 'short' }),
+        r.punchIn ? new Date(r.punchIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—',
+        active ? 'Active (no punch-out)' : r.punchOut ? new Date(r.punchOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—',
+        r.totalHours ? `${r.totalHours.toFixed(2)}h` : active ? 'Active' : '—',
+        active ? 'Active' : (r.workStatus || r.status || '—'),
+        lateFlag
+      ]
     })
-    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href     = url
-    a.download = viewMode === 'day'
-      ? `Attendance_${getSelectedDate()}.csv`
-      : `Attendance_${MONTHS[month - 1]}_${year}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+
+    autoTable(doc, {
+      startY: 35,
+      head: [['#', 'Employee', 'Emp ID', 'Designation', 'Date', 'Day', 'Login', 'Punch Out', 'Worked', 'Status', 'Late']],
+      body: tableRows,
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [87, 131, 59], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      alternateRowStyles: { fillColor: [245, 250, 245] },
+      columnStyles: {
+        0:  { cellWidth: 8 },
+        1:  { cellWidth: 38 },
+        2:  { cellWidth: 18 },
+        3:  { cellWidth: 32 },
+        4:  { cellWidth: 22 },
+        5:  { cellWidth: 12 },
+        6:  { cellWidth: 22 },
+        7:  { cellWidth: 22 },
+        8:  { cellWidth: 18 },
+        9:  { cellWidth: 20 },
+        10: { cellWidth: 12 }
+      },
+      didDrawPage: (data) => {
+        const pageCount = doc.internal.getNumberOfPages()
+        doc.setFontSize(7)
+        doc.setTextColor(150)
+        doc.text(
+          `Page ${data.pageNumber} of ${pageCount}`,
+          297 - 14, doc.internal.pageSize.height - 6,
+          { align: 'right' }
+        )
+      }
+    })
+
+    const filename = viewMode === 'day'
+      ? `Attendance_${getSelectedDate()}.pdf`
+      : `Attendance_${MONTHS[month - 1]}_${year}.pdf`
+    doc.save(filename)
   }
 
   const yearOptions = Array.from({ length: 4 }, (_, i) => now.getFullYear() - i)
 
-  const exportStaffCSV = async (staff) => {
+  // PDF export — per-staff full history
+  const exportStaffPDF = async (staff) => {
     if (!staff?._id) return
     try {
       setExportingStaffId(staff._id)
       const res = await api.get(`/attendance/admin/staff/${staff._id}`)
       const history = (res.data?.history || []).sort((a, b) => new Date(a.date) - new Date(b.date))
-      const rows = [
-        ['Employee', staff.fullName || 'N/A'],
-        ['Employee ID', staff.employeeId || 'N/A'],
-        ['Designation', staff.designation || 'N/A'],
-        [],
-        [
-          'Year',
-          'Month',
-          'Date',
-          'Day',
-          'Punch In (Date Time)',
-          'Punch Out (Date Time)',
-          'Punch In Location',
-          'Punch Out Location',
-          'Hours Worked (Decimal)',
-          'Hours Worked (HH:MM)',
-          'Work Status',
-          'Record Status',
-          'Late'
-        ]
-      ]
 
-      history.forEach(r => {
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+
+      // Header
+      doc.setFillColor(87, 131, 59)
+      doc.rect(0, 0, 297, 22, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(14)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Individual Attendance Report', 14, 10)
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'normal')
+      doc.text(
+        `${staff.fullName || 'N/A'}  ·  ${staff.designation || 'N/A'}  ·  ID: ${staff.employeeId || 'N/A'}  |  Generated: ${new Date().toLocaleString('en-IN')}`,
+        14, 17
+      )
+
+      // Summary
+      const totalRec  = history.length
+      const fullD     = history.filter(r => r.workStatus === 'Full Day').length
+      const halfD     = history.filter(r => r.workStatus === 'Half Day').length
+      const lateC     = history.filter(r => getLateInfo(r.punchIn).isLate).length
+      const totalHrs  = history.reduce((s, r) => s + (r.totalHours || 0), 0)
+      doc.setTextColor(50, 50, 50)
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.text(
+        `Total Records: ${totalRec}   Full Days: ${fullD}   Half Days: ${halfD}   Late: ${lateC}   Total Hrs: ${totalHrs.toFixed(1)}h`,
+        14, 30
+      )
+
+      const tableRows = history.map((r, i) => {
         const d = new Date(r.date)
-        const punchInDT = r.punchIn ? new Date(r.punchIn).toLocaleString('en-GB') : 'N/A'
-        const punchOutDT = r.punchOut ? new Date(r.punchOut).toLocaleString('en-GB') : 'N/A'
-        const locIn = r.locationIn?.lat ? `${r.locationIn.lat},${r.locationIn.lng}` : 'N/A'
-        const locOut = r.locationOut?.lat ? `${r.locationOut.lat},${r.locationOut.lng}` : 'N/A'
-        rows.push([
-          String(d.getFullYear()),
-          MONTHS[d.getMonth()],
+        return [
+          i + 1,
           d.toLocaleDateString('en-GB'),
-          d.toLocaleDateString('en-GB', { weekday: 'long' }),
-          punchInDT,
-          punchOutDT,
-          locIn,
-          locOut,
-          r.totalHours ? r.totalHours.toFixed(2) : '0.00',
-          fmtHours(r.totalHours || 0),
-          r.workStatus || 'N/A',
-          r.status || 'N/A',
+          d.toLocaleDateString('en-GB', { weekday: 'short' }),
+          r.punchIn ? new Date(r.punchIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—',
+          r.punchOut ? new Date(r.punchOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—',
+          r.locationIn?.lat ? `${Number(r.locationIn.lat).toFixed(4)}, ${Number(r.locationIn.lng).toFixed(4)}` : '—',
+          r.totalHours ? `${r.totalHours.toFixed(2)}h` : '—',
+          r.workStatus || r.status || '—',
           getLateInfo(r.punchIn).isLate ? 'Yes' : 'No'
-        ])
+        ]
       })
 
-      const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
-      const blob = new Blob([csv], { type: 'text/csv' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `Attendance_${(staff.fullName || 'staff').replace(/\s+/g, '_')}_All_Days.csv`
-      a.click()
-      URL.revokeObjectURL(url)
+      autoTable(doc, {
+        startY: 35,
+        head: [['#', 'Date', 'Day', 'Login', 'Punch Out', 'Location', 'Worked', 'Status', 'Late']],
+        body: tableRows,
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [87, 131, 59], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+        alternateRowStyles: { fillColor: [245, 250, 245] },
+        columnStyles: {
+          0: { cellWidth: 8 },
+          1: { cellWidth: 25 },
+          2: { cellWidth: 14 },
+          3: { cellWidth: 25 },
+          4: { cellWidth: 25 },
+          5: { cellWidth: 45 },
+          6: { cellWidth: 20 },
+          7: { cellWidth: 25 },
+          8: { cellWidth: 12 }
+        },
+        didDrawPage: (data) => {
+          const pageCount = doc.internal.getNumberOfPages()
+          doc.setFontSize(7)
+          doc.setTextColor(150)
+          doc.text(
+            `Page ${data.pageNumber} of ${pageCount}`,
+            297 - 14, doc.internal.pageSize.height - 6,
+            { align: 'right' }
+          )
+        }
+      })
+
+      doc.save(`Attendance_${(staff.fullName || 'staff').replace(/\s+/g, '_')}_All_Days.pdf`)
     } catch {
       toast.error('Failed to export staff attendance')
     } finally {
@@ -560,10 +611,10 @@ function AttendanceTab() {
           <input placeholder="Search employee…" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
-        {/* Export */}
-        <button className="la-export-btn" onClick={exportCSV} disabled={filtered.length === 0}>
-          <Download size={15} />
-          Export CSV
+        {/* Export PDF */}
+        <button className="la-export-btn" onClick={exportPDF} disabled={filtered.length === 0}>
+          <FileText size={15} />
+          Export PDF
         </button>
       </div>
 
@@ -571,7 +622,7 @@ function AttendanceTab() {
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', gap:12, marginBottom:20 }}>
         {[
           { icon: ClipboardList, label:'Total Records', value: totalRecords,           iconBg:'#eff6ff', iconColor:'#1d4ed8' },
-          { icon: UserCheck,     label:'Full Days',     value: fullDays,               iconBg:'#f0fdf4', iconColor:'#15803d' },
+          { icon: UserCheck,     label:'Full Days',     value: fullDays,               iconBg:'#e5ebdd', iconColor:'#636B2F' },
           { icon: Clock,         label:'Half Days',     value: halfDays,               iconBg:'#fefce8', iconColor:'#854d0e' },
           { icon: AlertTriangle, label:'Late Arrivals', value: lateArrivals,           iconBg:'#fff7ed', iconColor:'#c2410c' },
           { icon: TrendingUp,    label:'Avg Hrs/Day',   value: `${avgHrs.toFixed(1)}h`,iconBg:'#faf5ff', iconColor:'#6b21a8' },
@@ -623,8 +674,8 @@ function AttendanceTab() {
                   recordDate.getFullYear() === now.getFullYear() &&
                   recordDate.getMonth() === now.getMonth() &&
                   recordDate.getDate() === now.getDate()
-                const avatarBg = late ? '#fff7ed' : active ? '#eff6ff' : '#f0fdf4'
-                const avatarColor = late ? '#c2410c' : active ? '#1d4ed8' : '#15803d'
+                const avatarBg = late ? '#fff7ed' : active ? '#eff6ff' : '#e5ebdd'
+                const avatarColor = late ? '#c2410c' : active ? '#1d4ed8' : '#636B2F'
 
                 return (
                   <motion.div key={record._id} initial={{ opacity:0 }} animate={{ opacity:1 }}
@@ -705,15 +756,15 @@ function AttendanceTab() {
                     {/* Status */}
                     <StatusPill status={record.status} workStatus={active ? 'Active' : (record.workStatus || record.status)} />
 
-                    {/* Export staff-wise */}
+                    {/* Export staff-wise PDF */}
                     <div>
                       <button
-                        onClick={() => exportStaffCSV(record.staff)}
+                        onClick={() => exportStaffPDF(record.staff)}
                         disabled={exportingStaffId === record.staff?._id}
                         className="la-export-btn"
                         style={{ fontSize:11, padding:'4px 10px', minHeight: 28, width: '100%' }}
                       >
-                        {exportingStaffId === record.staff?._id ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                        {exportingStaffId === record.staff?._id ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
                         Export
                       </button>
                     </div>
@@ -724,15 +775,10 @@ function AttendanceTab() {
           </div>
 
           {/* Footer */}
-          <div style={{ padding:'11px 20px', borderTop:'1px solid var(--border)', display:'flex', gap:20, flexWrap:'wrap', alignItems:'center', justifyContent:'space-between' }}>
-            <div style={{ display:'flex', gap:16, flexWrap:'wrap' }}>
+          <div style={{ padding:'11px 20px', borderTop:'1px solid var(--border)', display:'flex', gap:20, flexWrap:'wrap', alignItems:'center' }}>
               <span style={{ fontSize:12, color:'var(--text-muted)' }}>Total: <strong style={{ color:'var(--text)' }}>{filtered.length} records</strong></span>
               <span style={{ fontSize:12, color:'var(--text-muted)' }}>Hours: <strong style={{ color:'var(--text)' }}>{totalHrsAll.toFixed(1)}h</strong></span>
               {lateArrivals > 0 && <span style={{ fontSize:12, color:'var(--text-muted)' }}>Late: <strong style={{ color:'#c2410c' }}>{lateArrivals}</strong></span>}
-            </div>
-            <button className="la-export-btn" onClick={exportCSV} style={{ fontSize:12, padding:'6px 14px' }}>
-              <Download size={13} /> Export
-            </button>
           </div>
         </div>
       )}

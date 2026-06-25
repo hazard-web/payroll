@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { memo, useState, useEffect, useCallback } from 'react'
 import {
   Calendar as CalendarIcon, Clock, AlertCircle, Loader2,
   ChevronLeft, ChevronRight, CheckCircle2, XCircle, FileText, Send, ListChecks
@@ -40,7 +40,7 @@ const styles = `
   }
   /* pill */
   .pa-pill { display:inline-flex; align-items:center; gap:3px; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:700; white-space:nowrap; }
-  .pa-pill-green  { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+  .pa-pill-green  { background:#e5ebdd; color:#636B2F; border:1px solid rgba(99, 107, 47, 0.25); }
   .pa-pill-orange { background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; }
   .pa-pill-blue   { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
   .pa-pill-yellow { background:#fefce8; color:#854d0e; border:1px solid #fde047; }
@@ -68,7 +68,10 @@ const fmtTime = dt => dt ? new Date(dt).toLocaleTimeString('en-IN',{hour:'2-digi
 const fmtDate = dt => dt ? new Date(dt).toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'}) : '—'
 const fmtFullDate = dt => dt ? new Date(dt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : '—'
 
-function WorkStatusPill({ status }) {
+// Memoized: this renders once per row in the history table. Without memo,
+// every parent re-render (timer tick, month nav, etc.) re-runs all the
+// string-equality branches below for every row.
+const WorkStatusPill = memo(function WorkStatusPill({ status }) {
   if (!status) return null
   if (status === 'Active')    return <span className="pa-pill pa-pill-blue">Active</span>
   if (status === 'Full Day')  return <span className="pa-pill pa-pill-green">Full Day</span>
@@ -77,7 +80,7 @@ function WorkStatusPill({ status }) {
   if (status === 'Leave')     return <span className="pa-pill pa-pill-purple">Leave</span>
   if (status === 'flagged')   return <span className="pa-pill pa-pill-red">Flagged</span>
   return <span className="pa-pill pa-pill-slate">{status}</span>
-}
+})
 
 // ── Attendance Section ────────────────────────────────────────────────────────
 function AttendanceSection() {
@@ -125,10 +128,10 @@ function AttendanceSection() {
       {/* Summary stats */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(130px,1fr))', gap:12, marginBottom:18 }}>
         {[
-          { label:'Present',   value: summary?.presentDays ?? 0,                  icon: CalendarIcon, bg:'#f0fdf4', color:'#15803d' },
+          { label:'Present',   value: summary?.presentDays ?? 0,                  icon: CalendarIcon, bg:'#e5ebdd', color:'#636B2F' },
           { label:'Avg Hours', value: `${(summary?.avgHours||0).toFixed(1)}h`,     icon: Clock,        bg:'#eff6ff', color:'#1d4ed8' },
           { label:'Tasks',     value: summary?.totalTasks ?? 0,                    icon: ListChecks,  bg:'#f7f6ff', color:'#4338ca' },
-          { label:'Completed', value: summary?.completedTasks ?? 0,                icon: CheckCircle2, bg:'#ecfdf5', color:'#15803d' },
+          { label:'Completed', value: summary?.completedTasks ?? 0,                icon: CheckCircle2, bg:'#e5ebdd', color:'#636B2F' },
           { label:'Flagged',   value: summary?.flaggedCount ?? 0,                 icon: AlertCircle,  bg:'#fef2f2', color:'#991b1b' },
         ].map(({ label, value, icon: Icon, bg, color }) => (
           <div key={label} className="pa-stat">
@@ -217,7 +220,7 @@ function LeaveSection() {
       setForm({ type:'Casual', startDate:'', endDate:'', reason:'' })
       fetchLeaveHistory()
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to submit leave request')
+      toast.error(err.response?.data?.message || err.message || 'Failed to submit leave request')
     } finally {
       setSubmitLoading(false)
     }

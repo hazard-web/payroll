@@ -43,7 +43,7 @@ export default function ResetPassword() {
       toast.success('Password reset successful!')
       setTimeout(() => navigate('/login'), 3000)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Reset failed. The link may have expired.')
+      toast.error(err.response?.data?.message || err.message || 'Reset failed. The link may have expired.')
     } finally {
       setLoading(false)
     }

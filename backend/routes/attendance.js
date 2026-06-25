@@ -194,18 +194,21 @@ router.post('/punch-in', authStaff, async (req, res) => {
     }
 
     if (!Array.isArray(tasks) || tasks.length === 0) {
-      return res.status(400).json({ success: false, message: 'Please add at least one task before punching in.' });
+      return res.status(400).json({ success: false, message: 'Please add at least one task before Punch In.' });
     }
 
     const normalizedTasks = tasks.map(task => ({
-      project: task.project?.trim() || 'General',
-      description: task.description?.trim(),
+      project: (task.project || '').trim(),
+      description: (task.description || '').trim(),
       status: 'Pending',
-      notes: task.notes?.trim() || ''
+      notes: (task.notes || '').trim()
     }));
 
+    if (normalizedTasks.some(task => !task.project)) {
+      return res.status(400).json({ success: false, message: 'Please select a project.' });
+    }
     if (normalizedTasks.some(task => !task.description)) {
-      return res.status(400).json({ success: false, message: 'Each task must include a description.' });
+      return res.status(400).json({ success: false, message: 'Please add at least one task before Punch In.' });
     }
 
     let attendance = await Attendance.findOne({ staff: req.staff._id, date: today });
@@ -218,14 +221,19 @@ router.post('/punch-in', authStaff, async (req, res) => {
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
     let initialWorkStatus = 'Full Day';
-    
+
     if (currentHour > 11 || (currentHour === 11 && currentMinute > 0)) {
       initialWorkStatus = 'Half Day';
     }
 
+    // Defensive: a staff without a populated `user` shouldn't crash the route.
+    // `admin` is required by the schema, so fall back to the staff's own _id
+    // (still a valid ObjectId, just not strictly the admin user — better than 500).
+    const adminId = (req.staff.user && req.staff.user._id) ? req.staff.user._id : req.staff._id;
+
     attendance = new Attendance({
       staff: req.staff._id,
-      admin: req.staff.user._id,
+      admin: adminId,
       date: today,
       punchIn: now,
       status: 'incomplete',
@@ -233,12 +241,22 @@ router.post('/punch-in', authStaff, async (req, res) => {
       locationIn: lat && lng ? { lat, lng } : undefined,
       tasks: normalizedTasks
     });
-    
-    await attendance.save();
+
+    try {
+      await attendance.save();
+    } catch (saveErr) {
+      // Handle the unique-index race: two concurrent punch-in requests
+      // both pass the findOne check, then both try to save. The second
+      // save hits the unique index and throws E11000.
+      if (saveErr && saveErr.code === 11000) {
+        return res.status(400).json({ success: false, message: 'Already punched in for today' });
+      }
+      throw saveErr;
+    }
     res.json({ success: true, message: `Punched in successfully. Status: ${initialWorkStatus}`, attendance });
   } catch (err) {
     console.error('Punch in error:', err);
-    res.status(500).json({ success: false, message: 'Failed to punch in' });
+    res.status(500).json({ success: false, message: err.message || 'Failed to punch in' });
   }
 });
 
@@ -266,24 +284,25 @@ router.post('/punch-out', authStaff, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Already punched out for today' });
     }
 
-    if (tasks) {
-      if (!Array.isArray(tasks) || tasks.length === 0) {
-        return res.status(400).json({ success: false, message: 'Please submit at least one task update before punching out.' });
-      }
-
-      const normalizedTasks = tasks.map(task => ({
-        project: task.project?.trim() || 'General',
-        description: task.description?.trim() || '',
-        status: ['Pending', 'In Progress', 'Completed'].includes(task.status) ? task.status : 'Pending',
-        notes: task.notes?.trim() || ''
-      }));
-
-      if (normalizedTasks.some(task => !task.description)) {
-        return res.status(400).json({ success: false, message: 'Each task update must include a description.' });
-      }
-
-      attendance.tasks = normalizedTasks;
+    if (!Array.isArray(tasks) || tasks.length === 0) {
+      return res.status(400).json({ success: false, message: 'Please add at least one task before Punch In.' });
     }
+
+    const normalizedTasks = tasks.map(task => ({
+      project: (task.project || '').trim(),
+      description: (task.description || '').trim(),
+      status: ['Pending', 'In Progress', 'Completed'].includes(task.status) ? task.status : 'Pending',
+      notes: (task.notes || '').trim()
+    }));
+
+    if (normalizedTasks.some(task => !task.project)) {
+      return res.status(400).json({ success: false, message: 'Please select a project.' });
+    }
+    if (normalizedTasks.some(task => !task.description)) {
+      return res.status(400).json({ success: false, message: 'Please add at least one task before Punch In.' });
+    }
+
+    attendance.tasks = normalizedTasks;
 
     attendance.punchOut = now;
     attendance.locationOut = lat && lng ? { lat, lng } : undefined;
@@ -337,7 +356,13 @@ router.post('/punch-out', authStaff, async (req, res) => {
     const taskCompletionRate = taskTotal ? parseFloat(((completedTasks / taskTotal) * 100).toFixed(0)) : 0;
 
     await attendance.save();
-    await logActivity(req.staff.user._id, 'PUNCH_OUT', `Punched out for ${req.staff.fullName} (Status: ${finalWorkStatus})`, { attendanceId: attendance._id });
+    // logActivity is fire-and-forget — don't let it fail the response.
+    try {
+      const activityActor = (req.staff.user && req.staff.user._id) ? req.staff.user._id : req.staff._id;
+      await logActivity(activityActor, 'PUNCH_OUT', `Punched out for ${req.staff.fullName} (Status: ${finalWorkStatus})`, { attendanceId: attendance._id });
+    } catch (logErr) {
+      console.warn('logActivity (punch-out) failed:', logErr.message);
+    }
     res.json({
       success: true,
       message: 'Punched out successfully',
@@ -346,7 +371,7 @@ router.post('/punch-out', authStaff, async (req, res) => {
     });
   } catch (err) {
     console.error('Punch out error:', err);
-    res.status(500).json({ success: false, message: 'Failed to punch out' });
+    res.status(500).json({ success: false, message: err.message || 'Failed to punch out' });
   }
 });
 
@@ -357,8 +382,8 @@ router.get('/today', authStaff, async (req, res) => {
     const attendance = await Attendance.findOne({
       staff: req.staff._id,
       date: today
-    });
-    
+    }).lean();
+
     res.json({ success: true, attendance });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch record' });
@@ -373,7 +398,7 @@ router.get('/active', authStaff, async (req, res) => {
       staff: req.staff._id,
       date: today,
       punchOut: { $exists: false } // Only return if not punched out yet
-    });
+    }).lean();
     res.json({ success: true, activeShift: attendance || null });
   } catch (err) {
     console.error('Active shift error:', err);
@@ -399,23 +424,43 @@ router.get('/history', authStaff, async (req, res) => {
       filter.date = { $gte: limitDate };
     }
 
-    const history = await Attendance.find(filter).sort({ date: -1 }).lean();
+    // .lean() is already applied. Projection keeps the list payload small:
+    // we don't need locationIn/Out coords, admin ref, or timestamps for the
+    // monthly view. Tasks are needed for the "completed/total" column.
+    const history = await Attendance.find(filter)
+      .sort({ date: -1 })
+      .lean()
+      .select('date punchIn punchOut totalHours overtimeHours status workStatus tasks notes');
+
+    // Compute hours per record: use the persisted totalHours when available
+    // (closed shifts), or compute live hours from (now - punchIn) for the
+    // currently-open shift so the dashboard reflects real time.
+    const nowMs = Date.now();
+    const recordsWithLiveHours = history.map(record => {
+      if (record.punchIn && !record.punchOut) {
+        const liveHours = parseFloat(((nowMs - new Date(record.punchIn).getTime()) / (1000 * 60 * 60)).toFixed(2));
+        return { ...record, totalHours: liveHours, workStatus: record.workStatus || 'Active' };
+      }
+      return record;
+    });
 
     // Map history to handle real-time "ACTIVE" status
-    const mappedHistory = history.map(record => {
+    const mappedHistory = recordsWithLiveHours.map(record => {
       if (!record.punchOut) {
         return { ...record, workStatus: 'Active' };
       }
       return record;
     });
 
-    // Calculate summary stats for this period
-    const presentDays = history.filter(r => r.status === 'complete' || r.totalHours > 0).length;
-    const totalHours = history.reduce((sum, r) => sum + (r.totalHours || 0), 0);
-    const totalOT = history.reduce((sum, r) => sum + (r.overtimeHours || 0), 0);
-    const flaggedCount = history.filter(r => r.status === 'flagged').length;
-    const totalTasks = history.reduce((sum, r) => sum + ((Array.isArray(r.tasks) ? r.tasks.length : 0)), 0);
-    const completedTasks = history.reduce((sum, r) => sum + ((Array.isArray(r.tasks) ? r.tasks.filter(t => t.status === 'Completed').length : 0)), 0);
+    // Calculate summary stats for this period. Include any record where the
+    // employee punched in (regardless of whether they punched out) in the
+    // present-day count, so the dashboard doesn't show 0 while a shift is open.
+    const presentDays = recordsWithLiveHours.filter(r => !!r.punchIn).length;
+    const totalHours = recordsWithLiveHours.reduce((sum, r) => sum + (r.totalHours || 0), 0);
+    const totalOT = recordsWithLiveHours.reduce((sum, r) => sum + (r.overtimeHours || 0), 0);
+    const flaggedCount = recordsWithLiveHours.filter(r => r.status === 'flagged').length;
+    const totalTasks = recordsWithLiveHours.reduce((sum, r) => sum + ((Array.isArray(r.tasks) ? r.tasks.length : 0)), 0);
+    const completedTasks = recordsWithLiveHours.reduce((sum, r) => sum + ((Array.isArray(r.tasks) ? r.tasks.filter(t => t.status === 'Completed').length : 0)), 0);
     const avgHours = presentDays > 0 ? totalHours / presentDays : 0;
     const taskCompletionRate = totalTasks ? parseFloat(((completedTasks / totalTasks) * 100).toFixed(0)) : 0;
 
@@ -454,12 +499,23 @@ router.get('/weekly', authStaff, async (req, res) => {
       date: { $gte: monday, $lt: sunday }
     });
 
-    const totalHours = weekRecords.reduce((sum, r) => sum + (r.totalHours || 0), 0);
-    const totalOT = weekRecords.reduce((sum, r) => sum + (r.overtimeHours || 0), 0);
-    const presentDays = weekRecords.filter(r => r.status === 'complete' || r.totalHours > 0).length;
-    const flaggedCount = weekRecords.filter(r => r.status === 'flagged').length;
-    const totalTasks = weekRecords.reduce((sum, r) => sum + ((Array.isArray(r.tasks) ? r.tasks.length : 0)), 0);
-    const completedTasks = weekRecords.reduce((sum, r) => sum + ((Array.isArray(r.tasks) ? r.tasks.filter(t => t.status === 'Completed').length : 0)), 0);
+    // Include any record where the employee punched in (regardless of whether
+    // they punched out) so weekly stats don't show 0 for an open shift.
+    const nowMs = Date.now();
+    const weekHoursAdjusted = weekRecords.map(r => {
+      if (r.punchIn && !r.punchOut) {
+        const liveHours = parseFloat(((nowMs - new Date(r.punchIn).getTime()) / (1000 * 60 * 60)).toFixed(2));
+        return { ...r.toObject(), totalHours: liveHours };
+      }
+      return r;
+    });
+
+    const totalHours = weekHoursAdjusted.reduce((sum, r) => sum + (r.totalHours || 0), 0);
+    const totalOT = weekHoursAdjusted.reduce((sum, r) => sum + (r.overtimeHours || 0), 0);
+    const presentDays = weekHoursAdjusted.filter(r => !!r.punchIn).length;
+    const flaggedCount = weekHoursAdjusted.filter(r => r.status === 'flagged').length;
+    const totalTasks = weekHoursAdjusted.reduce((sum, r) => sum + ((Array.isArray(r.tasks) ? r.tasks.length : 0)), 0);
+    const completedTasks = weekHoursAdjusted.reduce((sum, r) => sum + ((Array.isArray(r.tasks) ? r.tasks.filter(t => t.status === 'Completed').length : 0)), 0);
     const avgHours = presentDays > 0 ? totalHours / presentDays : 0;
     const taskCompletionRate = totalTasks ? parseFloat(((completedTasks / totalTasks) * 100).toFixed(0)) : 0;
 

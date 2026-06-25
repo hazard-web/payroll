@@ -6,41 +6,12 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
-      devOptions: {
-        enabled: false,
-      },
-      includeAssets: ['icon-192.png', 'icon-512.png'],
-      manifest: {
-        name: 'PaySlip Pro',
-        short_name: 'PaySlip',
-        description: 'Professional Payroll Management System',
-        theme_color: '#0a0d0a',
-        background_color: '#0a0d0a',
-        display: 'standalone',
-        start_url: '/',
-        icons: [
-          {
-            src: '/icon-192.png',
-            sizes: '192x192',
-            type: 'image/png',
-          },
-          {
-            src: '/icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable',
-          },
-        ],
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png}'],
-        navigateFallback: '/index.html',
-        // Deny SW interception for API calls AND all portal routes
-        navigateFallbackDenylist: [/^\/api/, /^\/portal/],
-        skipWaiting: true,
-        clientsClaim: true,
-      },
+      // Disable PWA entirely — the SW was intercepting /portal routes and
+      // serving a blank page (the navigation fallback was denylisted for
+      // /portal but the SW still claimed the client, so the network never
+      // got a chance to serve Vercel's index.html rewrite).
+      // For an internal payroll app, PWA is not worth the routing complexity.
+      disable: true,
     }),
   ],
   server: {

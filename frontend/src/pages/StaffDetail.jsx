@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Mail, Phone, Briefcase, Calendar, Landmark, CreditCard, Trash2, Code,
-  FileText, Loader2, IndianRupee, Key, Ban, Shield, FileDigit, Edit, X, User,
+  FileText, Loader2, IndianRupee, Shield, FileDigit, Edit, X, User,
   ExternalLink, Eye, Download, Clock, ClipboardList
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -179,9 +179,7 @@ export default function StaffDetail() {
   const [payslipsLoaded, setPayslipsLoaded] = useState(false)
   const [downloadLoading, setDownloadLoading] = useState({})
 
-  const [provisioning, setProvisioning] = useState(false)
-  const [revoking, setRevoking] = useState(false)
-  const [resetLink, setResetLink] = useState('')
+
   const [showEditModal, setShowEditModal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
@@ -273,41 +271,6 @@ export default function StaffDetail() {
     if (activeTab === 'salary' && !payslipsLoaded && staff) fetchPayslips()
   }, [activeTab, attendanceLoaded, leavesLoaded, payslipsLoaded, staff, fetchAttendance, fetchLeaves, fetchPayslips])
 
-  const handleProvision = async () => {
-    setProvisioning(true)
-    setResetLink('')
-    try {
-      const res = await api.post(`/staff/${id}/provision-portal`)
-      if (res.data.emailError) {
-        toast.error(`Portal provisioned, but email failed: ${res.data.emailError}`)
-      } else {
-        toast.success(res.data.message || 'Portal provisioned')
-      }
-      if (res.data.resetLink) setResetLink(res.data.resetLink)
-      const staffRes = await api.get(`/staff/${id}`)
-      setStaff(staffRes.data.data)
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to provision portal')
-    } finally {
-      setProvisioning(false)
-    }
-  }
-
-  const handleRevoke = async () => {
-    if (!window.confirm('Are you sure you want to revoke portal access for this team member?')) return
-    setRevoking(true)
-    try {
-      await api.delete(`/staff/${id}/revoke-portal`)
-      toast.success('Portal access revoked')
-      setResetLink('')
-      const staffRes = await api.get(`/staff/${id}`)
-      setStaff(staffRes.data.data)
-    } catch (err) {
-      toast.error('Failed to revoke access')
-    } finally {
-      setRevoking(false)
-    }
-  }
 
   const handleDelete = async () => {
     if (!window.confirm(`Are you sure you want to delete ${staff.fullName}?`)) return
@@ -414,7 +377,7 @@ export default function StaffDetail() {
                 <span className={`badge ${staff.type === 'Employee' ? 'badge-navy' : 'badge-emerald'}`}>{staff.type}</span>
                 <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{staff.designation || 'No Designation'} · {staff.department || 'General'}</span>
                 {staff.profileCompleted ? (
-                  <span style={{ padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700, background: 'rgba(63, 98, 18, 0.1)', color: '#3f6212', border: '1px solid rgba(63, 98, 18, 0.2)' }}>✓ Profile Complete</span>
+                  <span style={{ padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700, background: 'rgba(99, 107, 47, 0.1)', color: '#636B2F', border: '1px solid rgba(99, 107, 47, 0.2)' }}>✓ Profile Complete</span>
                 ) : (
                   <span style={{ padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700, background: 'rgba(234, 88, 12, 0.1)', color: '#c2410c', border: '1px solid rgba(234, 88, 12, 0.2)' }}>Profile Incomplete</span>
                 )}
@@ -422,17 +385,6 @@ export default function StaffDetail() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            {!staff.isPortalEnabled ? (
-              <button onClick={handleProvision} disabled={provisioning} style={{ padding: '10px 20px', borderRadius: 12, border: 'none', background: 'var(--emerald)', color: 'white', fontWeight: 600, cursor: 'pointer', display: 'flex', gap: 8, alignItems: 'center' }}>
-                {provisioning ? <Loader2 size={16} className="animate-spin" /> : <Key size={16} />}
-                Grant Portal Access
-              </button>
-            ) : (
-              <button onClick={handleRevoke} disabled={revoking} style={{ padding: '10px 20px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer', display: 'flex', gap: 8, alignItems: 'center' }}>
-                {revoking ? <Loader2 size={16} className="animate-spin" /> : <Ban size={16} />}
-                Revoke Access
-              </button>
-            )}
             <button onClick={() => setShowEditModal(true)} style={{ padding: '10px 20px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer', display: 'flex', gap: 8, alignItems: 'center' }}>
               <Edit size={16} /> Edit Details
             </button>
@@ -462,75 +414,17 @@ export default function StaffDetail() {
                   <DossierField label="Designation" value={staff.designation} />
                   {staff.pfNumber && <DossierField label="PF Number" value={staff.pfNumber} />}
 
-                  {/* Portal Access Action Row */}
-                  <div className="dossier-action-cell dossier-span-2">
-                    <div>
-                      <div className="dossier-field-label">Portal Access</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} className="dossier-field-value">
-                        {staff.isPortalEnabled ? (
-                          <span className="badge badge-emerald">Active</span>
-                        ) : (
-                          <span className="badge" style={{ background: 'var(--border)', color: 'var(--text-muted)' }}>Disabled</span>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      {!staff.isPortalEnabled ? (
-                        <button 
-                          onClick={handleProvision} 
-                          disabled={provisioning}
-                          className="btn-hover"
-                          style={{
-                            padding: '6px 14px',
-                            borderRadius: 6,
-                            border: 'none',
-                            background: 'var(--primary)',
-                            color: '#ffffff',
-                            fontSize: 12,
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4
-                          }}
-                        >
-                          {provisioning ? <Loader2 size={12} className="spin" /> : <Key size={12} />}
-                          Enable Access
-                        </button>
+                  {/* Portal Status (read-only info) */}
+                  <div className="dossier-field dossier-span-2">
+                    <div className="dossier-field-label">Portal Access</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} className="dossier-field-value">
+                      {staff.isPortalEnabled ? (
+                        <span className="badge badge-emerald">Active — Invite sent</span>
                       ) : (
-                        <button 
-                          onClick={handleRevoke} 
-                          disabled={revoking}
-                          className="btn-hover"
-                          style={{
-                            padding: '6px 14px',
-                            borderRadius: 6,
-                            border: '1px solid var(--border)',
-                            background: 'var(--bg)',
-                            color: 'var(--primary)',
-                            fontSize: 12,
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4
-                          }}
-                        >
-                          {revoking ? <Loader2 size={12} className="spin" /> : <Ban size={12} />}
-                          Disable Access
-                        </button>
+                        <span className="badge" style={{ background: 'var(--border)', color: 'var(--text-muted)' }}>Invite Pending</span>
                       )}
                     </div>
                   </div>
-
-                  {resetLink && (
-                    <div className="dossier-span-4" style={{ marginTop: 12, padding: 12, background: 'var(--primary-tint, #f0fdf4)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--primary)', wordBreak: 'break-all', fontSize: 12 }}>
-                      <strong style={{ display: 'block', marginBottom: 4 }}>Password Setup Link:</strong>
-                      <a href={resetLink} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline' }}>
-                        {resetLink}
-                      </a>
-                    </div>
-                  )}
                 </div>
               </div>
 

@@ -4,22 +4,22 @@ const fs = require('fs');
 
 // ─── Color Palette (matches reference image exactly) ──────────────────────────
 const C = {
-  green:       '#334e2b',   // dark olive green — net salary bar, table headers
-  greenDark:   '#2a3f23',   // slightly darker green
-  greenMid:    '#3e5d34',   // mid green
-  greenAccent: '#4a6e3f',   // accent
-  greenLight:  '#e4ecdf',   // very light grey-green — employee section bg
-  greenPale:   '#eef3eb',   // almost white green — employee details bg
-  rowAlt:      '#f5f8f3',   // alternating row color
+  green:       '#636B2F',   // BDA Olive Green — net salary bar, table headers
+  greenDark:   '#4f5626',   // slightly darker olive
+  greenMid:    '#636B2F',   // mid olive
+  greenAccent: '#7d8538',   // lighter olive accent
+  greenLight:  '#e5ebdd',   // sage — employee section bg
+  greenPale:   '#eef0e8',   // pale sage — employee details bg
+  rowAlt:      '#f3f5ef',   // alternating row color
   white:       '#ffffff',
-  border:      '#d4ddd0',   // thin grey border
-  borderMed:   '#c0c9ba',   // medium grey border
-  borderDark:  '#aab3a4',   // darker grey
+  border:      '#d4d9c8',   // thin olive-grey border
+  borderMed:   '#c2c9b3',   // medium olive-grey border
+  borderDark:  '#a8af98',   // darker olive-grey
   textDark:    '#1a1a1a',
   textMid:     '#3a3a3a',
   textMuted:   '#5a5a5a',
   textLight:   '#777777',
-  totalRow:    '#d8dfd4',   // grey footer for totals row
+  totalRow:    '#dce2d4',   // footer for totals row
 };
 
 // Font paths

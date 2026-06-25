@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
-  Plus, Briefcase, Loader2, Key, FilePlus, Eye
+  Plus, Briefcase, Loader2, FilePlus, Eye
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api'
@@ -30,9 +30,6 @@ export default function StaffList() {
   const [showModal, setShowModal] = useState(false)
   const [editingStaff, setEditingStaff] = useState(null)
   const [submitting, setSubmitting] = useState(false)
-  const [actionLoading, setActionLoading] = useState(null)
-  const [manualResetLink, setManualResetLink] = useState('')
-  const [emailPreviewUrl, setEmailPreviewUrl] = useState('')
   const navigate = useNavigate()
 
   const [formData, setFormData] = useState({
@@ -95,13 +92,10 @@ export default function StaffList() {
       } else {
         res = await api.post('/staff', payload)
         const portalAccess = res.data.portalAccess
-        setManualResetLink(portalAccess?.emailError ? portalAccess.resetLink || '' : '')
-        setEmailPreviewUrl(portalAccess?.emailPreviewUrl || '')
-
         if (portalAccess?.emailError) {
-          toast.error(`Team member added, but portal email failed: ${portalAccess.emailError}`)
+          toast.error(`Team member added, but invite email failed: ${portalAccess.emailError}`)
         } else {
-          toast.success('Team member added and portal access email sent')
+          toast.success('Team member added — invite email sent to their inbox!')
         }
         setStaff([res.data.data, ...staff])
       }
@@ -141,46 +135,6 @@ export default function StaffList() {
     setShowModal(true)
   }
 
-  const handleToggleAccess = async (e, person) => {
-    e.stopPropagation()
-    setActionLoading(person._id)
-    try {
-      if (person.isPortalEnabled) {
-        await api.delete(`/staff/${person._id}/revoke-portal`)
-        toast.success('Access revoked')
-        setManualResetLink('')
-        setEmailPreviewUrl('')
-      } else {
-        const res = await api.post(`/staff/${person._id}/provision-portal`)
-        const resetLink = res?.data?.resetLink
-        const previewUrl = res?.data?.emailPreviewUrl
-        const emailError = res?.data?.emailError
-        setManualResetLink(emailError ? resetLink || '' : '')
-        setEmailPreviewUrl(previewUrl || '')
-
-        if (emailError) {
-          toast.error(`Portal provisioned, but email failed: ${emailError}`)
-        } else if (resetLink) {
-          try {
-            await navigator.clipboard.writeText(resetLink)
-            toast.success('Portal provisioned — password setup link copied to clipboard')
-          } catch (err) {
-            console.log('Portal setup link:', resetLink)
-            toast.success('Portal provisioned — check the visible link below')
-          }
-        } else {
-          toast.success('Portal access granted')
-        }
-      }
-      fetchStaff()
-    } catch (err) {
-      console.error('Portal access update failed:', err)
-      const msg = err?.message || 'Failed to update portal access'
-      toast.error(msg)
-    } finally {
-      setActionLoading(null)
-    }
-  }
 
   const filteredStaff = staff.filter(s => {
     const matchesSearch = (s.fullName?.toLowerCase() || '').includes(search.toLowerCase()) ||
@@ -302,9 +256,6 @@ export default function StaffList() {
 
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
-                      <button onClick={(e) => handleToggleAccess(e, person)} className="btn-icon" title={person.isPortalEnabled ? "Revoke Access" : "Give Access"}>
-                        {actionLoading === person._id ? <Loader2 size={16} className="animate-spin" /> : <Key size={16} />}
-                      </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); navigate(`/generate?staffId=${person._id}`); }}
                         className="btn-icon"
@@ -328,45 +279,6 @@ export default function StaffList() {
         </div>
       )}
 
-      {manualResetLink && (
-        <div className="section-card" style={{ marginTop: 'var(--space-6)' }}>
-          <div className="section-card__body">
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <h3 className="section-card__title">Manual Portal Setup Link</h3>
-                <p className="section-card__subtitle" style={{ maxWidth: 760 }}>
-                  Email delivery failed, so this password setup link can be shared directly with the staff member.
-                </p>
-              </div>
-              <button
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(manualResetLink)
-                    toast.success('Password setup link copied to clipboard')
-                  } catch (err) {
-                    toast.error('Unable to copy automatically. Use the text field below.')
-                  }
-                }}
-                className="btn-primary"
-                style={{ whiteSpace: 'nowrap' }}
-              >
-                Copy link
-              </button>
-            </div>
-            <input
-              readOnly
-              value={manualResetLink}
-              className="input-field"
-              style={{ marginTop: 'var(--space-4)', width: '100%', background: 'var(--bg)' }}
-            />
-            {emailPreviewUrl && (
-              <a href={emailPreviewUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 12, color: 'var(--primary)', fontWeight: 700 }}>
-                Open email preview
-              </a>
-            )}
-          </div>
-        </div>
-      )}
 
       <Modal
         open={showModal}

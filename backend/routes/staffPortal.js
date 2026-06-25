@@ -242,12 +242,16 @@ router.post('/forgot-password', async (req, res, next) => {
 router.post('/reset-password', async (req, res, next) => {
   try {
     const { token, password } = req.body;
-    
+
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'Reset token is required' });
+    }
+
     const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!regex.test(password)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.' 
+    if (!regex.test(password || '')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.'
       });
     }
 
@@ -273,6 +277,69 @@ router.post('/reset-password', async (req, res, next) => {
   } catch (err) {
     console.error('Reset password error:', err);
     res.status(500).json({ success: false, message: 'Failed to reset password' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/portal/setup-password — First-time account setup
+// Used by new team members who received a setup link by email.
+// Activates the account: sets portalPassword (bcrypt-hashed by the
+// pre-save hook), clears the setup token, and marks mustChangePassword
+// false so the user can use the new password directly to log in.
+// ─────────────────────────────────────────────────────────────
+router.post('/setup-password', async (req, res, next) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'Setup token is required' });
+    }
+
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!regex.test(password || '')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.'
+      });
+    }
+
+    const staff = await Staff.findOne({
+      passwordResetToken: token,
+      passwordResetExpires: { $gt: Date.now() },
+    });
+
+    if (!staff) {
+      return res.status(400).json({ success: false, message: 'Setup link is invalid or has expired. Please ask your administrator to resend a new invitation.' });
+    }
+
+    if (!staff.isPortalEnabled) {
+      return res.status(400).json({ success: false, message: 'This account is not active. Please contact your administrator.' });
+    }
+
+    // Activate the account
+    staff.portalPassword = password;
+    staff.passwordResetToken = undefined;
+    staff.passwordResetExpires = undefined;
+    staff.mustChangePassword = false;
+    staff.lastLogin = undefined; // reset so the next login is recorded cleanly
+    if (typeof staff.markModified === 'function') {
+      staff.markModified('portalPassword');
+    }
+    await staff.save();
+
+    console.log(`✅ Team member account activated: ${staff.email} (${staff.fullName})`);
+
+    res.json({
+      success: true,
+      message: 'Password set successfully. You can now log in to the Team Portal.',
+      staff: {
+        email: staff.email,
+        fullName: staff.fullName,
+      },
+    });
+  } catch (err) {
+    console.error('Setup password error:', err);
+    res.status(500).json({ success: false, message: 'Failed to set password. Please try again.' });
   }
 });
 
@@ -400,36 +467,50 @@ router.put('/me', authStaff, async (req, res) => {
       };
     }
 
-    // Apply remaining fields
+    // Apply remaining fields (partial update — only fields present in body are touched)
     const ALLOWED = [
       'phone', 'panNumber', 'dob', 'gender',
       'address', 'emergencyContact', 'bankDetails',
     ];
     ALLOWED.forEach((field) => {
       if (req.body[field] !== undefined) {
-        req.staff[field] = req.body[field];
+        // For nested objects (address, emergencyContact, bankDetails), merge
+        // the new keys into the existing object so previously-saved fields
+        // are preserved when the client sends an incomplete payload.
+        if (
+          field === 'address' ||
+          field === 'emergencyContact' ||
+          field === 'bankDetails'
+        ) {
+          req.staff[field] = {
+            ...(req.staff[field] ? req.staff[field].toObject ? req.staff[field].toObject() : req.staff[field] : {}),
+            ...req.body[field],
+          };
+        } else {
+          req.staff[field] = req.body[field];
+        }
       }
     });
 
-    // Recompute profile-completion status
-    req.staff.profileCompleted = isProfileComplete(req.staff.toObject
-      ? req.staff.toObject()
-      : req.staff);
+    // profileCompleted is a sticky monotonic flag: only flip false → true.
+    // Once a profile is complete, it stays complete across all future edits.
+    if (!req.staff.profileCompleted) {
+      req.staff.profileCompleted = isProfileComplete(
+        req.staff.toObject ? req.staff.toObject() : req.staff
+      );
+    }
 
     await req.staff.save();
 
+    // Return the full staff document so the frontend can refresh its
+    // context and re-initialize the form from server-authoritative data
+    // (no risk of dropping fields via a partial merge).
+    const staffObj = req.staff.toObject ? req.staff.toObject() : req.staff;
     res.json({
       success: true,
       message: 'Profile updated successfully',
-      staff: {
-        profileCompleted: req.staff.profileCompleted,
-        panNumber: req.staff.panNumber,
-        dob: req.staff.dob,
-        gender: req.staff.gender,
-        address: req.staff.address,
-        emergencyContact: req.staff.emergencyContact,
-        bankDetails: req.staff.bankDetails,
-      }
+      staff: staffObj,
+      profileCompleted: req.staff.profileCompleted,
     });
   } catch (err) {
     console.error('Update profile error:', err);
@@ -487,9 +568,12 @@ router.post('/me/documents/:type', authStaff, async (req, res) => {
       uploadedAt: new Date(),
     };
 
-    req.staff.profileCompleted = isProfileComplete(
-      req.staff.toObject ? req.staff.toObject() : req.staff
-    );
+    // profileCompleted is sticky monotonic: only flip false → true on upload.
+    if (!req.staff.profileCompleted) {
+      req.staff.profileCompleted = isProfileComplete(
+        req.staff.toObject ? req.staff.toObject() : req.staff
+      );
+    }
 
     await req.staff.save();
 
@@ -497,6 +581,7 @@ router.post('/me/documents/:type', authStaff, async (req, res) => {
       success: true,
       message: 'Document uploaded successfully',
       document: req.staff.documents[type],
+      staff: req.staff.toObject ? req.staff.toObject() : req.staff,
       profileCompleted: req.staff.profileCompleted,
     });
   } catch (err) {

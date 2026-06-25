@@ -98,12 +98,16 @@ router.get('/', async (req, res) => {
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    const total = await Payslip.countDocuments(filter);
-    const payslips = await Payslip.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit))
-      .select('employeeName employeeId designation department month year netSalary emailSent createdAt');
+    // Run count + page fetch in parallel — they're independent queries.
+    const [total, payslips] = await Promise.all([
+      Payslip.countDocuments(filter),
+      Payslip.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .select('employeeName employeeId designation department month year netSalary emailSent createdAt')
+        .lean(),
+    ]);
 
     res.json({
       success: true,
@@ -122,41 +126,61 @@ router.get('/', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// BUG FIX: /stats/summary MUST be before /:id to prevent Express 
+// BUG FIX: /stats/summary MUST be before /:id to prevent Express
 // matching "stats" as a MongoDB ObjectId param (causes a guaranteed crash)
 // ─────────────────────────────────────────────────────────────
 router.get('/stats/summary', async (req, res) => {
   try {
-    const filter = { user: req.user._id };
-    const total = await Payslip.countDocuments(filter);
-    const thisMonth = new Date();
-    const monthName = thisMonth.toLocaleString('en-US', { month: 'long' });
-    const year = thisMonth.getFullYear();
+    const userId = req.user._id;
+    const now = new Date();
+    const monthName = now.toLocaleString('en-US', { month: 'long' });
+    const year = now.getFullYear();
+    const twelveHoursAgo = new Date(Date.now() - 12 * 3600000);
 
-    const thisMonthCount = await Payslip.countDocuments({ ...filter, month: monthName, year });
-    const emailsSent = await Payslip.countDocuments({ ...filter, emailSent: true });
+    // Collapse all six previously-sequential queries into two parallel calls:
+    //  • one $facet aggregation for ALL Payslip-derived metrics
+    //  • Promise.all for the Staff/Attendance collections
+    const [payslipStats, [totalEmployees, activePortals, employeeCount, internCount, flaggedAttendance]] =
+      await Promise.all([
+        Payslip.aggregate([
+          { $match: { user: userId } },
+          {
+            $facet: {
+              total: [{ $count: 'count' }],
+              thisMonth: [
+                { $match: { month: monthName, year } },
+                { $count: 'count' },
+              ],
+              emailsSent: [
+                { $match: { emailSent: true } },
+                { $count: 'count' },
+              ],
+              netSalary: [
+                { $group: { _id: null, totalNet: { $sum: '$netSalary' }, avgNet: { $avg: '$netSalary' } } },
+              ],
+            },
+          },
+        ]),
+        Promise.all([
+          Staff.countDocuments({ user: userId }).hint({ user: 1, type: 1 }),
+          Staff.countDocuments({ user: userId, isPortalEnabled: true }).hint({ user: 1, isPortalEnabled: 1 }),
+          Staff.countDocuments({ user: userId, type: 'Employee' }).hint({ user: 1, type: 1 }),
+          Staff.countDocuments({ user: userId, type: 'Intern' }).hint({ user: 1, type: 1 }),
+          Attendance.countDocuments({
+            admin: userId,
+            $or: [
+              { status: 'flagged' },
+              { status: 'incomplete', punchIn: { $lt: twelveHoursAgo } },
+            ],
+          }).hint({ admin: 1, status: 1, punchIn: -1 }),
+        ]),
+      ]);
 
-    // New metrics: Total Employees and Active Portals
-    const totalEmployees = await Staff.countDocuments({ user: req.user._id });
-    const activePortals = await Staff.countDocuments({ user: req.user._id, isPortalEnabled: true });
-    
-    // Workforce Split
-    const employeeCount = await Staff.countDocuments({ user: req.user._id, type: 'Employee' });
-    const internCount = await Staff.countDocuments({ user: req.user._id, type: 'Intern' });
-
-    // Attendance Flags (Flagged status OR Incomplete status > 12 hours)
-    const flaggedAttendance = await Attendance.countDocuments({ 
-      admin: req.user._id, 
-      $or: [
-        { status: 'flagged' },
-        { status: 'incomplete', punchIn: { $lt: new Date(Date.now() - 12 * 3600000) } }
-      ]
-    });
-
-    const netSalaryAgg = await Payslip.aggregate([
-      { $match: { user: req.user._id } },
-      { $group: { _id: null, totalNet: { $sum: '$netSalary' }, avgNet: { $avg: '$netSalary' } } },
-    ]);
+    const ps = payslipStats[0] || {};
+    const total = ps.total?.[0]?.count || 0;
+    const thisMonthCount = ps.thisMonth?.[0]?.count || 0;
+    const emailsSent = ps.emailsSent?.[0]?.count || 0;
+    const netAgg = ps.netSalary?.[0] || { totalNet: 0, avgNet: 0 };
 
     res.json({
       success: true,
@@ -168,8 +192,8 @@ router.get('/stats/summary', async (req, res) => {
         activePortals,
         workforceSplit: { employees: employeeCount, interns: internCount },
         attendanceFlags: flaggedAttendance,
-        totalPayroll: netSalaryAgg[0]?.totalNet || 0,
-        avgSalary: Math.round(netSalaryAgg[0]?.avgNet || 0),
+        totalPayroll: netAgg.totalNet || 0,
+        avgSalary: Math.round(netAgg.avgNet || 0),
       },
     });
   } catch (err) {

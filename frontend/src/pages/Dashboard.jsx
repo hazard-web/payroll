@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Users, UserCheck, UserX, Calendar, ClipboardList, Clock,
-  AlertTriangle, TrendingUp, X
+  AlertTriangle, X, BarChart2
 } from 'lucide-react'
 import api from '../api'
 import PageShell, { PageHeader, PageLoading } from '../components/PageShell'
@@ -49,6 +49,40 @@ const fmtLateDuration = (mins) => {
   const h = Math.floor(total / 60)
   const m = total % 60
   return m === 0 ? `${h}h` : `${h}h ${m}m`
+}
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+const monthValue = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+
+const parseMonthValue = (value) => {
+  const [year, month] = String(value || '').split('-').map(Number)
+  const now = new Date()
+  return {
+    year: Number.isFinite(year) ? year : now.getFullYear(),
+    month: Number.isFinite(month) ? month : now.getMonth() + 1,
+  }
+}
+
+const shiftMonthValue = (value, delta) => {
+  const { year, month } = parseMonthValue(value)
+  return monthValue(new Date(year, month - 1 + delta, 1))
+}
+
+const formatHours = (hours) => {
+  const safe = Math.max(0, Number(hours) || 0)
+  return safe >= 100 ? `${safe.toFixed(0)}h` : `${safe.toFixed(1)}h`
+}
+
+const buildMonthOptions = (count = 18) => {
+  const now = new Date()
+  return Array.from({ length: count }, (_, i) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    return {
+      value: monthValue(date),
+      label: `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`,
+    }
+  })
 }
 
 // ── Attention Required (3-up cards) ───────────────────────────────
@@ -149,7 +183,7 @@ const AttendanceRow = ({ record, now }) => {
       </div>
       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 4 }}>
         {worked}
-        {active && <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />}
+        {active && <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#636B2F' }} />}
       </div>
       <span className={`pill ${active ? 'pill-blue' : late ? 'pill-orange' : 'pill-green'}`}>
         {active ? 'Active' : late ? 'Late' : 'On Time'}
@@ -173,82 +207,292 @@ export default function Dashboard() {
   const [showAllAttendance, setShowAllAttendance] = useState(false)
   const [showLeaveModal, setShowLeaveModal] = useState(false)
   const [showActiveModal, setShowActiveModal] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const [attendanceMonth, setAttendanceMonth] = useState(() => monthValue(new Date()))
+  const [monthlyAttendance, setMonthlyAttendance] = useState([])
+  const [previousMonthlyAttendance, setPreviousMonthlyAttendance] = useState([])
+  const [monthlyLoading, setMonthlyLoading] = useState(false)
+  const [monthlyError, setMonthlyError] = useState('')
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30000)
     return () => clearInterval(t)
   }, [])
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [staffRes, activeRes, punchinsRes, approvedLeaveRes, pendingLeaveRes] = await Promise.all([
-          api.get('/staff'),
-          api.get('/attendance/admin/active'),
-          api.get('/attendance/admin/today-punchins'),
-          api.get('/leaves/admin/pending', { params: { status: 'Approved' } }),
-          api.get('/leaves/admin/pending', { params: { status: 'Pending' } })
-        ])
-        setStaffData(staffRes.data.data || [])
-        setActiveCount(activeRes.data?.activeCount || 0)
-        setTodayPunchins(punchinsRes.data?.data || [])
-        setApprovedLeaves(approvedLeaveRes.data?.data || [])
-        setPendingLeaves(pendingLeaveRes.data?.data || [])
-      } catch (err) {
-        console.error('Dashboard load error:', err)
-      } finally {
-        setLoading(false)
+  // Pull all the parallel fetches into a stable callback so the effect's
+  // dependency array stays minimal and we don't refetch on every render.
+  const fetchData = useCallback(async () => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 8000)
+    try {
+      setLoading(true)
+      setLoadError('')
+      // Note: the GET cache + dedup in api.js means a rapid second mount
+      // (e.g. StrictMode) won't trigger 5 more network calls.
+      const requests = await Promise.allSettled([
+        api.get('/staff', { signal: controller.signal }),
+        api.get('/attendance/admin/active', { signal: controller.signal }),
+        api.get('/attendance/admin/today-punchins', { signal: controller.signal }),
+        api.get('/leaves/admin/pending', { params: { status: 'Approved' }, signal: controller.signal }),
+        api.get('/leaves/admin/pending', { params: { status: 'Pending' }, signal: controller.signal })
+      ])
+      const [staffRes, activeRes, punchinsRes, approvedLeaveRes, pendingLeaveRes] = requests
+
+      if (staffRes.status === 'fulfilled') setStaffData(staffRes.value.data.data || [])
+      if (activeRes.status === 'fulfilled') setActiveCount(activeRes.value.data?.activeCount || 0)
+      if (punchinsRes.status === 'fulfilled') setTodayPunchins(punchinsRes.value.data?.data || [])
+      if (approvedLeaveRes.status === 'fulfilled') setApprovedLeaves(approvedLeaveRes.value.data?.data || [])
+      if (pendingLeaveRes.status === 'fulfilled') setPendingLeaves(pendingLeaveRes.value.data?.data || [])
+
+      const firstError = requests.find((result) => result.status === 'rejected')
+      const allFailed = requests.every((result) => result.status === 'rejected')
+      if (firstError && allFailed) {
+        setLoadError(firstError.reason?.message || 'Some dashboard data could not be loaded.')
       }
+    } catch (err) {
+      console.error('Dashboard load error:', err)
+      setLoadError(
+        err.name === 'CanceledError' || err.message === 'canceled'
+          ? 'Dashboard data request timed out. Please check backend and MongoDB Atlas connection.'
+          : err.message || 'Dashboard data could not be loaded.'
+      )
+    } finally {
+      clearTimeout(timer)
+      setLoading(false)
     }
-    fetchData()
   }, [])
 
-  if (loading) return <PageLoading label="Loading dashboard…" />
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
-  // ── Compute Stats ────────────────────────────────────────────────
-  const totalEmployees = staffData.length
-  const safeActive = Math.min(Math.max(activeCount, 0), totalEmployees)
-  const totalPresentToday = todayPunchins.length
+  useEffect(() => {
+    const controller = new AbortController()
+    const fetchMonthlyAttendance = async () => {
+      const { month, year } = parseMonthValue(attendanceMonth)
+      const previous = parseMonthValue(shiftMonthValue(attendanceMonth, -1))
 
-  const today = new Date()
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)
-  const isLeaveOverlappingToday = (leave) => {
-    const start = new Date(leave.startDate)
-    const end = new Date(leave.endDate)
-    return start <= endOfToday && end >= startOfToday
-  }
-  const approvedOnLeaveToday = approvedLeaves.filter(isLeaveOverlappingToday)
-  const onLeave = approvedOnLeaveToday.length
+      try {
+        setMonthlyLoading(true)
+        setMonthlyError('')
+        const [currentRes, previousRes] = await Promise.all([
+          api.get('/attendance/admin/monthly', {
+            params: { month, year },
+            signal: controller.signal,
+          }),
+          api.get('/attendance/admin/monthly', {
+            params: { month: previous.month, year: previous.year },
+            signal: controller.signal,
+          }),
+        ])
+        setMonthlyAttendance(currentRes.data?.data || [])
+        setPreviousMonthlyAttendance(previousRes.data?.data || [])
+      } catch (err) {
+        if (err.name === 'CanceledError' || err.message === 'canceled') return
+        console.error('Monthly attendance overview error:', err)
+        setMonthlyError(err.response?.data?.message || err.message || 'Monthly attendance could not be loaded.')
+        setMonthlyAttendance([])
+        setPreviousMonthlyAttendance([])
+      } finally {
+        setMonthlyLoading(false)
+      }
+    }
 
-  const latePunchins = todayPunchins.filter(r => getLateInfo(r.punchIn).isLate)
-  const validPunchins = todayPunchins.filter(r => r.punchIn)
-  const punchedInStaffIds = new Set(todayPunchins.map(r => String(r.staff?._id || '')))
-  const notActiveStaff = staffData.filter(s => !punchedInStaffIds.has(String(s._id)))
-  const notActiveCount = notActiveStaff.length
+    fetchMonthlyAttendance()
+    return () => controller.abort()
+  }, [attendanceMonth])
 
-  const avgLoginTime = (() => {
-    if (!validPunchins.length) return null
-    const avgSec = validPunchins.reduce((sum, r) => {
+  // ── Compute Stats (memoized) ────────────────────────────────────
+  // All these derived values previously recomputed on every render
+  // (timer tick, modal open/close, etc.). Wrapping them in useMemo
+  // keyed on the underlying inputs keeps them stable.
+  // NOTE: useMemo must be called UNCONDITIONALLY on every render — it
+  // must be declared BEFORE any early `return` so the hooks count stays
+  // stable between the loading-state render and the data-loaded render.
+  const stats = useMemo(() => {
+    const totalEmployees = staffData.length
+    const safeActive = Math.min(Math.max(activeCount, 0), totalEmployees)
+    const totalPresentToday = todayPunchins.length
+
+    const today = new Date()
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)
+    const isLeaveOverlappingToday = (leave) => {
+      const start = new Date(leave.startDate)
+      const end = new Date(leave.endDate)
+      return start <= endOfToday && end >= startOfToday
+    }
+    const approvedOnLeaveToday = approvedLeaves.filter(isLeaveOverlappingToday)
+    const onLeave = approvedOnLeaveToday.length
+
+    const latePunchins = todayPunchins.filter(r => getLateInfo(r.punchIn).isLate)
+    const validPunchins = todayPunchins.filter(r => r.punchIn)
+    const punchedInStaffIds = new Set(todayPunchins.map(r => String(r.staff?._id || '')))
+    const notActiveStaff = staffData.filter(s => !punchedInStaffIds.has(String(s._id)))
+    const notActiveCount = notActiveStaff.length
+
+    return {
+      totalEmployees,
+      safeActive,
+      totalPresentToday,
+      onLeave,
+      latePunchins,
+      validPunchins,
+      notActiveStaff,
+      notActiveCount,
+      approvedOnLeaveToday,
+    }
+  }, [staffData, activeCount, todayPunchins, approvedLeaves])
+
+  // Sorting the punch-in list used to allocate a new array + sort on every
+  // render. Memoize so the modals opening don't re-sort.
+  // NOTE: declared at top-level (before any early return) so the hooks
+  // count stays stable across renders. Previously this lived AFTER the
+  // `if (loading) return …` line which caused the
+  // "Rendered more hooks than during the previous render" error.
+  const sortedAttendance = useMemo(() => {
+    return [...todayPunchins].sort((a, b) => {
+      const aLate = getLateInfo(a.punchIn).isLate ? 1 : 0
+      const bLate = getLateInfo(b.punchIn).isLate ? 1 : 0
+      if (aLate !== bLate) return bLate - aLate
+      const aActive = !a.punchOut ? 1 : 0
+      const bActive = !b.punchOut ? 1 : 0
+      if (aActive !== bActive) return bActive - aActive
+      return new Date(b.punchIn) - new Date(a.punchIn)
+    })
+  }, [todayPunchins])
+  const activeAttendance = useMemo(() => sortedAttendance.filter((r) => !r.punchOut), [sortedAttendance])
+
+  // Computed inside useMemo (no hook) so it stays stable across renders.
+  const avgLoginTime = useMemo(() => {
+    if (!stats.validPunchins.length) return null
+    const avgSec = stats.validPunchins.reduce((sum, r) => {
       const d = new Date(r.punchIn)
       return sum + d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()
-    }, 0) / validPunchins.length
+    }, 0) / stats.validPunchins.length
     const h = Math.floor(avgSec / 3600)
     const m = Math.floor((avgSec % 3600) / 60)
     const ampm = h >= 12 ? 'PM' : 'AM'
     return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
-  })()
+  }, [stats.validPunchins])
 
-  const sortedAttendance = [...todayPunchins].sort((a, b) => {
-    const aLate = getLateInfo(a.punchIn).isLate ? 1 : 0
-    const bLate = getLateInfo(b.punchIn).isLate ? 1 : 0
-    if (aLate !== bLate) return bLate - aLate
-    const aActive = !a.punchOut ? 1 : 0
-    const bActive = !b.punchOut ? 1 : 0
-    if (aActive !== bActive) return bActive - aActive
-    return new Date(b.punchIn) - new Date(a.punchIn)
-  })
-  const activeAttendance = sortedAttendance.filter((r) => !r.punchOut)
+  const monthOptions = useMemo(() => buildMonthOptions(18), [])
+
+  const monthlyOverview = useMemo(() => {
+    const { month, year } = parseMonthValue(attendanceMonth)
+    const daysInMonth = new Date(year, month, 0).getDate()
+    const today = new Date()
+    const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month
+    const elapsedDays = isCurrentMonth ? today.getDate() : daysInMonth
+
+    const createDays = () => Array.from({ length: daysInMonth }, (_, i) => ({
+      day: i + 1,
+      label: `${i + 1} ${MONTH_NAMES[month - 1].slice(0, 3)}`,
+      present: 0,
+      hours: 0,
+      full: 0,
+      half: 0,
+      lop: 0,
+      active: 0,
+      late: 0,
+    }))
+
+    const days = createDays()
+    const staffIds = new Set()
+    let totalHours = 0
+    let fullDays = 0
+    let halfDays = 0
+    let lopDays = 0
+    let activeDays = 0
+    let lateCount = 0
+
+    monthlyAttendance.forEach((record) => {
+      const date = new Date(record.date)
+      const day = date.getUTCDate()
+      const bucket = days[day - 1]
+      if (!bucket) return
+
+      const workedHours = record.punchIn && !record.punchOut
+        ? Math.max(0, (now.getTime() - new Date(record.punchIn).getTime()) / 3600000)
+        : Number(record.totalHours) || 0
+      const workStatus = record.punchOut ? record.workStatus : 'Active'
+      const isLate = getLateInfo(record.punchIn).isLate
+
+      bucket.present += 1
+      bucket.hours += workedHours
+      if (workStatus === 'Full Day') bucket.full += 1
+      if (workStatus === 'Half Day') bucket.half += 1
+      if (workStatus === 'LOP') bucket.lop += 1
+      if (workStatus === 'Active') bucket.active += 1
+      if (isLate) bucket.late += 1
+
+      totalHours += workedHours
+      if (workStatus === 'Full Day') fullDays += 1
+      if (workStatus === 'Half Day') halfDays += 1
+      if (workStatus === 'LOP') lopDays += 1
+      if (workStatus === 'Active') activeDays += 1
+      if (isLate) lateCount += 1
+      if (record.staff?._id) staffIds.add(String(record.staff._id))
+    })
+
+    const previousPresent = previousMonthlyAttendance.length
+    const present = monthlyAttendance.length
+    const trend = previousPresent
+      ? ((present - previousPresent) / previousPresent) * 100
+      : present > 0 ? 100 : 0
+    const maxPresent = Math.max(1, ...days.map(day => day.present))
+    const maxHours = Math.max(1, ...days.map(day => day.hours))
+    const peakDay = days.reduce((best, day) => day.present > best.present ? day : best, days[0])
+
+    return {
+      month,
+      year,
+      label: `${MONTH_NAMES[month - 1]} ${year}`,
+      days,
+      elapsedDays,
+      present,
+      previousPresent,
+      trend,
+      maxPresent,
+      maxHours,
+      totalHours,
+      avgPresentPerDay: present ? present / elapsedDays : 0,
+      staffCount: staffIds.size,
+      fullDays,
+      halfDays,
+      lopDays,
+      activeDays,
+      lateCount,
+      peakDay,
+    }
+  }, [attendanceMonth, monthlyAttendance, previousMonthlyAttendance, now])
+
+  if (loading) return <PageLoading label="Loading dashboard…" />
+
+  if (loadError) {
+    return (
+      <PageShell>
+        <div className="panel" style={{ padding: 24, maxWidth: 760 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <AlertTriangle size={20} color="#c2410c" />
+            <h2 style={{ margin: 0, fontSize: 18, color: 'var(--text)' }}>Dashboard data not loaded</h2>
+          </div>
+          <p style={{ margin: '0 0 16px', color: 'var(--text-muted)', fontSize: 14 }}>
+            {loadError}
+          </p>
+          <button type="button" className="btn btn-primary" onClick={fetchData}>
+            Retry
+          </button>
+        </div>
+      </PageShell>
+    )
+  }
+
+  const { totalEmployees, safeActive, totalPresentToday, onLeave, latePunchins, notActiveStaff, notActiveCount, approvedOnLeaveToday } = stats
+  const monthlyTrendPositive = monthlyOverview.trend >= 0
+  const monthlyTrendLabel = monthlyOverview.previousPresent === 0 && monthlyOverview.present === 0
+    ? '0%'
+    : `${monthlyTrendPositive ? '+' : ''}${monthlyOverview.trend.toFixed(1)}%`
 
   return (
     <PageShell>
@@ -287,7 +531,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Middle Row ───────────────────────────────────────────── */}
-      <div className="form-grid-2" style={{ marginBottom: 'var(--space-6)' }}>
+      <div className="form-grid-2" style={{ marginBottom: 'var(--space-6)', alignItems: 'stretch' }}>
         <AttentionRequired
           leaveToday={onLeave}
           pendingLeaveCount={pendingLeaves.length}
@@ -297,10 +541,10 @@ export default function Dashboard() {
           onViewAbsent={() => setShowNotActiveModal(true)}
         />
 
-        {/* Attendance Overview */}
-        <div className="panel" style={{ height: 350, display: 'flex', flexDirection: 'column' }}>
+        {/* Recent Punch-In */}
+        <div className="panel" style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="panel-head" style={{ padding: '14px 20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <ClipboardList size={17} color="var(--primary)" />
               <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>Recent Punch-In</span>
               {latePunchins.length > 0 && (
@@ -310,11 +554,11 @@ export default function Dashboard() {
                 </span>
               )}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{todayPunchins.length} present today</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{todayPunchins.length} present</span>
               <button
                 onClick={() => setShowAllAttendance(true)}
-                style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, fontSize: 12, cursor: 'pointer', padding: 0 }}
               >
                 View all →
               </button>
@@ -322,7 +566,7 @@ export default function Dashboard() {
           </div>
 
           {avgLoginTime && (
-            <div className="panel-subhead" style={{ padding: '8px 20px' }}>
+            <div className="panel-subhead" style={{ padding: '6px 20px' }}>
               <Clock size={12} color="var(--text-muted)" />
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                 Avg login: <strong style={{ color: 'var(--text)' }}>{avgLoginTime}</strong>
@@ -337,11 +581,11 @@ export default function Dashboard() {
             <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div>
           </div>
 
-          <div className="scroll-list" style={{ maxHeight: 186, minHeight: 186, flex: 1 }}>
+          <div className="scroll-list" style={{ flex: 1, maxHeight: 220, minHeight: 160 }}>
             {sortedAttendance.length === 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 20px', color: 'var(--text-muted)' }}>
-                <div className="stat-icon" style={{ width: 44, height: 44, marginBottom: 12 }}>
-                  <ClipboardList size={20} color="var(--text-light)" />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+                <div className="stat-icon" style={{ width: 40, height: 40, marginBottom: 10 }}>
+                  <ClipboardList size={18} color="var(--text-light)" />
                 </div>
                 <div style={{ fontSize: 12, fontWeight: 600 }}>No punch-ins recorded today.</div>
               </div>
@@ -349,7 +593,7 @@ export default function Dashboard() {
           </div>
 
           {sortedAttendance.length > 0 && (
-            <div style={{ padding: '8px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ padding: '8px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 16 }}>
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Present: <strong style={{ color: 'var(--text)' }}>{totalPresentToday}</strong></span>
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Active: <strong style={{ color: '#1d4ed8' }}>{safeActive}</strong></span>
               {latePunchins.length > 0 && (
@@ -360,64 +604,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── Bottom Row: Monthly Attendance Chart ────────────────── */}
-      <div style={{ marginBottom: 'var(--space-6)' }}>
-        <div className="panel" style={{ padding: 'var(--space-5) var(--space-6)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <TrendingUp size={16} color="var(--primary)" />
-              <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>Monthly Attendance Overview</span>
-              <span className="pill pill-green">+8.4%</span>
-            </div>
-            <select className="input-field" style={{ padding: '4px 8px', fontSize: 11, fontWeight: 600, width: 'auto' }}>
-              <option value="june_2026">June 2026</option>
-            </select>
-          </div>
-
-          <div style={{ width: '100%', height: 240, position: 'relative' }}>
-            <svg viewBox="0 0 800 220" width="100%" height="100%" style={{ overflow: 'visible' }}>
-              <defs>
-                <linearGradient id="chart-grad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.18" />
-                  <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
-                </linearGradient>
-                <filter id="glow" x="-10%" y="-10%" width="120%" height="120%">
-                  <feDropShadow dx="0" dy="3" stdDeviation="3" floodColor="var(--primary)" floodOpacity="0.2" />
-                </filter>
-              </defs>
-
-              {[0, 2, 4, 6, 8, 10].map((val) => {
-                const y = 20 + 160 * (1 - val / 10)
-                return (
-                  <g key={val}>
-                    <text x="12" y={y + 4} fill="var(--text-muted)" fontSize="10.5" fontWeight="600" textAnchor="end">{val}</text>
-                    {val > 0 && <line x1="25" y1={y} x2="785" y2={y} stroke="var(--border)" strokeWidth="0.5" opacity="0.6" strokeDasharray="3,3" />}
-                    {val === 0 && <line x1="25" y1={y} x2="785" y2={y} stroke="var(--border)" strokeWidth="1" opacity="0.8" />}
-                  </g>
-                )
-              })}
-
-              {[
-                { label: '1 Jun', x: 25 }, { label: '5 Jun', x: 151 }, { label: '10 Jun', x: 278 },
-                { label: '15 Jun', x: 405 }, { label: '20 Jun', x: 531 }, { label: '25 Jun', x: 658 }, { label: '30 Jun', x: 785 }
-              ].map((tick, i) => (
-                <text key={i} x={tick.x} y="205" fill="var(--text-muted)" fontSize="10.5" fontWeight="600" textAnchor="middle">{tick.label}</text>
-              ))}
-
-              <path d="M 25,84 C 88,84 88,52 151,52 C 214,52 214,84 278,84 C 341.5,84 341.5,120 405,120 C 468.5,120 468.5,68 531,68 C 594.5,68 594.5,100 658,100 C 721.5,100 721.5,36 785,36 L 785,180 L 25,180 Z" fill="url(#chart-grad)" />
-              <path d="M 25,84 C 88,84 88,52 151,52 C 214,52 214,84 278,84 C 341.5,84 341.5,120 405,120 C 468.5,120 468.5,68 531,68 C 594.5,68 594.5,100 658,100 C 721.5,100 721.5,36 785,36"
-                fill="none" stroke="var(--primary)" strokeWidth="3" filter="url(#glow)" strokeLinecap="round" strokeLinejoin="round" />
-
-              {[
-                { x: 25, y: 84 }, { x: 151, y: 52 }, { x: 278, y: 84 }, { x: 405, y: 120 },
-                { x: 531, y: 68 }, { x: 658, y: 100 }, { x: 785, y: 36 }
-              ].map((pt, i) => (
-                <circle key={i} cx={pt.x} cy={pt.y} r="4" fill="var(--primary)" stroke="var(--surface)" strokeWidth="2" />
-              ))}
-            </svg>
-          </div>
-        </div>
-      </div>
 
       {/* ── Modals ── */}
       <Modal
@@ -487,7 +673,7 @@ export default function Dashboard() {
         size="md"
       >
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Approved (Today): <strong style={{ color: '#15803d' }}>{approvedOnLeaveToday.length}</strong></span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Approved (Today): <strong style={{ color: '#636B2F' }}>{approvedOnLeaveToday.length}</strong></span>
           <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Pending Approval: <strong style={{ color: '#c2410c' }}>{pendingLeaves.length}</strong></span>
         </div>
         <div style={{ maxHeight: 480, overflowY: 'auto', padding: '8px 0' }}>
@@ -503,12 +689,12 @@ export default function Dashboard() {
               badge={<span className="pill pill-orange">Pending</span>}
             />
           ))}
-          <div style={{ padding: '12px 20px 8px', fontSize: 12, fontWeight: 700, color: '#15803d', textTransform: 'uppercase', borderTop: '1px solid var(--border)' }}>Approved Leave Requests</div>
+          <div style={{ padding: '12px 20px 8px', fontSize: 12, fontWeight: 700, color: '#636B2F', textTransform: 'uppercase', borderTop: '1px solid var(--border)' }}>Approved Leave Requests</div>
           {approvedOnLeaveToday.length === 0 ? (
             <div style={{ padding: '0 20px 12px', fontSize: 13, color: 'var(--text-muted)' }}>No approved leaves for today.</div>
           ) : approvedOnLeaveToday.map((leave) => (
             <div key={leave._id} className="punch-row">
-              <Avatar name={leave.staff?.fullName} style={{ background: '#f0fdf4', color: '#15803d' }} />
+              <Avatar name={leave.staff?.fullName} style={{ background: '#e5ebdd', color: '#636B2F' }} />
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {leave.staff?.fullName || 'Unknown'} {leave.staff?.employeeId ? `· ${leave.staff.employeeId}` : ''}

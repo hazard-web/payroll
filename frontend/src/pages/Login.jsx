@@ -12,6 +12,12 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
 
+  // Functional setters avoid stale-closure spread copies that allocate
+  // a fresh form object every keystroke (and that previously were
+  // implicitly relying on the latest form being captured).
+  const onEmailChange = (e) => setForm((prev) => ({ ...prev, email: e.target.value }))
+  const onPasswordChange = (e) => setForm((prev) => ({ ...prev, password: e.target.value }))
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -23,7 +29,9 @@ export default function Login() {
       const res = await api.post('/auth/login', payload)
       login(res.data.token, res.data.user)
       toast.success('Welcome back!')
-      navigate('/')
+      // Use { replace: true } so the login route doesn't sit in history
+      // and slow down back-navigation.
+      navigate('/', { replace: true })
     } catch (err) {
       toast.error(err.message || 'Authentication failed.')
     } finally {
@@ -122,7 +130,7 @@ export default function Login() {
                 <input
                   type="email" required
                   value={form.email}
-                  onChange={e => setForm({ ...form, email: e.target.value })}
+                  onChange={onEmailChange}
                   placeholder="hr@acme.com"
                   style={{
                     width: '100%', padding: '16px 16px 16px 50px',
@@ -144,7 +152,7 @@ export default function Login() {
                 <input
                   type="password" required
                   value={form.password}
-                  onChange={e => setForm({ ...form, password: e.target.value })}
+                  onChange={onPasswordChange}
                   placeholder="••••••••"
                   style={{
                     width: '100%', padding: '16px 16px 16px 50px',

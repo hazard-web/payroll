@@ -5,6 +5,32 @@ const User = require('../models/User');
 const crypto = require('crypto');
 const { sendVerificationEmail } = require('../utils/emailService');
 
+// In-process JWT → User cache.
+// Same token tends to be reused on every protected request; hitting Mongo
+// each time adds a 30–80ms round-trip plus a bcrypt-shaped hydration cost.
+// We cache the lean User doc keyed by token; TTL is short so password
+// changes or account deletion still propagate quickly.
+const AUTH_CACHE_TTL_MS = 30 * 1000;
+const authCache = new Map(); // token → { user, expiresAt }
+
+function authCacheGet(token) {
+  const entry = authCache.get(token);
+  if (!entry) return null;
+  if (entry.expiresAt < Date.now()) {
+    authCache.delete(token);
+    return null;
+  }
+  return entry.user;
+}
+function authCacheSet(token, user) {
+  authCache.set(token, { user, expiresAt: Date.now() + AUTH_CACHE_TTL_MS });
+  // Bound the cache size so it doesn't grow unbounded under high traffic.
+  if (authCache.size > 1000) {
+    const firstKey = authCache.keys().next().value;
+    if (firstKey) authCache.delete(firstKey);
+  }
+}
+
 // Middleware to verify JWT
 const auth = async (req, res, next) => {
   try {
@@ -12,10 +38,22 @@ const auth = async (req, res, next) => {
     if (!token) throw new Error();
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-    const user = await User.findById(decoded.id);
+
+    // Hot path: same token on every request → cache hit
+    const cached = authCacheGet(token);
+    if (cached) {
+      req.user = cached;
+      req.token = token;
+      return next();
+    }
+
+    // Cold path: lean() drops the Mongoose document overhead and only
+    // projects the fields the API actually needs.
+    const user = await User.findById(decoded.id).lean();
 
     if (!user) throw new Error();
 
+    authCacheSet(token, user);
     req.user = user;
     req.token = token;
     next();
@@ -83,24 +121,23 @@ router.post('/login', async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
 
+    // Project only what we need: skip the embedded 50KB base64 logo by
+    // default and pull it lazily if/when needed (e.g. PDF generation).
     const user = await User.findOne({ email });
-    console.log(`🔐 Login attempt for "${email}" → user ${user ? 'FOUND' : 'NOT FOUND in DB'}`);
-
-    let passwordMatches = false;
-    if (user) {
-      try {
-        passwordMatches = await user.comparePassword(password);
-        console.log(`   Password match: ${passwordMatches}`);
-      } catch (compareErr) {
-        console.error('Password compare failed:', compareErr);
-      }
-    }
-
-    if (!user || !passwordMatches) {
-      console.log(`   ❌ Login FAILED for "${email}" — user=${!!user}, pwd=${passwordMatches}`);
+    if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
-    console.log(`   ✅ Login SUCCESS for "${email}"`);
+
+    let passwordMatches = false;
+    try {
+      passwordMatches = await user.comparePassword(password);
+    } catch (compareErr) {
+      console.error('Password compare failed:', compareErr);
+    }
+
+    if (!passwordMatches) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
 
     const isProduction = process.env.NODE_ENV === 'production';
     const skipEmailVerification =
@@ -112,7 +149,11 @@ router.post('/login', async (req, res, next) => {
     }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'fallback_secret', { expiresIn: '7d' });
-    res.json({ success: true, token, user: { email: user.email, companyName: user.companyName } });
+    res.json({
+      success: true,
+      token,
+      user: { email: user.email, companyName: user.companyName },
+    });
   } catch (err) {
     console.error('Login error:', err);
     return next(err);

@@ -139,7 +139,7 @@ async function sendVerificationEmail(user, token, origin) {
         <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 12px; overflow: hidden;">
           <tr><td height="6" bgcolor="#FFBE11" style="font-size: 0; line-height: 0;">&nbsp;</td></tr>
           <tr>
-            <td bgcolor="#57833B" style="padding: 40px 45px; text-align: center;">
+            <td bgcolor="#636B2F" style="padding: 40px 45px; text-align: center;">
               <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800;">PaySlip Pro</h1>
               <p style="margin: 8px 0 0 0; color: #d0e8c0; font-size: 14px;">Professional Payroll Management</p>
             </td>
@@ -153,14 +153,14 @@ async function sendVerificationEmail(user, token, origin) {
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                   <td align="center">
-                    <a href="${verifyUrl}" style="display: inline-block; background: #57833B; color: #ffffff; padding: 16px 36px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px;">
+                    <a href="${verifyUrl}" style="display: inline-block; background: #636B2F; color: #ffffff; padding: 16px 36px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px;">
                       Verify My Account
                     </a>
                   </td>
                 </tr>
               </table>
               <p style="margin: 30px 0 0 0; font-size: 12px; color: #9ca3af;">
-                Or copy this link: <a href="${verifyUrl}" style="color: #57833B;">${verifyUrl}</a><br/>
+                Or copy this link: <a href="${verifyUrl}" style="color: #636B2F;">${verifyUrl}</a><br/>
                 This link expires in 24 hours.
               </p>
             </td>
@@ -236,7 +236,7 @@ function buildEmailHTML(payslip) {
   const formatINR = (n) =>
     '₹ ' + parseFloat(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
-  const green = '#57833B';  // BDA Olive Green
+  const green = '#636B2F';  // BDA Olive Green
   const gold = '#FFBE11';   // BDA Accent Gold
 
   return `
@@ -354,8 +354,8 @@ async function sendPasswordResetEmail(user, token, origin, customLink, kind = 'a
     ? 'Welcome to the staff portal. Use the button below to set your portal password and start using your account.'
     : `We received a request to reset the password for your PaySlip Pro account linked to <strong>${user.email}</strong>.`;
   const buttonText = isStaff ? 'Set My Portal Password' : 'Reset My Password';
-  const buttonColor = isStaff ? '#57833B' : '#1e3a5f';
-  const headerColor = isStaff ? '#57833B' : '#1e3a5f';
+  const buttonColor = isStaff ? '#636B2F' : '#1e3a5f';
+  const headerColor = isStaff ? '#636B2F' : '#1e3a5f';
   const headerSubtitle = isStaff ? 'Staff Portal Access' : 'Professional Payroll Management';
 
   console.log(`✉️ Sending ${isStaff ? 'staff portal ' : ''}password reset email to: ${user.email}`);
@@ -580,7 +580,7 @@ function buildStaffProvisionEmailHTML(staff, tempPassword, setupUrl) {
         <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);">
           <tr><td height="6" bgcolor="#FFBE11" style="font-size: 0; line-height: 0;">&nbsp;</td></tr>
           <tr>
-            <td bgcolor="#57833B" style="padding: 36px 42px; text-align: center;">
+            <td bgcolor="#636B2F" style="padding: 36px 42px; text-align: center;">
               <h1 style="margin: 0; color: #ffffff; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">Welcome to the Staff Portal</h1>
               <p style="margin: 8px 0 0 0; color: #e6f2d8; font-size: 14px; font-weight: 600;">${companyName}</p>
             </td>
@@ -597,7 +597,7 @@ function buildStaffProvisionEmailHTML(staff, tempPassword, setupUrl) {
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                   <td align="center">
-                    <a href="${safeSetupUrl}" style="display: inline-block; background: #57833B; color: #ffffff; padding: 15px 34px; border-radius: 10px; text-decoration: none; font-weight: 800; font-size: 15px;">
+                    <a href="${safeSetupUrl}" style="display: inline-block; background: #636B2F; color: #ffffff; padding: 15px 34px; border-radius: 10px; text-decoration: none; font-weight: 800; font-size: 15px;">
                       Set Up My Portal Access
                     </a>
                   </td>
@@ -612,7 +612,7 @@ function buildStaffProvisionEmailHTML(staff, tempPassword, setupUrl) {
               ` : ''}
               <p style="margin: 24px 0 0 0; font-size: 13px; color: #6b7280; line-height: 1.6;">
                 If the button does not work, copy and paste this link into your browser:<br/>
-                <a href="${safeSetupUrl}" style="color: #57833B; font-weight: 700; word-break: break-all;">${safeSetupUrl}</a>
+                <a href="${safeSetupUrl}" style="color: #636B2F; font-weight: 700; word-break: break-all;">${safeSetupUrl}</a>
               </p>
               <p style="margin: 24px 0 0 0; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; line-height: 1.6;">
                 This setup link is valid for 24 hours. If you did not expect this email, please contact your administrator.
@@ -640,6 +640,166 @@ function buildStaffProvisionEmailText(staff, tempPassword, setupUrl) {
   const passwordLine = tempPassword ? `\n\nTemporary password: ${tempPassword}\nUse it to log in once, then set a new password.` : '';
 
   return `Hi ${fullName},\n\nYou have been added to the team at ${companyName}.\n\nPortal email: ${staffEmail}\n\nSet up your portal access here:\n${setupUrl}${passwordLine}\n\nThis setup link is valid for 24 hours. If you did not expect this email, please contact your administrator.`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Team Member Onboarding email (no default password)
+// Sent when an admin adds a new team member. The employee receives
+// a one-time setup link and chooses their own password. The same
+// passwordResetToken / passwordResetExpires fields on the Staff
+// model are reused as the setup token (24h expiry).
+// ─────────────────────────────────────────────────────────────
+async function sendTeamMemberOnboarding(staff, setupUrl) {
+  const to = String(staff?.email || '').trim().toLowerCase();
+  const companyName = staff?.user?.companyName || 'Your Company';
+
+  if (!isValidEmail(to)) {
+    throw new Error('Staff email is missing or invalid.');
+  }
+  if (!setupUrl) {
+    throw new Error('Setup link is required to send the onboarding email.');
+  }
+
+  console.log(`✉️ Sending team member onboarding email to: ${to}`);
+
+  const transporter = await createSMTPTransporter();
+
+  const mailOptions = {
+    from: buildFromAddress(companyName),
+    to,
+    replyTo: sanitizeEmailValue(process.env.EMAIL_FROM) || sanitizeEmailValue(process.env.EMAIL_USER),
+    subject: 'Welcome to Payroll Portal – Set Up Your Account',
+    html: buildTeamMemberOnboardingEmailHTML(staff, setupUrl),
+    text: buildTeamMemberOnboardingEmailText(staff, setupUrl),
+  };
+
+  // Anti-spam headers (same pattern as sendStaffProvisionEmail)
+  mailOptions.headers = {
+    'List-Unsubscribe': `<mailto:${sanitizeEmailValue(process.env.EMAIL_FROM) || sanitizeEmailValue(process.env.EMAIL_USER)}?subject=unsubscribe>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    'X-Mailer': 'PaySlip Pro Mailer',
+    'X-Entity-ID': `payslip-pro-${Date.now()}`,
+  };
+  // Force From display name to match sender domain — fixes Gmail spam delivery
+  mailOptions.from = buildFromAddress('PaySlip Pro');
+
+  try {
+    const info = await sendMailWithRetry(transporter, mailOptions);
+    const previewUrl = nodemailer.getTestMessageUrl(info);
+    if (previewUrl) {
+      console.log(`📭 Team member onboarding email preview available at: ${previewUrl}`);
+      return { previewUrl, info };
+    }
+    console.log(`✅ Team member onboarding email accepted by SMTP server`);
+    console.log(`   To: ${to}`);
+    console.log(`   Message ID: ${info.messageId}`);
+    console.log(`   Accepted: ${JSON.stringify(info.accepted)}`);
+    console.log(`   Rejected: ${JSON.stringify(info.rejected)}`);
+    console.log(`   SMTP response: ${info.response}`);
+    if (info.rejected && info.rejected.length > 0) {
+      console.warn(`⚠️ Recipient ${info.rejected.join(', ')} was REJECTED. Email NOT delivered.`);
+    }
+    if (!info.accepted || info.accepted.length === 0) {
+      console.warn(`⚠️ No recipients accepted the email. Email NOT delivered.`);
+    }
+    return { previewUrl: null, info };
+  } catch (err) {
+    console.error(`❌ Team member onboarding email SMTP error: ${err.message}`);
+    throw err;
+  }
+}
+
+function buildTeamMemberOnboardingEmailHTML(staff, setupUrl) {
+  const fullName = escapeHtml(staff?.fullName || 'there');
+  const companyName = escapeHtml(staff?.user?.companyName || 'Your Company');
+  const staffEmail = escapeHtml(staff?.email || '');
+  const safeSetupUrl = escapeHtml(setupUrl || '');
+
+  return `
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f6fa; font-family: 'Segoe UI', Arial, sans-serif;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f6fa; padding: 32px 10px;">
+    <tr>
+      <td align="center">
+        <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);">
+          <tr><td height="6" bgcolor="#FFBE11" style="font-size: 0; line-height: 0;">&nbsp;</td></tr>
+          <tr>
+            <td bgcolor="#636B2F" style="padding: 36px 42px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">Welcome to the Payroll Portal</h1>
+              <p style="margin: 8px 0 0 0; color: #e6f2d8; font-size: 14px; font-weight: 600;">${companyName}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 36px 42px;">
+              <p style="margin: 0 0 18px 0; font-size: 18px; font-weight: 800; color: #111827;">Hi ${fullName},</p>
+              <p style="margin: 0 0 16px 0; font-size: 15px; color: #374151; line-height: 1.65;">
+                You have been added to the team at <strong>${companyName}</strong>. We're excited to have you on board!
+              </p>
+              <p style="margin: 0 0 16px 0; font-size: 15px; color: #374151; line-height: 1.65;">
+                To get started, please set up your password using the secure button below. This link is unique to you and can only be used once.
+              </p>
+              <p style="margin: 0 0 24px 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
+                Your portal email: <strong>${staffEmail}</strong>
+              </p>
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td align="center">
+                    <a href="${safeSetupUrl}" style="display: inline-block; background: #636B2F; color: #ffffff; padding: 16px 40px; border-radius: 10px; text-decoration: none; font-weight: 800; font-size: 16px; letter-spacing: 0.3px;">
+                      Set Your Password
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin: 28px 0 0 0; font-size: 13px; color: #6b7280; line-height: 1.6;">
+                If the button does not work, copy and paste this link into your browser:<br/>
+                <a href="${safeSetupUrl}" style="color: #636B2F; font-weight: 700; word-break: break-all;">${safeSetupUrl}</a>
+              </p>
+              <p style="margin: 24px 0 0 0; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; line-height: 1.6;">
+                This setup link is valid for <strong>24 hours</strong>. After you set your password, you can sign in to the Payroll Portal using the email above and your new password.<br/><br/>
+                If you did not expect this email, please contact your administrator.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="#f9fafb" style="padding: 22px 42px; text-align: center;">
+              <p style="margin: 0; color: #9ca3af; font-size: 11px;">&copy; 2026 PaySlip Pro. All rights reserved.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+}
+
+function buildTeamMemberOnboardingEmailText(staff, setupUrl) {
+  const companyName = staff?.user?.companyName || 'Your Company';
+  const fullName = staff?.fullName || 'there';
+  const staffEmail = staff?.email || '';
+
+  return `Hi ${fullName},
+
+Welcome to ${companyName}! You have been added to the team on the Payroll Portal.
+
+To get started, please set up your password by visiting the secure link below. This link is unique to you and can only be used once.
+
+Portal email: ${staffEmail}
+
+Set Your Password:
+${setupUrl}
+
+This setup link is valid for 24 hours. After you set your password, you can sign in to the Payroll Portal using the email above and your new password.
+
+If you did not expect this email, please contact your administrator.
+
+© 2026 PaySlip Pro. All rights reserved.`;
 }
 
 async function sendPunchOutReminderEmail(staff, loginUrl, details = {}) {
@@ -742,4 +902,4 @@ async function sendPunchOutReminderEmail(staff, loginUrl, details = {}) {
   }
 }
 
-module.exports = { sendPayslipEmail, sendVerificationEmail, sendPasswordResetEmail, sendStaffProvisionEmail, sendPunchOutReminderEmail };
+module.exports = { sendPayslipEmail, sendVerificationEmail, sendPasswordResetEmail, sendStaffProvisionEmail, sendTeamMemberOnboarding, sendPunchOutReminderEmail };

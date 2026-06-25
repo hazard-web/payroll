@@ -105,7 +105,7 @@ export default function PortalLayout() {
       setSupportRequestType('')
       setSupportMessage('')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to submit request')
+      toast.error(err.response?.data?.message || err.message || 'Failed to submit request')
     } finally {
       setSupportSubmitting(false)
     }
@@ -424,7 +424,7 @@ export default function PortalLayout() {
                           notifications.map((n) => {
                             const typeMap = {
                               LEAVE_REQUEST:  { icon: CalendarDays, bg: '#e0f2fe', color: '#0369a1' },
-                              PAYSLIP_PUSHED: { icon: FileText,     bg: '#dcfce7', color: '#15803d' },
+                              PAYSLIP_PUSHED: { icon: FileText,     bg: '#e5ebdd', color: '#636B2F' },
                               PROFILE_UPDATE: { icon: User,         bg: '#f3e8ff', color: '#7e22ce' },
                               ATTENDANCE_ALERT:{ icon: AlertTriangle, bg: '#fee2e2', color: '#dc2626' },
                               OTHER:          { icon: Bell,         bg: 'var(--bg)', color: 'var(--text-muted)' },
@@ -466,7 +466,7 @@ export default function PortalLayout() {
                   width: 40, height: 40, borderRadius: 12, 
                   background: 'var(--primary)', color: 'white', border: 'none',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer', boxShadow: '0 4px 12px rgba(88, 131, 59, 0.15)'
+                  cursor: 'pointer', boxShadow: '0 4px 12px rgba(99, 107, 47, 0.15)'
                 }}
                 title="Install Application"
               >

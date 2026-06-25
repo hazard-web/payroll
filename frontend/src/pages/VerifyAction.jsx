@@ -34,7 +34,7 @@ export default function VerifyAction() {
         }, 3000)
       } catch (err) {
         setStatus('error')
-        setMessage(err.response?.data?.message || 'Verification link integrity check failed.')
+        setMessage(err.response?.data?.message || err.message || 'Verification link integrity check failed.')
       }
     }
 

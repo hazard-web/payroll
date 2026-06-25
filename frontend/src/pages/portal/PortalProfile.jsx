@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useStaffPortal } from '../../context/StaffPortalContext'
 import { Save, Loader2, AlertCircle, CheckCircle2, Upload, FileText } from 'lucide-react'
 import { toast } from 'react-hot-toast'
@@ -99,7 +100,7 @@ function DocumentUpload({ type, label, hint, accept, required, document, onUploa
         {document?.uploadedAt && (
           <span style={{
             fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 100,
-            background: 'rgba(63, 98, 18, 0.1)', color: '#3f6212'
+            background: 'rgba(99, 107, 47, 0.1)', color: '#636B2F'
           }}>Uploaded</span>
         )}
       </div>
@@ -157,15 +158,27 @@ function DocumentUpload({ type, label, hint, accept, required, document, onUploa
 }
 
 export default function PortalProfile() {
-  const { staffUser, setStaffUser } = useStaffPortal()
+  const { staffUser, refresh } = useStaffPortal()
+  const navigate = useNavigate()
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
   const [documents, setDocuments] = useState({})
   const [uploadingDoc, setUploadingDoc] = useState(null)
 
+  // Track which staffUser the form was last initialized from.
+  // When the underlying user changes (e.g. login switch, or a real profile
+  // save that mutated fields), we reinitialize. When `staffUser` updates
+  // for a reason that shouldn't clobber the user's unsaved typing — most
+  // importantly, a document upload via refresh() — we MUST NOT reinitialize
+  // the form, because the server snapshot doesn't have the user's in-flight
+  // edits and overwriting would lose them.
+  const lastInitUserIdRef = useRef(null)
   useEffect(() => {
-    if (staffUser) {
+    if (!staffUser) return
+    const userId = staffUser.id || staffUser._id
+    // First load, or the actual logged-in user changed → full reinitialize.
+    if (lastInitUserIdRef.current !== userId) {
       setForm({
         phone: staffUser.phone || '',
         panNumber: staffUser.panNumber || '',
@@ -192,21 +205,46 @@ export default function PortalProfile() {
         }
       })
       setDocuments(staffUser.documents || {})
+      lastInitUserIdRef.current = userId
+      return
+    }
+    // Same user, but a background refresh (e.g. document upload, profile
+    // save with no field changes): update ONLY the documents section.
+    // The form fields stay as the user typed them — that's the source of
+    // truth for unsaved edits. After the next save, the server snapshot
+    // will match what the user sees and the page will be in sync.
+    if (staffUser.documents) {
+      setDocuments(staffUser.documents)
     }
   }, [staffUser])
 
   const handleDocumentUpload = async (type, data, originalName) => {
     setUploadingDoc(type)
     try {
+      // Snapshot the current form so we can restore it if the API response
+      // doesn't include the user's in-flight (unsaved) field values.
+      const formSnapshot = form
       const res = await api.post(`/portal/me/documents/${type}`, { data, originalName })
-      const uploaded = res.data.document
-      setDocuments((prev) => ({ ...prev, [type]: uploaded }))
-      const nextDocs = { ...(staffUser?.documents || {}), [type]: uploaded }
-      setStaffUser({
-        ...staffUser,
-        documents: nextDocs,
-        profileCompleted: res.data.profileCompleted ?? staffUser?.profileCompleted,
-      })
+      const label = DOCUMENT_CONFIG.find((d) => d.type === type)?.label || 'Document'
+
+      // Optimistic: update the local documents state immediately so the UI
+      // shows the just-uploaded file with the "Uploaded" badge right away,
+      // without waiting for the server round-trip.
+      if (res.data?.document) {
+        setDocuments((prev) => ({ ...prev, [type]: res.data.document }))
+      }
+
+      // Refresh staff state from the server so profileCompleted is current.
+      const refreshed = await refresh()
+
+      // CRITICAL: re-apply the form snapshot after refresh() updates context.
+      // refresh() replaces `staffUser` with the server snapshot; the
+      // useEffect that depends on `staffUser` will then run and (per the
+      // guard above) update only `documents`, but in case the snapshot
+      // contains different form fields (e.g. a typo fix landed in DB),
+      // we re-apply the user's in-flight edits on top.
+      setForm(formSnapshot)
+
       if (errors[`documents.${type}`]) {
         setErrors((prev) => {
           const next = { ...prev }
@@ -214,9 +252,10 @@ export default function PortalProfile() {
           return next
         })
       }
-      const label = DOCUMENT_CONFIG.find((d) => d.type === type)?.label || 'Document'
-      if (res.data.profileCompleted) {
-        toast.success(`${label} uploaded. Profile is now complete!`)
+
+      if (refreshed?.profileCompleted && !staffUser?.profileCompleted) {
+        toast.success(`${label} uploaded. Profile is now complete! Redirecting…`)
+        setTimeout(() => navigate('/portal/dashboard'), 600)
       } else {
         toast.success(`${label} uploaded successfully`)
       }
@@ -248,7 +287,28 @@ export default function PortalProfile() {
     }
   }
 
-  const validate = () => {
+  // Format validation runs on every save (always blocking). This catches
+  // malformed inputs (e.g. bad PAN, non-10-digit phone) without forcing
+  // the user to re-fill every field when they just want to update one.
+  const validateFormat = () => {
+    const e = {}
+    if (form.phone && form.phone.replace(/\D/g, '').length !== 10) {
+      e['phone'] = 'Enter a valid 10-digit phone number'
+    }
+    if (form.panNumber && !PAN_REGEX.test(form.panNumber.toUpperCase())) {
+      e['panNumber'] = 'Invalid PAN format. Expected: ABCDE1234F'
+    }
+    if (form.emergencyContact.phone &&
+        form.emergencyContact.phone.replace(/\D/g, '').length !== 10) {
+      e['emergencyContact.phone'] = 'Enter a valid 10-digit phone number'
+    }
+    return e
+  }
+
+  // Required-field validation only blocks the FIRST-TIME profile completion.
+  // After profileCompleted is true, the user is just editing — never block
+  // a partial save with a "this field is required" error.
+  const validateRequired = () => {
     const e = {}
     if (!form.phone || form.phone.replace(/\D/g, '').length !== 10) {
       e['phone'] = 'Enter a valid 10-digit phone number'
@@ -282,7 +342,12 @@ export default function PortalProfile() {
 
   const handleSave = async (e) => {
     e.preventDefault()
-    const v = validate()
+
+    // Always run format validation (block save on bad format).
+    const formatErrors = validateFormat()
+    // Only run required-field validation if the profile is not yet complete.
+    const requiredErrors = staffUser?.profileCompleted ? {} : validateRequired()
+    const v = { ...formatErrors, ...requiredErrors }
     setErrors(v)
     if (Object.keys(v).length > 0) {
       toast.error('Please fix the highlighted fields')
@@ -300,26 +365,22 @@ export default function PortalProfile() {
         emergencyContact: { ...form.emergencyContact, phone: form.emergencyContact.phone.replace(/\D/g, '') },
         bankDetails: { ...form.bankDetails, ifscCode: form.bankDetails.ifscCode.toUpperCase().trim() }
       }
-      const res = await api.put('/portal/me', payload)
-      const updated = res.data.staff || {}
-      setStaffUser({
-        ...staffUser,
-        phone: payload.phone,
-        panNumber: updated.panNumber ?? payload.panNumber,
-        dob: updated.dob ?? payload.dob,
-        gender: updated.gender ?? payload.gender,
-        address: updated.address ?? payload.address,
-        emergencyContact: updated.emergencyContact ?? payload.emergencyContact,
-        bankDetails: updated.bankDetails ?? payload.bankDetails,
-        profileCompleted: updated.profileCompleted ?? true
-      })
-      if (res.data.staff?.profileCompleted) {
+      await api.put('/portal/me', payload)
+
+      // Single source of truth: re-fetch the full staff from the server
+      // and let the useEffect re-initialize the form from that.
+      const refreshed = await refresh()
+
+      if (refreshed?.profileCompleted && !staffUser?.profileCompleted) {
+        // First-time completion: navigate to dashboard so the user doesn't
+        // get stuck on the profile page after the "Profile completed!" toast.
         toast.success('Profile completed! Redirecting…')
+        setTimeout(() => navigate('/portal/dashboard'), 600)
       } else {
         toast.success('Profile updated successfully.')
       }
     } catch (err) {
-      toast.error(err.message || 'Update failed')
+      toast.error(err.response?.data?.message || err.message || 'Update failed')
     } finally {
       setSaving(false)
     }
@@ -347,8 +408,8 @@ export default function PortalProfile() {
             {completed ? (
               <span style={{
                 padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700,
-                background: 'rgba(63, 98, 18, 0.1)', color: '#3f6212',
-                border: '1px solid rgba(63, 98, 18, 0.2)', display: 'inline-flex', alignItems: 'center', gap: 6
+                background: 'rgba(99, 107, 47, 0.1)', color: '#636B2F',
+                border: '1px solid rgba(99, 107, 47, 0.2)', display: 'inline-flex', alignItems: 'center', gap: 6
               }}>
                 <CheckCircle2 size={14} /> Profile Complete
               </span>
@@ -563,7 +624,7 @@ export default function PortalProfile() {
           </div>
         </Section>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 20, background: requiredComplete ? 'rgba(63, 98, 18, 0.06)' : 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 20, background: requiredComplete ? 'rgba(99, 107, 47, 0.06)' : 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
           <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
             {requiredComplete
               ? 'All required fields and documents are filled. Saving will mark your profile as complete.'

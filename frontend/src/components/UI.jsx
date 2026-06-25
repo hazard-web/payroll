@@ -288,13 +288,13 @@ export function StatCard({
   onClick,
   className = '',
 }) {
-  const Wrapper = onClick ? 'a' : 'div'
+  const Wrapper = onClick ? 'button' : 'div'
   return (
     <Wrapper
-      href={onClick}
+      type={onClick ? 'button' : undefined}
       onClick={onClick}
       className={`stat-card ${onClick ? 'stat-card--clickable' : ''} ${className}`}
-      style={{ textDecoration: 'none' }}
+      style={{ textDecoration: 'none', border: 0, textAlign: 'left', width: '100%' }}
     >
       <div className="stat-icon" style={{ background: `${color}15`, color }}>
         {Icon && <Icon size={20} />}

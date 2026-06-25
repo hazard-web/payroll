@@ -15,7 +15,7 @@ const fmtTime = (value) => {
 }
 
 const statusColor = (status) => {
-  if (status === 'Completed') return { bg: '#dcfce7', color: '#15803d' }
+  if (status === 'Completed') return { bg: '#e5ebdd', color: '#636B2F' }
   if (status === 'In Progress') return { bg: '#ffedd5', color: '#c2410c' }
   return { bg: '#f1f5f9', color: '#475569' }
 }
@@ -40,7 +40,7 @@ const TaskCard = ({ task, index }) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 6 }}>
         <div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 3 }}>Task {index + 1}</div>
-          <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text)' }}>{task.project || 'General'}</div>
+          <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text)' }}>{task.project || '—'}</div>
         </div>
         <span style={{ padding: '4px 9px', borderRadius: 999, background: colors.bg, color: colors.color, fontSize: 10, fontWeight: 800, whiteSpace: 'nowrap' }}>
           {task.status}
@@ -54,11 +54,11 @@ const TaskCard = ({ task, index }) => {
 const EmployeePerformance = ({ record }) => {
   const tasks = Array.isArray(record.tasks) ? record.tasks : []
   const colors = {
-    Completed: '#15803d',
+    Completed: '#636B2F',
     'In Progress': '#c2410c',
     Pending: '#475569'
   }
-  const rateColor = record.taskStats?.completionRate === 100 ? '#15803d' : record.taskStats?.completionRate > 0 ? '#c2410c' : '#475569'
+  const rateColor = record.taskStats?.completionRate === 100 ? '#636B2F' : record.taskStats?.completionRate > 0 ? '#c2410c' : '#475569'
 
   return (
     <SectionCard noPadding>
@@ -87,7 +87,7 @@ const EmployeePerformance = ({ record }) => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(80px, 1fr))', gap: 10, marginTop: 16 }}>
           {[
             ['Total', record.taskStats?.total || 0, '#475569'],
-            ['Completed', record.taskStats?.completed || 0, '#15803d'],
+            ['Completed', record.taskStats?.completed || 0, '#636B2F'],
             ['In Progress', record.taskStats?.inProgress || 0, '#c2410c'],
             ['Pending', record.taskStats?.pending || 0, '#475569'],
           ].map(([label, value, color]) => (
@@ -160,8 +160,8 @@ export default function TeamPerformance() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(160px, 1fr))', gap: 14, marginBottom: 18 }}>
         <StatTile icon={Users} label="Present Today" value={summary?.presentCount || 0} sub="Employees with attendance" color="#1d4ed8" />
-        <StatTile icon={ListChecks} label="Total Tasks" value={summary?.totalTasks || 0} sub="Added by team today" color="#15803d" />
-        <StatTile icon={CheckCircle2} label="Completed" value={summary?.completedTasks || 0} sub={`${summary?.completionRate || 0}% completion`} color="#15803d" />
+        <StatTile icon={ListChecks} label="Total Tasks" value={summary?.totalTasks || 0} sub="Added by team today" color="#636B2F" />
+        <StatTile icon={CheckCircle2} label="Completed" value={summary?.completedTasks || 0} sub={`${summary?.completionRate || 0}% completion`} color="#636B2F" />
         <StatTile icon={Clock} label="Pending / In Progress" value={(summary?.pendingTasks || 0) + (summary?.inProgressTasks || 0)} sub={`${summary?.pendingTasks || 0} pending · ${summary?.inProgressTasks || 0} in progress`} color="#c2410c" />
       </div>
 

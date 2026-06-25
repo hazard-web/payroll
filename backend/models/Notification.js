@@ -41,4 +41,11 @@ const notificationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Hot paths:
+//  • staff portal "My Notifications" — { staff, isRead, createdAt } sort newest first
+//  • admin bell — { admin, recipientType, isRead, createdAt }
+//  • mark-as-read — needs fast lookup by _id which is the default _id index
+notificationSchema.index({ staff: 1, isRead: 1, createdAt: -1 });
+notificationSchema.index({ admin: 1, recipientType: 1, isRead: 1, createdAt: -1 });
+
 module.exports = mongoose.model('Notification', notificationSchema);

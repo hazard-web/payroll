@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
+mongoose.set('bufferCommands', false);
+
 const payslipRoutes = require('./routes/payslip');
 const { router: authRoutes } = require('./routes/auth');
 const staffRoutes = require('./routes/staff');
@@ -21,18 +23,40 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// On Vercel, ensure the Mongo connection is warm before any route runs.
-// This avoids each cold start opening a brand-new Atlas connection.
-if (process.env.VERCEL) {
-  app.use(async (req, res, next) => {
-    try {
-      await ensureMongoConnection();
-      next();
-    } catch (err) {
-      next(err);
-    }
+// Health check stays DB-independent so local debugging is instant.
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    message: 'Payslip Generator API is running',
+    dbState: mongoose.connection.readyState,
+    timestamp: new Date().toISOString(),
   });
-}
+});
+
+const DB_READY_TIMEOUT_MS = 2000;
+
+// Ensure API data routes do not sit on Mongoose's long query buffering when
+// Atlas is blocked/slow. Return a clear 503 quickly instead.
+app.use('/api', async (req, res, next) => {
+  if (mongoose.connection.readyState === 1) return next();
+
+  try {
+    await Promise.race([
+      ensureMongoConnection(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Database connection timed out')), DB_READY_TIMEOUT_MS)
+      ),
+    ]);
+    return next();
+  } catch (err) {
+    return res.status(503).json({
+      success: false,
+      message:
+        'Database is unreachable. In MongoDB Atlas, add your current IP in Network Access and wait 1-2 minutes.',
+      code: 'DB_UNREACHABLE',
+    });
+  }
+});
 
 // Routes
 app.use('/api/payslips', payslipRoutes);
@@ -44,15 +68,6 @@ app.use('/api/activities', activitiesRoutes);
 app.use('/api/leaves', leavesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/support', supportRoutes);
-
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    message: 'Payslip Generator API is running',
-    timestamp: new Date().toISOString(),
-  });
-});
 
 const path = require('path');
 
@@ -120,7 +135,8 @@ let mongooseConnectionPromise = null;
 function ensureMongoConnection() {
   if (mongooseConnectionPromise) return mongooseConnectionPromise;
   mongooseConnectionPromise = mongoose.connect(MONGO_URI, {
-    serverSelectionTimeoutMS: 10000,
+    serverSelectionTimeoutMS: 2000,
+    connectTimeoutMS: 2000,
     maxPoolSize: 10,
   });
   // Reset the cache on hard failure so a future request can retry
@@ -174,4 +190,3 @@ ensureMongoConnection()
 
 // Export the app so Vercel Serverless Functions can use it
 module.exports = app;
-

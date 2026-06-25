@@ -19,7 +19,7 @@ export default function Register() {
       toast.success('Enterprise account initiated!')
       navigate('/verify-email')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Registration failed')
+      toast.error(err.response?.data?.message || err.message || 'Registration failed')
     } finally {
       setLoading(false)
     }
