@@ -79,6 +79,9 @@ const TaskRow = ({ task }) => {
         <div>Assigned: {formatDate(task.taskDate)}</div>
         {task.punchIn && <div>Punch In: {formatTime(task.punchIn)}</div>}
         {task.punchOut && <div>Punch Out: {formatTime(task.punchOut)}</div>}
+        <div style={{ fontWeight: 600, color: task.sessionStatus === 'Closed' ? '#58833b' : '#c2410c' }}>
+          Session: {task.sessionStatus || 'Active'}
+        </div>
       </div>
     </div>
   )

@@ -230,6 +230,8 @@ router.get('/admin/staff/:id/tasks', authAdmin, async (req, res) => {
     const allTasks = [];
     records.forEach(record => {
       if (Array.isArray(record.tasks)) {
+        // Session status: "Closed" if punchOut exists, "Active" if still punched in
+        const sessionStatus = record.punchOut ? 'Closed' : 'Active';
         record.tasks.forEach(task => {
           allTasks.push({
             ...task,
@@ -237,7 +239,8 @@ router.get('/admin/staff/:id/tasks', authAdmin, async (req, res) => {
             taskDate: record.date,
             punchIn: record.punchIn,
             punchOut: record.punchOut,
-            workStatus: record.workStatus
+            workStatus: record.workStatus,
+            sessionStatus: sessionStatus
           });
         });
       }
