@@ -413,18 +413,6 @@ export default function StaffDetail() {
                   <DossierField label="Department" value={staff.department} />
                   <DossierField label="Designation" value={staff.designation} />
                   {staff.pfNumber && <DossierField label="PF Number" value={staff.pfNumber} />}
-
-                  {/* Portal Status (read-only info) */}
-                  <div className="dossier-field dossier-span-2">
-                    <div className="dossier-field-label">Portal Access</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} className="dossier-field-value">
-                      {staff.isPortalEnabled ? (
-                        <span className="badge badge-emerald">Active — Invite sent</span>
-                      ) : (
-                        <span className="badge" style={{ background: 'var(--border)', color: 'var(--text-muted)' }}>Invite Pending</span>
-                      )}
-                    </div>
-                  </div>
                 </div>
               </div>
 

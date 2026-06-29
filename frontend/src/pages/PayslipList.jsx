@@ -203,9 +203,9 @@ export default function PayslipList() {
           <table className="data-table" style={{ minWidth: 800 }}>
             <thead>
               <tr style={{ background: 'var(--primary)' }}>
-                {['Employee Details', 'Period', 'Compensation', 'Tracking', 'Portal', 'Actions'].map((h, i) => (
+                {['Employee Details', 'Period', 'Compensation', 'Tracking', 'Actions'].map((h, i) => (
                   <th key={h} style={{
-                    textAlign: i === 5 ? 'right' : 'left',
+                    textAlign: i === 4 ? 'right' : 'left',
                     color: 'var(--primary-text)',
                     padding: 'var(--space-4) var(--space-5)',
                   }}>
@@ -218,7 +218,7 @@ export default function PayslipList() {
               {loading ? (
                 [...Array(5)].map((_, i) => (
                   <tr key={i}>
-                    {[...Array(6)].map((_, j) => (
+                    {[...Array(5)].map((_, j) => (
                       <td key={j}>
                         <div className="skeleton" style={{ height: 18, width: '80%', borderRadius: 6 }} />
                       </td>
@@ -227,7 +227,7 @@ export default function PayslipList() {
                 ))
               ) : payslips.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={5}>
                     <div style={{ padding: '60px 24px' }}>
                       <EmptyState
                         icon={FileText}
@@ -272,14 +272,6 @@ export default function PayslipList() {
                       {p.emailSent
                         ? <span className="badge badge-green">✓ Dispatched</span>
                         : <span className="badge" style={{ background: 'var(--bg)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>Draft Only</span>
-                      }
-                    </td>
-
-                    {/* Portal Visibility */}
-                    <td>
-                      {p.isPushedToPortal
-                        ? <span className="badge badge-emerald">Live</span>
-                        : <span className="badge badge-red">Hidden</span>
                       }
                     </td>
 
