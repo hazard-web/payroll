@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const { generatePayslipPDFBuffer } = require('./pdfBuffer');
+const { buildSetupLink, buildVerifyLink } = require('./urlHelper');
 
 /**
  * Build a valid SMTP `from` address.
@@ -113,12 +114,20 @@ async function createSMTPTransporter() {
 // Send verification email on registration
 // ─────────────────────────────────────────────────────────────
 async function sendVerificationEmail(user, token, origin) {
-
-  const finalAppUrl = (origin || '').replace(/\/$/, '') ||
-    process.env.FRONTEND_URL ||
-    process.env.APP_URL ||
-    'https://rohit98k-payroll-portal.vercel.app';
-  const verifyUrl = `${finalAppUrl}/verify?token=${token}`;
+  // Support both pre-built URLs (from buildVerifyLink) and legacy origin URLs
+  // If origin looks like a full URL ending with ?token=, use it directly
+  // Otherwise build from origin as before
+  let verifyUrl;
+  if (origin && origin.includes('?token=')) {
+    // Pre-built URL from centralized helper
+    verifyUrl = origin;
+  } else {
+    const finalAppUrl = (origin || '').replace(/\/$/, '') ||
+      process.env.FRONTEND_URL ||
+      process.env.APP_URL ||
+      'https://rohit98k-payroll-portal.vercel.app';
+    verifyUrl = `${finalAppUrl}/verify?token=${token}`;
+  }
 
   console.log(`✉️ Sending verification email to: ${user.email}`);
 

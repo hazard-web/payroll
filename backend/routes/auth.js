@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const crypto = require('crypto');
 const { sendVerificationEmail } = require('../utils/emailService');
+const { buildVerifyLink, buildResetLink } = require('../utils/urlHelper');
 
 // In-process JWT → User cache.
 // Same token tends to be reused on every protected request; hitting Mongo
@@ -93,8 +94,9 @@ router.post('/register', async (req, res, next) => {
 
     // Send verification email (awaiting for Vercel stability)
     try {
-      const origin = req.get('origin') || `${req.protocol}://${req.get('host')}`;
-      await sendVerificationEmail(user, verificationToken, origin);
+      // Use centralized URL helper — never use request origin for verification links
+      const verifyUrl = buildVerifyLink(verificationToken);
+      await sendVerificationEmail(user, verificationToken, verifyUrl);
     } catch (emailErr) {
       console.error('📧 Email failed to send:', emailErr);
     }
@@ -270,9 +272,8 @@ router.post('/forgot-password', async (req, res, next) => {
     user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
     await user.save();
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const origin = req.get('origin') || frontendUrl;
-    const resetLink = `${origin}/reset-password?token=${resetToken}`;
+    // Always use centralized URL helper — never use request origin for reset links
+    const resetLink = buildResetLink(resetToken);
 
     // In dev (no NODE_ENV=production), always print the link to the terminal
     // so devs can recover accounts even without a working SMTP setup.
@@ -287,7 +288,8 @@ router.post('/forgot-password', async (req, res, next) => {
 
     try {
       const { sendPasswordResetEmail } = require('../utils/emailService');
-      const previewUrl = await sendPasswordResetEmail(user, resetToken, origin);
+      // Pass pre-built URL as customLink (4th param) to override the built-in URL construction
+      const previewUrl = await sendPasswordResetEmail(user, resetToken, '', resetLink);
       // If SMTP is not configured and Ethereal is used, the function returns a previewUrl.
       // Surface it so the frontend can show "View test email" link.
       if (previewUrl && process.env.NODE_ENV !== 'production') {

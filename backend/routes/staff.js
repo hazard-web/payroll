@@ -5,6 +5,7 @@ const Notification = require('../models/Notification');
 const { auth: protect } = require('./auth');
 const crypto = require('crypto');
 const emailService = require('../utils/emailService');
+const { buildSetupLink } = require('../utils/urlHelper');
 
 // ─────────────────────────────────────────────────────────────
 // PAN validation helper
@@ -17,6 +18,9 @@ const isValidPAN = (pan) => typeof pan === 'string' && PAN_REGEX.test(pan);
 const isValidEmail = (email) => typeof email === 'string' && EMAIL_REGEX.test(email.toLowerCase().trim());
 const DEFAULT_FRONTEND_URL = 'https://rohit98k-payroll-portal.vercel.app';
 
+// NOTE: This function is kept for backwards compatibility for routes that might need
+// to use the request origin (like redirects). For invitation links, ALWAYS use
+// buildSetupLink() from urlHelper.js instead to ensure URLs are never preview/deployment URLs.
 function resolvePortalBaseUrl(req) {
   const cleanUrl = (value) => String(value || '').trim().replace(/\/$/, '');
   const isLocalUrl = (value) => /(^https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?/i.test(value);
@@ -69,7 +73,9 @@ async function provisionStaffPortalAccess(staff, req, options = {}) {
 
   await staff.save();
 
-  const setupLink = `${resolvePortalBaseUrl(req)}/portal/setup-password?token=${setupToken}`;
+  // ALWAYS use buildSetupLink() — it reads from env vars and rejects preview URLs.
+  // This guarantees the link never depends on the current deployment.
+  const setupLink = buildSetupLink(setupToken);
   const result = {
     resetLink: setupLink, // keep the field name stable for downstream consumers
     emailPreviewUrl: null,
