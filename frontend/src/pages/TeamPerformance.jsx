@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageShell, { PageHeader, PageLoading } from '../components/PageShell'
-import { Avatar, EmptyState } from '../components/UI'
-import { Eye, Loader2, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import api from '../api'
 
 export default function TeamPerformance() {
@@ -73,62 +72,30 @@ export default function TeamPerformance() {
           {searchQuery ? 'No employees found matching your search.' : 'No team members found.'}
         </div>
       ) : (
-        <div style={{
-          display: 'grid',
-          gap: 12,
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))'
-        }}>
+        <div style={{ maxWidth: 600 }}>
           {filteredStaff.map(staff => (
             <div
               key={staff._id}
               style={{
-                padding: 16,
-                borderRadius: 12,
+                padding: '16px 20px',
+                borderRadius: 10,
                 border: '1px solid var(--border)',
                 background: 'var(--surface)',
+                marginBottom: 10,
                 display: 'flex',
-                alignItems: 'center',
                 justifyContent: 'space-between',
-                gap: 16,
-                transition: 'all 0.2s'
+                alignItems: 'center'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                <Avatar
-                  name={staff.fullName}
-                  style={{ width: 42, height: 42, borderRadius: 12, fontSize: 15 }}
-                />
-                <div style={{ minWidth: 0 }}>
-                  <div style={{
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: 'var(--text)',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis'
-                  }}>
-                    {staff.fullName}
-                  </div>
-                  {staff.designation && (
-                    <div style={{
-                      fontSize: 12,
-                      color: 'var(--text-muted)',
-                      marginTop: 2,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}>
-                      {staff.designation}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
+                {staff.fullName}
+              </span>
               <button
                 onClick={() => navigate(`/performance/${staff._id}`)}
                 className="btn-primary btn-sm"
-                style={{ padding: '8px 14px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+                style={{ padding: '8px 16px', fontSize: 13 }}
               >
-                <Eye size={14} /> View
+                View Performance
               </button>
             </div>
           ))}
