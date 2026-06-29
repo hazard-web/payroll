@@ -535,6 +535,7 @@ h3 { font-size: 18px; line-height: 1.4; margin-bottom: 0.5rem; }
 
 .page-shell--wide { max-width: var(--container-wide); }
 .page-shell--narrow { max-width: var(--container-narrow); }
+.page-shell--full { max-width: none; }
 
 /* Full-bleed layouts (e.g. split-screen generator) */
 .page-shell--flush {
@@ -1304,3 +1305,114 @@ h3 { font-size: 18px; line-height: 1.4; margin-bottom: 0.5rem; }
 .scroll-list::-webkit-scrollbar { width: 4px; }
 .scroll-list::-webkit-scrollbar-track { background: transparent; }
 .scroll-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Team Performance — Employee List ─────────────────────────────────────── */
+.tp-employee-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tp-employee-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  min-height: 70px;
+  flex-wrap: wrap;
+}
+
+/* Left block: name + meta row */
+.tp-employee-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tp-employee-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Horizontal meta row */
+.tp-employee-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  row-gap: 4px;
+}
+
+.tp-meta-sep {
+  color: var(--border);
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+}
+
+.tp-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.tp-meta-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tp-meta-value {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* Right block: button */
+.tp-employee-action {
+  flex-shrink: 0;
+}
+
+/* Responsive — tablet & mobile */
+@media (max-width: 640px) {
+  .tp-employee-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
+  .tp-employee-action {
+    width: 100%;
+  }
+
+  .tp-employee-action .btn-primary {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .tp-meta-sep {
+    display: none;
+  }
+
+  .tp-employee-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+

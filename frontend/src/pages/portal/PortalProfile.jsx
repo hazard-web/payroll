@@ -432,17 +432,22 @@ export default function PortalProfile() {
       </header>
 
       <form onSubmit={handleSave}>
-        <Section title="Contact Information" subtitle="Your email is set by your administrator and cannot be changed here.">
+        <Section title="Contact Information" subtitle="Your email and phone number are set by your administrator. You may update your phone number below.">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
             <Field label="Email" required>
               <input type="email" disabled value={staffUser?.email || ''} style={{ ...inputStyle, background: 'var(--bg)', color: 'var(--text-muted)', cursor: 'not-allowed' }} />
             </Field>
-            <Field label="Phone Number" required error={errors.phone}>
+            <Field label="Phone Number (Admin Set)" required>
+              <input type="tel" disabled value={staffUser?.phone || ''} style={{ ...inputStyle, background: 'var(--bg)', color: 'var(--text-muted)', cursor: 'not-allowed' }} />
+            </Field>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <Field label="Update Phone Number" error={errors.phone}>
               <input
                 type="tel"
                 value={form.phone}
                 onChange={(e) => updateField('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
-                placeholder="10-digit mobile"
+                placeholder="Enter new 10-digit mobile number"
                 style={inputStyle}
                 maxLength={10}
               />

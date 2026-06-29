@@ -41,15 +41,25 @@ export default function TeamPerformance() {
   if (loading) return <PageShell><PageLoading label="Loading team…" /></PageShell>
 
   return (
-    <PageShell>
+    <PageShell fullWidth>
       <PageHeader
         title="Team Performance"
         subtitle="View task performance and history for your team members."
       />
 
-      <div style={{ maxWidth: 600, marginBottom: 24 }}>
+      {/* Search bar */}
+      <div style={{ marginBottom: 24 }}>
         <div style={{ position: 'relative' }}>
-          <Search size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <Search
+            size={18}
+            style={{
+              position: 'absolute',
+              left: 14,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--text-muted)',
+            }}
+          />
           <input
             type="text"
             value={searchQuery}
@@ -62,41 +72,65 @@ export default function TeamPerformance() {
       </div>
 
       {filteredStaff.length === 0 ? (
-        <div style={{
-          padding: 48,
-          textAlign: 'center',
-          background: 'var(--bg)',
-          borderRadius: 12,
-          color: 'var(--text-muted)'
-        }}>
-          {searchQuery ? 'No employees found matching your search.' : 'No team members found.'}
+        <div
+          style={{
+            padding: 48,
+            textAlign: 'center',
+            background: 'var(--bg)',
+            borderRadius: 12,
+            color: 'var(--text-muted)',
+          }}
+        >
+          {searchQuery
+            ? 'No employees found matching your search.'
+            : 'No team members found.'}
         </div>
       ) : (
-        <div style={{ maxWidth: 600 }}>
+        <div className="tp-employee-list">
           {filteredStaff.map(staff => (
-            <div
-              key={staff._id}
-              style={{
-                padding: '16px 20px',
-                borderRadius: 10,
-                border: '1px solid var(--border)',
-                background: 'var(--surface)',
-                marginBottom: 10,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}
-            >
-              <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
-                {staff.fullName}
-              </span>
-              <button
-                onClick={() => navigate(`/performance/${staff._id}`)}
-                className="btn-primary btn-sm"
-                style={{ padding: '8px 16px', fontSize: 13 }}
-              >
-                View Performance
-              </button>
+            <div key={staff._id} className="tp-employee-row">
+              {/* Left — name + meta */}
+              <div className="tp-employee-info">
+                <div className="tp-employee-name">{staff.fullName}</div>
+
+                <div className="tp-employee-meta">
+                  <span className="tp-meta-item">
+                    <span className="tp-meta-label">Employee ID</span>
+                    <span className="tp-meta-value">
+                      {staff.employeeId || 'N/A'}
+                    </span>
+                  </span>
+
+                  <span className="tp-meta-sep" aria-hidden="true">·</span>
+
+                  <span className="tp-meta-item">
+                    <span className="tp-meta-label">Job Role</span>
+                    <span className="tp-meta-value">
+                      {staff.designation || 'N/A'}
+                    </span>
+                  </span>
+
+                  <span className="tp-meta-sep" aria-hidden="true">·</span>
+
+                  <span className="tp-meta-item">
+                    <span className="tp-meta-label">Department</span>
+                    <span className="tp-meta-value">
+                      {staff.department || 'N/A'}
+                    </span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Right — action button */}
+              <div className="tp-employee-action">
+                <button
+                  onClick={() => navigate(`/performance/${staff._id}`)}
+                  className="btn-primary btn-sm"
+                  style={{ padding: '8px 16px', fontSize: 13, whiteSpace: 'nowrap' }}
+                >
+                  View Performance
+                </button>
+              </div>
             </div>
           ))}
         </div>
