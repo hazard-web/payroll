@@ -63,8 +63,28 @@ export default function StaffList() {
     setFormData(prev => ({ ...prev, [name]: sanitized }))
   }
 
+  // Convert DD-MM-YYYY → YYYY-MM-DD (ISO) so Mongoose Date can parse it.
+  // If the string is already in YYYY-MM-DD or ISO format, it is returned as-is.
+  const normalizeDate = (value) => {
+    if (!value) return value
+    // Match DD-MM-YYYY
+    const ddmmyyyy = /^(\d{2})-(\d{2})-(\d{4})$/
+    const match = String(value).match(ddmmyyyy)
+    if (match) {
+      return `${match[3]}-${match[2]}-${match[1]}`
+    }
+    return value
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    // Client-side phone validation
+    if (formData.phone && formData.phone.replace(/\D/g, '').length !== 10) {
+      toast.error('Phone number must be exactly 10 digits.')
+      return
+    }
+
     setSubmitting(true)
     try {
       const payload = {
@@ -74,7 +94,7 @@ export default function StaffList() {
         designation: formData.designation,
         department: formData.department,
         type: formData.type,
-        joiningDate: formData.joiningDate,
+        joiningDate: normalizeDate(formData.joiningDate),
         salaryDetails: {
           annualCTC: parseFloat(formData.annualCTC) || 0,
           baseSalary: parseFloat(formData.baseSalary) || 0
@@ -104,7 +124,9 @@ export default function StaffList() {
       setEditingStaff(null)
       resetForm()
     } catch (err) {
-      toast.error(err.message || 'Action failed')
+      // Prefer the server's validation message over Axios's generic network message
+      const serverMsg = err.response?.data?.message
+      toast.error(serverMsg || err.message || 'Action failed')
     } finally {
       setSubmitting(false)
     }

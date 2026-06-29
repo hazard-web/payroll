@@ -133,7 +133,30 @@ router.post('/', protect, async (req, res) => {
   try {
     const requestedId = (req.body.employeeId || '').trim();
 
-    // PAN validation: must match ABCDE1234F (only if provided by admin)
+    // ── Required field validation ────────────────────────────────
+    const fullName = (req.body.fullName || '').trim();
+    if (!fullName) {
+      return res.status(400).json({ success: false, message: 'Full Name is required.' });
+    }
+
+    const email = (req.body.email || '').trim().toLowerCase();
+    if (!isValidEmail(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'A valid team member email address is required.'
+      });
+    }
+
+    // Phone: required, must be 10 digits
+    const phone = (req.body.phone || '').trim().replace(/\D/g, '');
+    if (!phone || phone.length !== 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'A valid 10-digit phone number is required.'
+      });
+    }
+
+    // PAN validation: only if explicitly provided by admin
     if (req.body.panNumber && !isValidPAN(String(req.body.panNumber).toUpperCase())) {
       return res.status(400).json({
         success: false,
@@ -149,14 +172,6 @@ router.post('/', protect, async (req, res) => {
       });
     }
 
-    const email = (req.body.email || '').trim().toLowerCase();
-    if (!isValidEmail(email)) {
-      return res.status(400).json({
-        success: false,
-        message: 'A valid team member email address is required.'
-      });
-    }
-
     // If admin provided an employeeId, make sure it's unique within their tenant
     if (requestedId) {
       const exists = await Staff.findOne({ user: req.user._id, employeeId: requestedId });
@@ -168,10 +183,29 @@ router.post('/', protect, async (req, res) => {
       }
     }
 
+    // ── Joining Date: accept DD-MM-YYYY or YYYY-MM-DD / ISO ─────
+    let joiningDate = req.body.joiningDate;
+    if (joiningDate) {
+      // Convert DD-MM-YYYY → ISO YYYY-MM-DD
+      const ddmmyyyy = /^(\d{2})-(\d{2})-(\d{4})$/.exec(String(joiningDate));
+      if (ddmmyyyy) {
+        joiningDate = `${ddmmyyyy[3]}-${ddmmyyyy[2]}-${ddmmyyyy[1]}`;
+      }
+      if (isNaN(Date.parse(joiningDate))) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid Joining Date. Use DD-MM-YYYY or YYYY-MM-DD format.'
+        });
+      }
+    }
+
     // Build the staff document. Employee ID is intentionally optional.
     const staffPayload = {
       ...req.body,
+      fullName,
       email,
+      phone,
+      joiningDate: joiningDate || undefined,
       user: req.user._id,
     };
 
@@ -207,14 +241,17 @@ router.post('/', protect, async (req, res) => {
     await staff.save();
 
     let portalAccess = null;
+    let portalError = null;
     try {
       portalAccess = await provisionStaffPortalAccess(staff, req, { sendEmail: true });
     } catch (provisionErr) {
       console.error('Failed to provision staff portal after creation:', provisionErr.message);
+      console.error('Stack:', provisionErr.stack);
+      portalError = provisionErr.message;
       portalAccess = {
         resetLink: null,
         emailPreviewUrl: null,
-        emailError: 'Portal access was created, but password setup could not be generated.',
+        emailError: `Portal setup encountered an issue: ${provisionErr.message}`,
       };
     }
 
@@ -236,6 +273,12 @@ router.post('/', protect, async (req, res) => {
 
     res.status(201).json({ success: true, data: staff, portalAccess });
   } catch (err) {
+    // Extract readable messages from Mongoose ValidationError
+    if (err.name === 'ValidationError') {
+      const fields = Object.values(err.errors).map(e => e.message).join(' | ');
+      return res.status(400).json({ success: false, message: fields || err.message });
+    }
+    console.error('POST /staff error:', err.message);
     res.status(400).json({ success: false, message: err.message });
   }
 });
@@ -312,6 +355,12 @@ router.put('/:id', protect, async (req, res) => {
     await logActivity(req.user._id, 'STAFF_UPDATED', `Updated details for ${updatedStaff.fullName}`, { staffId: updatedStaff._id });
     res.json({ success: true, data: updatedStaff });
   } catch (err) {
+    // Extract readable messages from Mongoose ValidationError
+    if (err.name === 'ValidationError') {
+      const fields = Object.values(err.errors).map(e => e.message).join(' | ');
+      return res.status(400).json({ success: false, message: fields || err.message });
+    }
+    console.error('PUT /staff/:id error:', err.message);
     res.status(400).json({ success: false, message: err.message });
   }
 });
