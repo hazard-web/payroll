@@ -35,6 +35,7 @@ const StaffList             = lazy(() => import('./pages/StaffList'))
 const StaffDetail           = lazy(() => import('./pages/StaffDetail'))
 const AuditLogs             = lazy(() => import('./pages/AuditLogs'))
 const TeamPerformance       = lazy(() => import('./pages/TeamPerformance'))
+const StaffPerformanceDetail = lazy(() => import('./pages/StaffPerformanceDetail'))
 const LeaveRequests         = lazy(() => import('./pages/LeaveRequests'))
 const StaffSupport          = lazy(() => import('./pages/StaffSupport'))
 const Profile               = lazy(() => import('./pages/Profile'))
@@ -178,6 +179,7 @@ export default function App() {
         <Route path="staff"           element={<Lazy component={StaffList} />} />
         <Route path="staff/:id"       element={<Lazy component={StaffDetail} />} />
         <Route path="performance"     element={<Lazy component={TeamPerformance} />} />
+        <Route path="performance/:id"  element={<Lazy component={StaffPerformanceDetail} />} />
         <Route path="audit-logs"      element={<Lazy component={AuditLogs} />} />
         <Route path="leave-requests"  element={<Lazy component={LeaveRequests} />} />
         <Route path="staff-support"   element={<Lazy component={StaffSupport} />} />

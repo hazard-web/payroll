@@ -177,6 +177,118 @@ router.get('/admin/performance', authAdmin, async (req, res) => {
   }
 });
 
+// GET /api/attendance/admin/staff/:id/tasks — Task history for a specific staff member with filters
+router.get('/admin/staff/:id/tasks', authAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { filter, startDate, endDate } = req.query;
+
+    // Verify staff belongs to this admin
+    const staff = await Staff.findOne({ _id: id, user: req.user._id });
+    if (!staff) {
+      return res.status(404).json({ success: false, message: 'Staff not found' });
+    }
+
+    // Build date range based on filter
+    let dateQuery = {};
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    if (filter === 'today') {
+      dateQuery = { date: { $gte: today, $lt: new Date(today.getTime() + 86400000) } };
+    } else if (filter === 'yesterday') {
+      const yesterday = new Date(today.getTime() - 86400000);
+      dateQuery = { date: { $gte: yesterday, $lt: today } };
+    } else if (filter === 'week') {
+      const weekStart = new Date(today);
+      weekStart.setUTCDate(today.getUTCDate() - today.getUTCDay());
+      dateQuery = { date: { $gte: weekStart, $lt: new Date(today.getTime() + 86400000) } };
+    } else if (filter === 'month') {
+      const monthStart = new Date(today.getUTCFullYear(), today.getUTCMonth(), 1);
+      dateQuery = { date: { $gte: monthStart, $lt: new Date(today.getTime() + 86400000) } };
+    } else if (filter === 'custom' && startDate && endDate) {
+      const start = new Date(startDate);
+      start.setUTCHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setUTCHours(23, 59, 59, 999);
+      dateQuery = { date: { $gte: start, $lte: end } };
+    } else {
+      // Default: show all records
+      dateQuery = {};
+    }
+
+    // Find all attendance records for this staff member
+    const records = await Attendance.find({
+      staff: id,
+      admin: req.user._id,
+      ...dateQuery
+    })
+      .sort({ date: -1, punchIn: -1 })
+      .lean();
+
+    // Flatten tasks with parent info
+    const allTasks = [];
+    records.forEach(record => {
+      if (Array.isArray(record.tasks)) {
+        record.tasks.forEach(task => {
+          allTasks.push({
+            ...task,
+            attendanceId: record._id,
+            taskDate: record.date,
+            punchIn: record.punchIn,
+            punchOut: record.punchOut,
+            workStatus: record.workStatus
+          });
+        });
+      }
+    });
+
+    // Calculate stats
+    const totalTasks = allTasks.length;
+    const pending = allTasks.filter(t => t.status === 'Pending').length;
+    const inProgress = allTasks.filter(t => t.status === 'In Progress').length;
+    const completed = allTasks.filter(t => t.status === 'Completed').length;
+
+    res.json({
+      success: true,
+      data: {
+        staff: {
+          _id: staff._id,
+          fullName: staff.fullName,
+          employeeId: staff.employeeId,
+          designation: staff.designation,
+          department: staff.department
+        },
+        summary: {
+          totalTasks,
+          pending,
+          inProgress,
+          completed
+        },
+        tasks: allTasks
+      }
+    });
+  } catch (err) {
+    console.error('Staff task history error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch staff task history' });
+  }
+});
+
+// GET /api/attendance/admin/staff-list — Get all staff for Team Performance module
+router.get('/admin/staff-list', authAdmin, async (req, res) => {
+  try {
+    const staff = await Staff.find({ user: req.user._id })
+      .select('fullName employeeId designation department')
+      .sort({ fullName: 1 })
+      .lean();
+
+    res.json({ success: true, data: staff });
+  } catch (err) {
+    console.error('Staff list error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch staff list' });
+  }
+});
+
 // POST /api/attendance/punch-in
 router.post('/punch-in', authStaff, async (req, res) => {
   try {
