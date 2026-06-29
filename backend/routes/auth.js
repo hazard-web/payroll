@@ -207,7 +207,7 @@ router.get('/verify-email', async (req, res) => {
       return res.json({ success: true, message: 'Email Verified Successfully!' });
     }
 
-    const fallbackUrl = process.env.FRONTEND_URL || 'https://payslip-generator-itv8zzdtv-vaibhavverma040802s-projects.vercel.app';
+    const fallbackUrl = process.env.FRONTEND_URL || process.env.APP_URL || 'https://rohit98k-payroll-portal.vercel.app';
     res.send(`
       <div style="font-family: sans-serif; text-align: center; padding: 50px;">
         <h1 style="color: #10b981;">Email Verified Successfully!</h1>

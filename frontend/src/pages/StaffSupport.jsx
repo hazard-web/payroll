@@ -11,14 +11,14 @@ import PageShell, { PageHeader } from '../components/PageShell'
 // ── Metadata ──────────────────────────────────────────────────
 const STATUS_STYLES = {
   Pending:  { bg: '#fef3c7', color: '#b45309' },
-  Approved: { bg: '#e5ebdd', color: '#636B2F' },
+  Approved: { bg: '#e5ebdd', color: '#58833b' },
   Rejected: { bg: '#fee2e2', color: '#dc2626' },
 }
 
 const TYPE_META = {
   'Attendance / Punch Issue': { emoji: '⏱️', color: '#7c3aed', bg: '#ede9fe', short: 'Punch Issue' },
   'Leave Request Issue':      { emoji: '📅', color: '#0369a1', bg: '#e0f2fe', short: 'Leave' },
-  'Payslip / Salary Issue':   { emoji: '💰', color: '#636B2F', bg: '#e5ebdd', short: 'Payslip' },
+  'Payslip / Salary Issue':   { emoji: '💰', color: '#58833b', bg: '#e5ebdd', short: 'Payslip' },
   'IT / Technical Problem':   { emoji: '💻', color: '#b45309', bg: '#fef3c7', short: 'IT / Tech' },
   'HR / Policy Query':        { emoji: '📋', color: '#6b21a8', bg: '#f3e8ff', short: 'HR / Policy' },
   'Other':                    { emoji: '💬', color: '#374151', bg: '#f3f4f6', short: 'Other' },
@@ -75,7 +75,7 @@ function TypeBadge({ type, short }) {
 function IconBtn({ onClick, title, children, variant = 'default' }) {
   const variants = {
     default: { bg: 'var(--bg)', border: '1.5px solid var(--border)', color: 'var(--text-muted)' },
-    green:   { bg: '#e5ebdd',   border: '1.5px solid rgba(99, 107, 47, 0.25)',      color: '#636B2F' },
+    green:   { bg: '#e5ebdd',   border: '1.5px solid rgba(88,131,59, 0.25)',      color: '#58833b' },
     red:     { bg: '#fee2e2',   border: '1.5px solid #fecaca',      color: '#dc2626' },
   }
   const v = variants[variant]
@@ -118,7 +118,7 @@ function ContextView({ type, data, loading }) {
               {fmtDate(att.date)}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <PunchCard icon={<LogIn size={14} color="#636B2F" />} iconBg="#e5ebdd" label="Punch In" value={fmtTime(att.punchIn)} />
+              <PunchCard icon={<LogIn size={14} color="#58833b" />} iconBg="#e5ebdd" label="Punch In" value={fmtTime(att.punchIn)} />
               <PunchCard icon={<LogOut size={14} color={att.punchOut ? '#dc2626' : '#b45309'} />} iconBg={att.punchOut ? '#fee2e2' : '#fef3c7'} label="Punch Out"
                 value={att.punchOut ? fmtTime(att.punchOut) : 'Not yet'} valueColor={att.punchOut ? 'var(--text)' : '#b45309'} />
             </div>
@@ -127,7 +127,7 @@ function ContextView({ type, data, loading }) {
                 <span><span style={{ color: 'var(--text-muted)' }}>Hours:</span> <strong style={{ color: 'var(--text)' }}>{att.totalHours.toFixed(2)}h</strong></span>
                 <span>
                   <span style={{ color: 'var(--text-muted)' }}>Status:</span>{' '}
-                  <strong style={{ color: att.status === 'complete' ? '#636B2F' : '#b45309' }}>{att.status}</strong>
+                  <strong style={{ color: att.status === 'complete' ? '#58833b' : '#b45309' }}>{att.status}</strong>
                 </span>
               </div>
             )}
@@ -178,7 +178,7 @@ function ContextView({ type, data, loading }) {
               <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{ps.employeeName}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontWeight: 800, fontSize: 16, color: '#636B2F' }}>₹{ps.netSalary?.toLocaleString('en-IN')}</div>
+              <div style={{ fontWeight: 800, fontSize: 16, color: '#58833b' }}>₹{ps.netSalary?.toLocaleString('en-IN')}</div>
               <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>Net Salary</div>
             </div>
           </div>
@@ -316,7 +316,7 @@ export default function StaffSupport() {
         {[
           { key: 'All',      label: 'Total',    icon: <Headphones size={16} color="#7c3aed" />, iconBg: '#ede9fe', numColor: 'var(--text)' },
           { key: 'Pending',  label: 'Pending',  icon: <Clock size={16} color="#b45309" />,      iconBg: '#fef3c7', numColor: '#b45309' },
-          { key: 'Approved', label: 'Approved', icon: <CheckCircle size={16} color="#636B2F" />, iconBg: '#e5ebdd', numColor: '#636B2F' },
+          { key: 'Approved', label: 'Approved', icon: <CheckCircle size={16} color="#58833b" />, iconBg: '#e5ebdd', numColor: '#58833b' },
           { key: 'Rejected', label: 'Rejected', icon: <XCircle size={16} color="#dc2626" />,    iconBg: '#fee2e2', numColor: '#dc2626' },
         ].map(s => (
           <div
@@ -523,9 +523,9 @@ export default function StaffSupport() {
                 )}
 
                 {viewModal.adminNote && (
-                  <div style={{ marginTop: 8, padding: '8px 12px', background: '#e5ebdd', borderRadius: 8, borderLeft: '3px solid rgba(99, 107, 47, 0.45)' }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#636B2F', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>Admin Note</div>
-                    <div style={{ fontSize: 12, color: '#636B2F' }}>{viewModal.adminNote}</div>
+                  <div style={{ marginTop: 8, padding: '8px 12px', background: '#e5ebdd', borderRadius: 8, borderLeft: '3px solid rgba(88,131,59, 0.45)' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#58833b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>Admin Note</div>
+                    <div style={{ fontSize: 12, color: '#58833b' }}>{viewModal.adminNote}</div>
                   </div>
                 )}
               </div>
@@ -548,7 +548,7 @@ export default function StaffSupport() {
                   <>
                     <button
                       onClick={() => { setViewModal(null); openAction(viewModal._id, 'approve', viewModal.requestType) }}
-                      style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: '#636B2F', color: 'white', fontWeight: 700, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
+                      style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: '#58833b', color: 'white', fontWeight: 700, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
                     >
                       <CheckCircle size={14} /> Approve
                     </button>
@@ -592,7 +592,7 @@ export default function StaffSupport() {
               }}
             >
               {/* Colored top strip */}
-              <div style={{ height: 4, background: actionModal.action === 'approve' ? '#636B2F' : '#dc2626' }} />
+              <div style={{ height: 4, background: actionModal.action === 'approve' ? '#58833b' : '#dc2626' }} />
 
               <div style={{ padding: '22px 26px', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -602,7 +602,7 @@ export default function StaffSupport() {
                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}>
                     {actionModal.action === 'approve'
-                      ? <CheckCircle size={21} color="#636B2F" />
+                      ? <CheckCircle size={21} color="#58833b" />
                       : <XCircle size={21} color="#dc2626" />}
                   </div>
                   <div>
@@ -650,7 +650,7 @@ export default function StaffSupport() {
                   disabled={actionLoading}
                   style={{
                     padding: '9px 22px', borderRadius: 9, border: 'none',
-                    background: actionModal.action === 'approve' ? '#636B2F' : '#dc2626',
+                    background: actionModal.action === 'approve' ? '#58833b' : '#dc2626',
                     color: 'white', fontWeight: 700, fontSize: 13,
                     cursor: actionLoading ? 'not-allowed' : 'pointer',
                     display: 'flex', alignItems: 'center', gap: 8, opacity: actionLoading ? 0.7 : 1

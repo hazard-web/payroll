@@ -4,17 +4,17 @@ const fs = require('fs');
 
 // ─── Color Palette (matches reference image exactly) ──────────────────────────
 const C = {
-  green:       '#636B2F',   // BDA Olive Green — net salary bar, table headers
-  greenDark:   '#4f5626',   // slightly darker olive
-  greenMid:    '#636B2F',   // mid olive
-  greenAccent: '#7d8538',   // lighter olive accent
+  green:       '#58833b',   // BDA Forest Green — net salary bar, table headers
+  greenDark:   '#4f5626',   // slightly darker green
+  greenMid:    '#58833b',   // mid green
+  greenAccent: '#7d8538',   // lighter green accent
   greenLight:  '#e5ebdd',   // sage — employee section bg
   greenPale:   '#eef0e8',   // pale sage — employee details bg
   rowAlt:      '#f3f5ef',   // alternating row color
   white:       '#ffffff',
-  border:      '#d4d9c8',   // thin olive-grey border
-  borderMed:   '#c2c9b3',   // medium olive-grey border
-  borderDark:  '#a8af98',   // darker olive-grey
+  border:      '#d4d9c8',   // thin green-grey border
+  borderMed:   '#c2c9b3',   // medium green-grey border
+  borderDark:  '#a8af98',   // darker green-grey
   textDark:    '#1a1a1a',
   textMid:     '#3a3a3a',
   textMuted:   '#5a5a5a',
@@ -527,7 +527,7 @@ function drawPayslip(doc, payslip) {
   const netH = 50;
   const netY = y;
 
-  // Dark olive green background box
+  // Dark forest green background box
   doc.rect(M, netY, CW, netH).fill(C.green);
 
   // Wallet icon on the left

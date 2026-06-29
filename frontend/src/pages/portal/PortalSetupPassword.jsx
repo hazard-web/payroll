@@ -137,8 +137,8 @@ export default function PortalSetupPassword() {
         ) : (
           <div style={{ textAlign: 'center' }}>
             <div style={{
-              padding: '24px', background: '#e5ebdd', border: '1px solid rgba(99, 107, 47, 0.3)',
-              borderRadius: 12, color: '#636B2F', marginBottom: 24, fontSize: 14, lineHeight: 1.6, fontWeight: 600
+              padding: '24px', background: '#e5ebdd', border: '1px solid rgba(88,131,59, 0.3)',
+              borderRadius: 12, color: '#58833b', marginBottom: 24, fontSize: 14, lineHeight: 1.6, fontWeight: 600
             }}>
               Your password has been set and your account is now active.
               You can sign in to the Team Portal with your email and new password.

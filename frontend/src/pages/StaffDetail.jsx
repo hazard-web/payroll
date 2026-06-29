@@ -377,7 +377,7 @@ export default function StaffDetail() {
                 <span className={`badge ${staff.type === 'Employee' ? 'badge-navy' : 'badge-emerald'}`}>{staff.type}</span>
                 <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{staff.designation || 'No Designation'} · {staff.department || 'General'}</span>
                 {staff.profileCompleted ? (
-                  <span style={{ padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700, background: 'rgba(99, 107, 47, 0.1)', color: '#636B2F', border: '1px solid rgba(99, 107, 47, 0.2)' }}>✓ Profile Complete</span>
+                  <span style={{ padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700, background: 'rgba(88,131,59, 0.1)', color: '#58833b', border: '1px solid rgba(88,131,59, 0.2)' }}>✓ Profile Complete</span>
                 ) : (
                   <span style={{ padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700, background: 'rgba(234, 88, 12, 0.1)', color: '#c2410c', border: '1px solid rgba(234, 88, 12, 0.2)' }}>Profile Incomplete</span>
                 )}

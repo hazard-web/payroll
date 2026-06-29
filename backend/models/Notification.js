@@ -19,7 +19,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['LEAVE_REQUEST', 'PROFILE_UPDATE', 'ATTENDANCE_ALERT', 'PAYSLIP_PUSHED', 'STAFF_CREATED', 'OTHER'],
+      enum: ['LEAVE_REQUEST', 'PROFILE_UPDATE', 'ATTENDANCE_ALERT', 'PAYSLIP_PUSHED', 'STAFF_CREATED', 'OFFICE_CLOSING_REMINDER', 'OTHER'],
       default: 'LEAVE_REQUEST'
     },
     referenceId: {

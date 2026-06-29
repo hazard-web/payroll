@@ -31,7 +31,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               padding: '12px 16px',
             },
             success: {
-              iconTheme: { primary: '#636B2F', secondary: '#e5ebdd' },
+              iconTheme: { primary: '#58833b', secondary: '#e5ebdd' },
             },
             error: {
               iconTheme: { primary: '#9f1239', secondary: '#ffe4e6' },

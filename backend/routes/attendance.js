@@ -44,7 +44,7 @@ router.get('/admin/active', authAdmin, async (req, res) => {
     const activeCount = await Attendance.countDocuments({
       admin: req.user._id,
       date: today,
-      punchOut: { $exists: false }
+      punchOut: null
     });
 
     res.json({ success: true, activeCount });
@@ -397,7 +397,7 @@ router.get('/active', authStaff, async (req, res) => {
     const attendance = await Attendance.findOne({
       staff: req.staff._id,
       date: today,
-      punchOut: { $exists: false } // Only return if not punched out yet
+      punchOut: null // Only return if not punched out yet
     }).lean();
     res.json({ success: true, activeShift: attendance || null });
   } catch (err) {
@@ -725,7 +725,12 @@ router.post('/admin/force-punch-out', authAdmin, async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 // CRON JOBS / BACKGROUND TASKS
 // ─────────────────────────────────────────────────────────────
-const { runShiftCheck } = require('../utils/cronJobs');
+const {
+  runShiftCheck,
+  runOfficeClosingCheck,
+  runOfficeClosingReminder,
+  runOfficeClosingAutoClose
+} = require('../utils/cronJobs');
 
 // GET /api/attendance/cron/check-shifts  (called by Vercel Cron every hour)
 router.get('/cron/check-shifts', async (req, res) => {
@@ -735,6 +740,39 @@ router.get('/cron/check-shifts', async (req, res) => {
   } catch (err) {
     console.error('Cron job error:', err);
     res.status(500).json({ success: false, message: 'Cron job failed' });
+  }
+});
+
+// GET /api/attendance/cron/office-closing  (call every 5 minutes from hosted cron)
+router.get('/cron/office-closing', async (req, res) => {
+  try {
+    const result = await runOfficeClosingCheck();
+    res.json({ success: true, message: 'Office closing cron executed successfully', ...result });
+  } catch (err) {
+    console.error('Office closing cron job error:', err);
+    res.status(500).json({ success: false, message: 'Office closing cron job failed' });
+  }
+});
+
+// GET /api/attendance/cron/office-closing-reminder  (7:00 PM IST / 13:30 UTC)
+router.get('/cron/office-closing-reminder', async (req, res) => {
+  try {
+    const result = await runOfficeClosingReminder();
+    res.json({ success: true, message: 'Office closing reminder cron executed successfully', ...result });
+  } catch (err) {
+    console.error('Office closing reminder cron job error:', err);
+    res.status(500).json({ success: false, message: 'Office closing reminder cron job failed' });
+  }
+});
+
+// GET /api/attendance/cron/office-closing-auto-close  (7:30 PM IST / 14:00 UTC)
+router.get('/cron/office-closing-auto-close', async (req, res) => {
+  try {
+    const result = await runOfficeClosingAutoClose();
+    res.json({ success: true, message: 'Office closing auto-close cron executed successfully', ...result });
+  } catch (err) {
+    console.error('Office closing auto-close cron job error:', err);
+    res.status(500).json({ success: false, message: 'Office closing auto-close cron job failed' });
   }
 });
 

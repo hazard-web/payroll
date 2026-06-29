@@ -100,7 +100,7 @@ function DocumentUpload({ type, label, hint, accept, required, document, onUploa
         {document?.uploadedAt && (
           <span style={{
             fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 100,
-            background: 'rgba(99, 107, 47, 0.1)', color: '#636B2F'
+            background: 'rgba(88,131,59, 0.1)', color: '#58833b'
           }}>Uploaded</span>
         )}
       </div>
@@ -408,8 +408,8 @@ export default function PortalProfile() {
             {completed ? (
               <span style={{
                 padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700,
-                background: 'rgba(99, 107, 47, 0.1)', color: '#636B2F',
-                border: '1px solid rgba(99, 107, 47, 0.2)', display: 'inline-flex', alignItems: 'center', gap: 6
+                background: 'rgba(88,131,59, 0.1)', color: '#58833b',
+                border: '1px solid rgba(88,131,59, 0.2)', display: 'inline-flex', alignItems: 'center', gap: 6
               }}>
                 <CheckCircle2 size={14} /> Profile Complete
               </span>
@@ -624,7 +624,7 @@ export default function PortalProfile() {
           </div>
         </Section>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 20, background: requiredComplete ? 'rgba(99, 107, 47, 0.06)' : 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 20, background: requiredComplete ? 'rgba(88,131,59, 0.06)' : 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
           <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
             {requiredComplete
               ? 'All required fields and documents are filled. Saving will mark your profile as complete.'

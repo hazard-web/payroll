@@ -18,7 +18,7 @@ const pageStyles = `
   .la-tab  { padding:8px 20px; border-radius:7px; font-size:13px; font-weight:600; cursor:pointer; border:none; transition:all 0.18s; color:var(--text-muted); background:transparent; }
   .la-tab.active { background:var(--surface); color:var(--text); box-shadow:0 1px 4px rgba(0,0,0,0.10); }
   .la-pill { display:inline-flex; align-items:center; gap:3px; padding:2px 10px; border-radius:999px; font-size:11px; font-weight:700; white-space:nowrap; }
-  .la-pill-green  { background:#e5ebdd; color:#636B2F; border:1px solid rgba(99, 107, 47, 0.25); }
+  .la-pill-green  { background:#e5ebdd; color:#58833b; border:1px solid rgba(88,131,59, 0.25); }
   .la-pill-orange { background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; }
   .la-pill-blue   { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
   .la-pill-yellow { background:#fefce8; color:#854d0e; border:1px solid #fde047; }
@@ -622,7 +622,7 @@ function AttendanceTab() {
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', gap:12, marginBottom:20 }}>
         {[
           { icon: ClipboardList, label:'Total Records', value: totalRecords,           iconBg:'#eff6ff', iconColor:'#1d4ed8' },
-          { icon: UserCheck,     label:'Full Days',     value: fullDays,               iconBg:'#e5ebdd', iconColor:'#636B2F' },
+          { icon: UserCheck,     label:'Full Days',     value: fullDays,               iconBg:'#e5ebdd', iconColor:'#58833b' },
           { icon: Clock,         label:'Half Days',     value: halfDays,               iconBg:'#fefce8', iconColor:'#854d0e' },
           { icon: AlertTriangle, label:'Late Arrivals', value: lateArrivals,           iconBg:'#fff7ed', iconColor:'#c2410c' },
           { icon: TrendingUp,    label:'Avg Hrs/Day',   value: `${avgHrs.toFixed(1)}h`,iconBg:'#faf5ff', iconColor:'#6b21a8' },
@@ -675,7 +675,7 @@ function AttendanceTab() {
                   recordDate.getMonth() === now.getMonth() &&
                   recordDate.getDate() === now.getDate()
                 const avatarBg = late ? '#fff7ed' : active ? '#eff6ff' : '#e5ebdd'
-                const avatarColor = late ? '#c2410c' : active ? '#1d4ed8' : '#636B2F'
+                const avatarColor = late ? '#c2410c' : active ? '#1d4ed8' : '#58833b'
 
                 return (
                   <motion.div key={record._id} initial={{ opacity:0 }} animate={{ opacity:1 }}

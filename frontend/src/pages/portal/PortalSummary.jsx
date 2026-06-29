@@ -90,7 +90,7 @@ export default function PortalSummary() {
   // Efficiency: how close to 8h/day avg
   const efficiency = avgHours > 0 ? Math.min(100, Math.round((avgHours / 8) * 100)) : 0
   const effLabel   = efficiency >= 100 ? 'Excellent' : efficiency >= 80 ? 'Good' : efficiency >= 60 ? 'Average' : 'Below Target'
-  const effColor   = efficiency >= 100 ? '#636B2F' : efficiency >= 80 ? '#1d4ed8' : efficiency >= 60 ? '#854d0e' : '#991b1b'
+  const effColor   = efficiency >= 100 ? '#58833b' : efficiency >= 80 ? '#1d4ed8' : efficiency >= 60 ? '#854d0e' : '#991b1b'
   const effBg      = efficiency >= 100 ? '#e5ebdd' : efficiency >= 80 ? '#eff6ff' : efficiency >= 60 ? '#fefce8' : '#fef2f2'
 
   return (
@@ -169,7 +169,7 @@ export default function PortalSummary() {
             {/* Days worked */}
             <motion.div initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} transition={{ delay:.05 }} className="ps-stat">
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <div className="ps-icon" style={{ background:'#e5ebdd' }}><TrendingUp size={18} color="#636B2F" /></div>
+                <div className="ps-icon" style={{ background:'#e5ebdd' }}><TrendingUp size={18} color="#58833b" /></div>
                 <div>
                   <div style={{ fontSize:10, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.05em' }}>Days Worked</div>
                   <div style={{ fontSize:24, fontWeight:900, color:'var(--text)', lineHeight:1.1 }}>{presentDays}<span style={{ fontSize:14, color:'var(--text-muted)', fontWeight:500 }}> /7</span></div>
@@ -181,7 +181,7 @@ export default function PortalSummary() {
                 </div>
                 <div className="ps-progress-track">
                   <motion.div className="ps-progress-fill" initial={{ width:0 }} animate={{ width:`${daysProgress}%` }} transition={{ duration:.7, delay:.1 }}
-                    style={{ background: daysProgress >= 100 ? '#636B2F' : '#636B2F' }} />
+                    style={{ background: daysProgress >= 100 ? '#58833b' : '#58833b' }} />
                 </div>
               </div>
               {/* Day dots */}
@@ -191,7 +191,7 @@ export default function PortalSummary() {
                   const isWeekend = i >= 5
                   return (
                     <div key={d} className="ps-day-dot"
-                      style={{ background: isWeekend ? 'var(--bg)' : filled ? '#e5ebdd' : 'var(--border)', color: isWeekend ? 'var(--text-light)' : filled ? '#636B2F' : 'var(--text-muted)', border: filled ? '1px solid rgba(99, 107, 47, 0.25)' : '1px solid transparent', opacity: isWeekend ? .5 : 1 }}>
+                      style={{ background: isWeekend ? 'var(--bg)' : filled ? '#e5ebdd' : 'var(--border)', color: isWeekend ? 'var(--text-light)' : filled ? '#58833b' : 'var(--text-muted)', border: filled ? '1px solid rgba(88,131,59, 0.25)' : '1px solid transparent', opacity: isWeekend ? .5 : 1 }}>
                       {d.charAt(0)}
                     </div>
                   )
@@ -210,11 +210,11 @@ export default function PortalSummary() {
               </div>
               <div>
                 <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'var(--text-muted)', marginBottom:5 }}>
-                  <span>vs 8h target</span><span style={{ fontWeight:700, color: avgHours >= 8 ? '#636B2F' : 'var(--text)' }}>{avgHours >= 8 ? 'On track' : `${(8 - avgHours).toFixed(1)}h short`}</span>
+                  <span>vs 8h target</span><span style={{ fontWeight:700, color: avgHours >= 8 ? '#58833b' : 'var(--text)' }}>{avgHours >= 8 ? 'On track' : `${(8 - avgHours).toFixed(1)}h short`}</span>
                 </div>
                 <div className="ps-progress-track">
                   <motion.div className="ps-progress-fill" initial={{ width:0 }} animate={{ width:`${Math.min(100,(avgHours/8)*100)}%` }} transition={{ duration:.7, delay:.15 }}
-                    style={{ background: avgHours >= 8 ? '#636B2F' : '#1d4ed8' }} />
+                    style={{ background: avgHours >= 8 ? '#58833b' : '#1d4ed8' }} />
                 </div>
               </div>
               <div style={{ fontSize:12, color:'var(--text-muted)', padding:'8px 10px', background:'var(--bg)', borderRadius:8 }}>
@@ -224,7 +224,7 @@ export default function PortalSummary() {
 
             <motion.div initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} transition={{ delay:.15 }} className="ps-stat">
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <div className="ps-icon" style={{ background:'#e5ebdd' }}><CheckCircle2 size={18} color="#636B2F" /></div>
+                <div className="ps-icon" style={{ background:'#e5ebdd' }}><CheckCircle2 size={18} color="#58833b" /></div>
                 <div>
                   <div style={{ fontSize:10, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.05em' }}>Task Completion</div>
                   <div style={{ fontSize:24, fontWeight:900, color:'var(--text)', lineHeight:1.1 }}>{taskCompletionRate}%</div>
@@ -234,7 +234,7 @@ export default function PortalSummary() {
                 <div style={{ fontSize:11, color:'var(--text-muted)', marginBottom:6 }}>Completed tasks this week</div>
                 <div style={{ width:'100%', height:8, borderRadius:999, background:'var(--border)' }}>
                   <motion.div className="ps-progress-fill" initial={{ width:0 }} animate={{ width:`${Math.min(100, taskCompletionRate)}%` }} transition={{ duration:.7, delay:.12 }}
-                    style={{ background: taskCompletionRate >= 80 ? '#636B2F' : '#1d4ed8' }} />
+                    style={{ background: taskCompletionRate >= 80 ? '#58833b' : '#1d4ed8' }} />
                 </div>
               </div>
             </motion.div>

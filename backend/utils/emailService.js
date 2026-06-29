@@ -114,7 +114,10 @@ async function createSMTPTransporter() {
 // ─────────────────────────────────────────────────────────────
 async function sendVerificationEmail(user, token, origin) {
 
-  const finalAppUrl = (origin || '').replace(/\/$/, '') || 'https://payslip-gen-rouge.vercel.app';
+  const finalAppUrl = (origin || '').replace(/\/$/, '') ||
+    process.env.FRONTEND_URL ||
+    process.env.APP_URL ||
+    'https://rohit98k-payroll-portal.vercel.app';
   const verifyUrl = `${finalAppUrl}/verify?token=${token}`;
 
   console.log(`✉️ Sending verification email to: ${user.email}`);
@@ -139,7 +142,7 @@ async function sendVerificationEmail(user, token, origin) {
         <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 12px; overflow: hidden;">
           <tr><td height="6" bgcolor="#FFBE11" style="font-size: 0; line-height: 0;">&nbsp;</td></tr>
           <tr>
-            <td bgcolor="#636B2F" style="padding: 40px 45px; text-align: center;">
+            <td bgcolor="#58833b" style="padding: 40px 45px; text-align: center;">
               <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800;">PaySlip Pro</h1>
               <p style="margin: 8px 0 0 0; color: #d0e8c0; font-size: 14px;">Professional Payroll Management</p>
             </td>
@@ -153,14 +156,14 @@ async function sendVerificationEmail(user, token, origin) {
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                   <td align="center">
-                    <a href="${verifyUrl}" style="display: inline-block; background: #636B2F; color: #ffffff; padding: 16px 36px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px;">
+                    <a href="${verifyUrl}" style="display: inline-block; background: #58833b; color: #ffffff; padding: 16px 36px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px;">
                       Verify My Account
                     </a>
                   </td>
                 </tr>
               </table>
               <p style="margin: 30px 0 0 0; font-size: 12px; color: #9ca3af;">
-                Or copy this link: <a href="${verifyUrl}" style="color: #636B2F;">${verifyUrl}</a><br/>
+                Or copy this link: <a href="${verifyUrl}" style="color: #58833b;">${verifyUrl}</a><br/>
                 This link expires in 24 hours.
               </p>
             </td>
@@ -236,7 +239,7 @@ function buildEmailHTML(payslip) {
   const formatINR = (n) =>
     '₹ ' + parseFloat(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
-  const green = '#636B2F';  // BDA Olive Green
+  const green = '#58833b';  // BDA Forest Green
   const gold = '#FFBE11';   // BDA Accent Gold
 
   return `
@@ -338,7 +341,8 @@ async function sendPasswordResetEmail(user, token, origin, customLink, kind = 'a
 
   const finalAppUrl = (origin || '').replace(/\/$/, '') ||
     process.env.FRONTEND_URL ||
-    'https://payslip-gen-rouge.vercel.app';
+    process.env.APP_URL ||
+    'https://rohit98k-payroll-portal.vercel.app';
 
   const resetUrl = customLink || `${finalAppUrl}/reset-password?token=${token}`;
 
@@ -354,8 +358,8 @@ async function sendPasswordResetEmail(user, token, origin, customLink, kind = 'a
     ? 'Welcome to the staff portal. Use the button below to set your portal password and start using your account.'
     : `We received a request to reset the password for your PaySlip Pro account linked to <strong>${user.email}</strong>.`;
   const buttonText = isStaff ? 'Set My Portal Password' : 'Reset My Password';
-  const buttonColor = isStaff ? '#636B2F' : '#1e3a5f';
-  const headerColor = isStaff ? '#636B2F' : '#1e3a5f';
+  const buttonColor = isStaff ? '#58833b' : '#1e3a5f';
+  const headerColor = isStaff ? '#58833b' : '#1e3a5f';
   const headerSubtitle = isStaff ? 'Staff Portal Access' : 'Professional Payroll Management';
 
   console.log(`✉️ Sending ${isStaff ? 'staff portal ' : ''}password reset email to: ${user.email}`);
@@ -580,7 +584,7 @@ function buildStaffProvisionEmailHTML(staff, tempPassword, setupUrl) {
         <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);">
           <tr><td height="6" bgcolor="#FFBE11" style="font-size: 0; line-height: 0;">&nbsp;</td></tr>
           <tr>
-            <td bgcolor="#636B2F" style="padding: 36px 42px; text-align: center;">
+            <td bgcolor="#58833b" style="padding: 36px 42px; text-align: center;">
               <h1 style="margin: 0; color: #ffffff; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">Welcome to the Staff Portal</h1>
               <p style="margin: 8px 0 0 0; color: #e6f2d8; font-size: 14px; font-weight: 600;">${companyName}</p>
             </td>
@@ -597,7 +601,7 @@ function buildStaffProvisionEmailHTML(staff, tempPassword, setupUrl) {
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                   <td align="center">
-                    <a href="${safeSetupUrl}" style="display: inline-block; background: #636B2F; color: #ffffff; padding: 15px 34px; border-radius: 10px; text-decoration: none; font-weight: 800; font-size: 15px;">
+                    <a href="${safeSetupUrl}" style="display: inline-block; background: #58833b; color: #ffffff; padding: 15px 34px; border-radius: 10px; text-decoration: none; font-weight: 800; font-size: 15px;">
                       Set Up My Portal Access
                     </a>
                   </td>
@@ -612,7 +616,7 @@ function buildStaffProvisionEmailHTML(staff, tempPassword, setupUrl) {
               ` : ''}
               <p style="margin: 24px 0 0 0; font-size: 13px; color: #6b7280; line-height: 1.6;">
                 If the button does not work, copy and paste this link into your browser:<br/>
-                <a href="${safeSetupUrl}" style="color: #636B2F; font-weight: 700; word-break: break-all;">${safeSetupUrl}</a>
+                <a href="${safeSetupUrl}" style="color: #58833b; font-weight: 700; word-break: break-all;">${safeSetupUrl}</a>
               </p>
               <p style="margin: 24px 0 0 0; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; line-height: 1.6;">
                 This setup link is valid for 24 hours. If you did not expect this email, please contact your administrator.
@@ -729,7 +733,7 @@ function buildTeamMemberOnboardingEmailHTML(staff, setupUrl) {
         <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);">
           <tr><td height="6" bgcolor="#FFBE11" style="font-size: 0; line-height: 0;">&nbsp;</td></tr>
           <tr>
-            <td bgcolor="#636B2F" style="padding: 36px 42px; text-align: center;">
+            <td bgcolor="#58833b" style="padding: 36px 42px; text-align: center;">
               <h1 style="margin: 0; color: #ffffff; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">Welcome to the Payroll Portal</h1>
               <p style="margin: 8px 0 0 0; color: #e6f2d8; font-size: 14px; font-weight: 600;">${companyName}</p>
             </td>
@@ -749,7 +753,7 @@ function buildTeamMemberOnboardingEmailHTML(staff, setupUrl) {
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                   <td align="center">
-                    <a href="${safeSetupUrl}" style="display: inline-block; background: #636B2F; color: #ffffff; padding: 16px 40px; border-radius: 10px; text-decoration: none; font-weight: 800; font-size: 16px; letter-spacing: 0.3px;">
+                    <a href="${safeSetupUrl}" style="display: inline-block; background: #58833b; color: #ffffff; padding: 16px 40px; border-radius: 10px; text-decoration: none; font-weight: 800; font-size: 16px; letter-spacing: 0.3px;">
                       Set Your Password
                     </a>
                   </td>
@@ -757,7 +761,7 @@ function buildTeamMemberOnboardingEmailHTML(staff, setupUrl) {
               </table>
               <p style="margin: 28px 0 0 0; font-size: 13px; color: #6b7280; line-height: 1.6;">
                 If the button does not work, copy and paste this link into your browser:<br/>
-                <a href="${safeSetupUrl}" style="color: #636B2F; font-weight: 700; word-break: break-all;">${safeSetupUrl}</a>
+                <a href="${safeSetupUrl}" style="color: #58833b; font-weight: 700; word-break: break-all;">${safeSetupUrl}</a>
               </p>
               <p style="margin: 24px 0 0 0; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; line-height: 1.6;">
                 This setup link is valid for <strong>24 hours</strong>. After you set your password, you can sign in to the Payroll Portal using the email above and your new password.<br/><br/>
@@ -812,13 +816,38 @@ async function sendPunchOutReminderEmail(staff, loginUrl, details = {}) {
     duration = 'N/A',
     workStatus = 'In Progress',
     reason = 'Your shift has crossed the expected working window.',
-    autoClosed = false
+    autoClosed = false,
+    officeClosing = false
   } = details;
+
+  const subject = officeClosing
+    ? (autoClosed ? 'Attendance Auto-Closed at Office Closing Time' : 'Office Closed: Please Punch Out')
+    : (autoClosed ? 'Shift Auto-Closed: Please Review Attendance' : 'Reminder: Please Punch Out for the Day');
+  const headerTitle = autoClosed ? 'Attendance Updated' : 'Action Required';
+  const headerSubtitle = officeClosing ? 'Office Closing Alert' : 'Shift Duration Alert';
+  const durationLabel = autoClosed ? 'Logged Duration' : 'Current Duration';
+  const statusLabel = autoClosed ? 'Final Status' : 'Current Status';
+  const policyTitle = officeClosing ? 'Office Timing Policy' : 'Work Hours Policy';
+  const policyBody = officeClosing
+    ? `Office Hours: 10:30 AM to 7:00 PM IST<br/>
+                    Closing Reminder: 7:00 PM IST<br/>
+                    Grace Window: 30 minutes<br/>
+                    Auto Punch-Out: 7:30 PM IST, recorded at 7:00 PM IST<br/>
+                    Auto-closed attendance is flagged for HR/Admin review`
+    : `Start Time: 10:30 AM<br/>
+                    Half Day Threshold: Punch-in after 11:00 AM<br/>
+                    Full Day: 8.5+ hours logged<br/>
+                    Half Day: 4 to 7.9 hours logged<br/>
+                    LOP: Less than 4 hours<br/>
+                    Overtime: After 8.5h (Max 1h)`;
+  const autoClosedMessage = officeClosing
+    ? 'Your attendance was auto-closed at 7:00 PM IST because you were still punched in after the 30-minute office-closing grace window. Please contact HR/Admin if a correction is needed.'
+    : 'Your shift has been auto-closed because it exceeded the maximum allowed duration. Please review your attendance and contact HR/Admin if correction is needed.';
 
   const mailOptions = {
     from: buildFromAddress('PaySlip Pro'),
     to: staff.email,
-    subject: autoClosed ? `⚠️ Shift Auto-Closed: Please Review Attendance` : `⏰ Reminder: Please Punch Out for the Day`,
+    subject,
     html: `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -834,8 +863,8 @@ async function sendPunchOutReminderEmail(staff, loginUrl, details = {}) {
           <tr><td height="6" bgcolor="#e11d48" style="font-size: 0; line-height: 0;">&nbsp;</td></tr>
           <tr>
             <td bgcolor="#1e3a5f" style="padding: 40px 45px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800;">${autoClosed ? 'Attendance Updated' : 'Action Required'}</h1>
-              <p style="margin: 8px 0 0 0; color: #a8c0d6; font-size: 14px;">Shift Duration Alert</p>
+              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800;">${headerTitle}</h1>
+              <p style="margin: 8px 0 0 0; color: #a8c0d6; font-size: 14px;">${headerSubtitle}</p>
             </td>
           </tr>
           <tr>
@@ -847,25 +876,20 @@ async function sendPunchOutReminderEmail(staff, loginUrl, details = {}) {
               <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 18px 0 20px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px;">
                 <tr><td style="padding: 14px 16px; font-size: 13px; color: #111827;"><strong>Shift Date:</strong> ${shiftDate}</td></tr>
                 <tr><td style="padding: 0 16px 14px; font-size: 13px; color: #111827;"><strong>Login Time:</strong> ${loginTime}</td></tr>
-                <tr><td style="padding: 0 16px 14px; font-size: 13px; color: #111827;"><strong>Current Duration:</strong> ${duration}</td></tr>
-                <tr><td style="padding: 0 16px 14px; font-size: 13px; color: #111827;"><strong>Current Status:</strong> ${workStatus}</td></tr>
+                <tr><td style="padding: 0 16px 14px; font-size: 13px; color: #111827;"><strong>${durationLabel}:</strong> ${duration}</td></tr>
+                <tr><td style="padding: 0 16px 14px; font-size: 13px; color: #111827;"><strong>${statusLabel}:</strong> ${workStatus}</td></tr>
               </table>
               <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 0 30px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px;">
                 <tr>
                   <td style="padding: 14px 16px; font-size: 13px; color: #7c2d12; line-height: 1.6;">
-                    <strong>Work Hours Policy</strong><br/>
-                    Start Time: 10:30 AM<br/>
-                    Half Day Threshold: Punch-in after 11:00 AM<br/>
-                    Full Day: 8.5+ hours logged<br/>
-                    Half Day: 4 to 7.9 hours logged<br/>
-                    LOP: Less than 4 hours<br/>
-                    Overtime: After 8.5h (Max 1h)
+                    <strong>${policyTitle}</strong><br/>
+                    ${policyBody}
                   </td>
                 </tr>
               </table>
               ${autoClosed ? `
               <p style="margin: 0 0 30px 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
-                Your shift has been auto-closed because it exceeded the maximum allowed duration. Please review your attendance and contact HR/Admin if correction is needed.
+                ${autoClosedMessage}
               </p>` : `
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>

@@ -40,7 +40,7 @@ const styles = `
   }
   /* pill */
   .pa-pill { display:inline-flex; align-items:center; gap:3px; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:700; white-space:nowrap; }
-  .pa-pill-green  { background:#e5ebdd; color:#636B2F; border:1px solid rgba(99, 107, 47, 0.25); }
+  .pa-pill-green  { background:#e5ebdd; color:#58833b; border:1px solid rgba(88,131,59, 0.25); }
   .pa-pill-orange { background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; }
   .pa-pill-blue   { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
   .pa-pill-yellow { background:#fefce8; color:#854d0e; border:1px solid #fde047; }
@@ -128,10 +128,10 @@ function AttendanceSection() {
       {/* Summary stats */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(130px,1fr))', gap:12, marginBottom:18 }}>
         {[
-          { label:'Present',   value: summary?.presentDays ?? 0,                  icon: CalendarIcon, bg:'#e5ebdd', color:'#636B2F' },
+          { label:'Present',   value: summary?.presentDays ?? 0,                  icon: CalendarIcon, bg:'#e5ebdd', color:'#58833b' },
           { label:'Avg Hours', value: `${(summary?.avgHours||0).toFixed(1)}h`,     icon: Clock,        bg:'#eff6ff', color:'#1d4ed8' },
           { label:'Tasks',     value: summary?.totalTasks ?? 0,                    icon: ListChecks,  bg:'#f7f6ff', color:'#4338ca' },
-          { label:'Completed', value: summary?.completedTasks ?? 0,                icon: CheckCircle2, bg:'#e5ebdd', color:'#636B2F' },
+          { label:'Completed', value: summary?.completedTasks ?? 0,                icon: CheckCircle2, bg:'#e5ebdd', color:'#58833b' },
           { label:'Flagged',   value: summary?.flaggedCount ?? 0,                 icon: AlertCircle,  bg:'#fef2f2', color:'#991b1b' },
         ].map(({ label, value, icon: Icon, bg, color }) => (
           <div key={label} className="pa-stat">

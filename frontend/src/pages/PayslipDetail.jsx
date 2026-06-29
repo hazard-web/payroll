@@ -328,7 +328,7 @@ export default function PayslipDetail() {
         <div className="fade-up" style={{
           marginTop: 'var(--space-6)', background: 'var(--primary-tint)', borderRadius: 10,
           padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 10,
-          border: '1px solid rgba(99, 107, 47, 0.25)',
+          border: '1px solid rgba(88,131,59, 0.25)',
         }}>
           <CheckCircle2 size={16} color="var(--primary)" />
           <span style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 500 }}>

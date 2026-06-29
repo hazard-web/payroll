@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Users, UserCheck, UserX, Calendar, ClipboardList, Clock,
-  AlertTriangle, X, BarChart2
+  AlertTriangle, X, BarChart2, Building2, LogOut
 } from 'lucide-react'
 import api from '../api'
 import PageShell, { PageHeader, PageLoading } from '../components/PageShell'
@@ -52,6 +52,42 @@ const fmtLateDuration = (mins) => {
 }
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+// ── Office Timing Status ──────────────────────────────────────────
+// Office: 10:30 AM → 7:00 PM IST
+// 7:00–7:30 PM = Grace period (reminder sent)
+// After 7:30 PM = Auto-close zone
+const OFFICE_OPEN_HOUR    = 10
+const OFFICE_OPEN_MIN     = 30
+const OFFICE_CLOSE_HOUR   = 19   // 7 PM
+const OFFICE_CLOSE_MIN    = 0
+const GRACE_END_HOUR      = 19
+const GRACE_END_MIN       = 30
+
+function getOfficeStatus(nowDate) {
+  // Convert to IST (UTC+5:30)
+  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
+  const ist = new Date(nowDate.getTime() + IST_OFFSET_MS)
+  const h = ist.getUTCHours()
+  const m = ist.getUTCMinutes()
+  const total = h * 60 + m
+
+  const openTotal  = OFFICE_OPEN_HOUR  * 60 + OFFICE_OPEN_MIN
+  const closeTotal = OFFICE_CLOSE_HOUR * 60 + OFFICE_CLOSE_MIN
+  const graceTotal = GRACE_END_HOUR    * 60 + GRACE_END_MIN
+
+  const timeStr = `${String(h % 12 || 12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
+
+  if (total < openTotal) {
+    return { status: 'before-open', label: 'Not Open Yet', color: '#6b7280', bg: '#f9fafb', dotColor: '#6b7280', timeStr }
+  } else if (total < closeTotal) {
+    return { status: 'open', label: 'Office Open', color: '#15803d', bg: '#f0fdf4', dotColor: '#22c55e', timeStr }
+  } else if (total < graceTotal) {
+    return { status: 'grace', label: 'Grace Period', color: '#b45309', bg: '#fffbeb', dotColor: '#f59e0b', timeStr }
+  } else {
+    return { status: 'closed', label: 'Office Closed', color: '#b91c1c', bg: '#fef2f2', dotColor: '#ef4444', timeStr }
+  }
+}
 
 const monthValue = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 
@@ -183,7 +219,7 @@ const AttendanceRow = ({ record, now }) => {
       </div>
       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 4 }}>
         {worked}
-        {active && <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#636B2F' }} />}
+        {active && <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#58833b' }} />}
       </div>
       <span className={`pill ${active ? 'pill-blue' : late ? 'pill-orange' : 'pill-green'}`}>
         {active ? 'Active' : late ? 'Late' : 'On Time'}
@@ -530,6 +566,103 @@ export default function Dashboard() {
         />
       </div>
 
+      {/* ── Office Timing Card ──────────────────────────────────── */}
+      {(() => {
+        const officeStatus = getOfficeStatus(now)
+        const isGrace  = officeStatus.status === 'grace'
+        const isClosed = officeStatus.status === 'closed'
+        const staffStillActive = Math.max(activeAttendance.length, safeActive)
+        const showAlert = (isGrace || isClosed) && staffStillActive > 0
+
+        return (
+          <div style={{
+            marginBottom: 'var(--space-6)',
+            border: `1.5px solid ${officeStatus.color}30`,
+            borderRadius: 'var(--radius-lg)',
+            background: officeStatus.bg,
+            padding: '14px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 16,
+            transition: 'all 0.4s ease',
+          }}>
+            {/* Icon + Label */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+              <div style={{
+                width: 38, height: 38, borderRadius: '50%',
+                background: `${officeStatus.color}18`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Building2 size={18} color={officeStatus.color} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: officeStatus.color, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Office Timing
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+                  10:30 AM – 7:00 PM IST
+                </div>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div style={{ width: 1, height: 36, background: `${officeStatus.color}30`, flexShrink: 0 }} />
+
+            {/* Live Clock */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <span style={{
+                display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                background: officeStatus.dotColor,
+                boxShadow: `0 0 0 2px ${officeStatus.dotColor}40`,
+                animation: officeStatus.status === 'open' ? 'pulse 2s infinite' : 'none',
+              }} />
+              <span style={{ fontSize: 16, fontWeight: 800, color: officeStatus.color, fontVariantNumeric: 'tabular-nums', letterSpacing: 0 }}>
+                {officeStatus.timeStr}
+              </span>
+              <span style={{
+                fontSize: 11, fontWeight: 700, color: officeStatus.color,
+                background: `${officeStatus.color}15`,
+                padding: '2px 8px', borderRadius: 20,
+              }}>
+                {officeStatus.label}
+              </span>
+            </div>
+
+            {/* Spacer */}
+            <div style={{ flex: 1 }} />
+
+            {/* Grace / Closed alert */}
+            {showAlert && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: isGrace ? '#fffbeb' : '#fef2f2',
+                border: `1px solid ${isGrace ? '#fcd34d' : '#fca5a5'}`,
+                borderRadius: 10, padding: '6px 12px',
+              }}>
+                <LogOut size={14} color={isGrace ? '#b45309' : '#b91c1c'} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: isGrace ? '#b45309' : '#b91c1c' }}>
+                  {staffStillActive} staff still active
+                </span>
+                <span style={{ fontSize: 12, color: isGrace ? '#92400e' : '#7f1d1d' }}>
+                  {isGrace ? '— reminder sent, auto-close at 7:30 PM' : '— auto-close in progress'}
+                </span>
+              </div>
+            )}
+
+            {/* Status message */}
+            {!showAlert && (
+              <div style={{ fontSize: 12, color: officeStatus.color, fontWeight: 600, opacity: 0.8 }}>
+                {officeStatus.status === 'open' && 'Office hours active. Staff can punch in/out.'}
+                {officeStatus.status === 'before-open' && 'Office opens at 10:30 AM.'}
+                {officeStatus.status === 'grace' && 'Grace period — all staff have punched out ✓'}
+                {officeStatus.status === 'closed' && 'Office closed — all attendance settled.'}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       {/* ── Middle Row ───────────────────────────────────────────── */}
       <div className="form-grid-2" style={{ marginBottom: 'var(--space-6)', alignItems: 'stretch' }}>
         <AttentionRequired
@@ -673,7 +806,7 @@ export default function Dashboard() {
         size="md"
       >
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Approved (Today): <strong style={{ color: '#636B2F' }}>{approvedOnLeaveToday.length}</strong></span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Approved (Today): <strong style={{ color: '#58833b' }}>{approvedOnLeaveToday.length}</strong></span>
           <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Pending Approval: <strong style={{ color: '#c2410c' }}>{pendingLeaves.length}</strong></span>
         </div>
         <div style={{ maxHeight: 480, overflowY: 'auto', padding: '8px 0' }}>
@@ -689,12 +822,12 @@ export default function Dashboard() {
               badge={<span className="pill pill-orange">Pending</span>}
             />
           ))}
-          <div style={{ padding: '12px 20px 8px', fontSize: 12, fontWeight: 700, color: '#636B2F', textTransform: 'uppercase', borderTop: '1px solid var(--border)' }}>Approved Leave Requests</div>
+          <div style={{ padding: '12px 20px 8px', fontSize: 12, fontWeight: 700, color: '#58833b', textTransform: 'uppercase', borderTop: '1px solid var(--border)' }}>Approved Leave Requests</div>
           {approvedOnLeaveToday.length === 0 ? (
             <div style={{ padding: '0 20px 12px', fontSize: 13, color: 'var(--text-muted)' }}>No approved leaves for today.</div>
           ) : approvedOnLeaveToday.map((leave) => (
             <div key={leave._id} className="punch-row">
-              <Avatar name={leave.staff?.fullName} style={{ background: '#e5ebdd', color: '#636B2F' }} />
+              <Avatar name={leave.staff?.fullName} style={{ background: '#e5ebdd', color: '#58833b' }} />
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {leave.staff?.fullName || 'Unknown'} {leave.staff?.employeeId ? `· ${leave.staff.employeeId}` : ''}

@@ -126,7 +126,7 @@ app.use((err, req, res, next) => {
 // Connect to MongoDB then start server
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/payslip_generator';
 console.log('🔍 MONGODB_URI =', process.env.MONGODB_URI);
-const { runShiftCheck } = require('./utils/cronJobs');
+const { runShiftCheck, runOfficeClosingCheck } = require('./utils/cronJobs');
 const http = require('http');
 
 // Cache the Mongoose connection promise across serverless invocations so
@@ -164,8 +164,13 @@ if (!process.env.VERCEL) {
     }
   });
 
-  // In development Vercel crons don't fire, so run the shift-check locally every hour
-  const ONE_HOUR = 60 * 60 * 1000;
+  // In development Vercel crons don't fire, so run checks locally.
+  // Shift check runs every hour; office-closing checks run every 5 minutes
+  // with a time-window guard so they fire only once per day.
+  const ONE_HOUR     = 60 * 60 * 1000;
+  const FIVE_MINUTES = 5  * 60 * 1000;
+
+
   setInterval(async () => {
     console.log('⏰ [local cron] Running shift check...');
     try {
@@ -175,7 +180,22 @@ if (!process.env.VERCEL) {
       console.error('❌ [local cron] Shift check failed:', err.message);
     }
   }, ONE_HOUR);
+
+  setInterval(async () => {
+    try {
+      const r = await runOfficeClosingCheck();
+      if (r.action === 'reminder') {
+        console.log(`[office-cron] 7:00 PM IST reminders sent: ${r.remindersSent}`);
+      } else if (r.action === 'autoClose') {
+        console.log(`[office-cron] 7:30 PM IST auto-closed: ${r.autoClosed}`);
+      }
+    } catch (err) {
+      console.error('[office-cron] Office closing check failed:', err.message);
+    }
+  }, FIVE_MINUTES);
+
   console.log('⏰ Local shift-check cron scheduled (every 1 hour)');
+  console.log('🕖 Office closing cron scheduled (every 5 minutes — fires at 7:00 PM & 7:30 PM IST)');
 }
 
 // Eagerly establish the Mongo connection on cold start so the first

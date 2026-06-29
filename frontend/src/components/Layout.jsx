@@ -237,7 +237,7 @@ export default function Layout() {
                 width: 38, height: 38, borderRadius: 10, 
                 background: 'var(--primary)', color: 'white', border: 'none',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', boxShadow: '0 4px 12px rgba(99, 107, 47, 0.15)'
+                cursor: 'pointer', boxShadow: '0 4px 12px rgba(88,131,59, 0.15)'
               }}
               title="Install Application"
             >
@@ -304,7 +304,7 @@ export default function Layout() {
                       notifications.map(n => {
                         const typeMap = {
                           LEAVE_REQUEST:   { icon: CalendarDays, bg: '#e0f2fe', color: '#0369a1', nav: '/leave-requests' },
-                          STAFF_CREATED:   { icon: UserCheck,    bg: '#e5ebdd', color: '#636B2F', nav: '/staff' },
+                          STAFF_CREATED:   { icon: UserCheck,    bg: '#e5ebdd', color: '#58833b', nav: '/staff' },
                           PAYSLIP_PUSHED:  { icon: FileText,     bg: '#fef3c7', color: '#b45309', nav: '/payslips' },
                           PROFILE_UPDATE:  { icon: User,         bg: '#f3e8ff', color: '#7e22ce', nav: '/staff' },
                           ATTENDANCE_ALERT:{ icon: AlertTriangle, bg: '#fee2e2', color: '#dc2626', nav: '/leave-requests' },

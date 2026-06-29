@@ -298,7 +298,7 @@ export default function PortalDashboard() {
                 <div key={index} style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--bg)', border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{task.project || '—'}</div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: task.status === 'Completed' ? '#636B2F' : task.status === 'In Progress' ? '#c2410c' : '#475569', textTransform: 'uppercase' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: task.status === 'Completed' ? '#58833b' : task.status === 'In Progress' ? '#c2410c' : '#475569', textTransform: 'uppercase' }}>
                       {task.status}
                     </span>
                   </div>

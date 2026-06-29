@@ -15,18 +15,38 @@ const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const isValidPAN = (pan) => typeof pan === 'string' && PAN_REGEX.test(pan);
 const isValidEmail = (email) => typeof email === 'string' && EMAIL_REGEX.test(email.toLowerCase().trim());
+const DEFAULT_FRONTEND_URL = 'https://rohit98k-payroll-portal.vercel.app';
 
 function resolvePortalBaseUrl(req) {
-  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
-  const origin = req.get('origin') || '';
-  if (origin && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
-    return origin.replace(/\/$/, '');
+  const cleanUrl = (value) => String(value || '').trim().replace(/\/$/, '');
+  const isLocalUrl = (value) => /(^https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?/i.test(value);
+
+  // Block ALL Vercel preview/git-branch deployments (URLs containing a commit hash
+  // or branch slug followed by .vercel.app) AND any known dead preview URLs.
+  // Production deployments use a stable custom alias with no hash in the hostname.
+  const isPreviewOrDeadUrl = (value) =>
+    /[a-z0-9]+-[a-z0-9]+-[a-z0-9]+-projects\.vercel\.app/i.test(value) || // git preview pattern
+    /payslip-generator-[a-z0-9]+-[a-z0-9]+\.vercel\.app/i.test(value);      // app preview pattern
+
+  // FRONTEND_URL and APP_URL from environment are the authoritative production URLs.
+  // Only fall back to req.get('origin') if those are absent.
+  const envFrontendUrl = cleanUrl(process.env.FRONTEND_URL);
+  const envAppUrl = cleanUrl(process.env.APP_URL);
+
+  if (envFrontendUrl && !isLocalUrl(envFrontendUrl) && !isPreviewOrDeadUrl(envFrontendUrl)) {
+    return envFrontendUrl;
   }
-  const frontendUrl = process.env.FRONTEND_URL || '';
-  if (frontendUrl && !frontendUrl.includes('localhost') && !frontendUrl.includes('127.0.0.1')) {
-    return frontendUrl.replace(/\/$/, '');
+  if (envAppUrl && !isLocalUrl(envAppUrl) && !isPreviewOrDeadUrl(envAppUrl)) {
+    return envAppUrl;
   }
-  return (origin || frontendUrl || 'http://localhost:3000').replace(/\/$/, '');
+
+  // Use request origin only when env vars are absent/local
+  const origin = cleanUrl(req.get('origin') || '');
+  if (origin && !isLocalUrl(origin) && !isPreviewOrDeadUrl(origin)) {
+    return origin;
+  }
+
+  return DEFAULT_FRONTEND_URL;
 }
 
 async function provisionStaffPortalAccess(staff, req, options = {}) {

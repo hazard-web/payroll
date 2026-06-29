@@ -76,7 +76,7 @@ export default function Profile() {
             gap: 6,
             padding: '8px 16px',
             background: 'var(--primary-tint, #e5ebdd)',
-            color: 'var(--primary, #636B2F)',
+            color: 'var(--primary, #58833b)',
             borderRadius: 99,
             fontSize: 13,
             fontWeight: 700,
