@@ -338,18 +338,11 @@ export default function Dashboard() {
     return () => controller.abort()
   }, [attendanceMonth])
 
-  // ── Compute Stats (memoized) ────────────────────────────────────
-  // All these derived values previously recomputed on every render
-  // (timer tick, modal open/close, etc.). Wrapping them in useMemo
-  // keyed on the underlying inputs keeps them stable.
-  // NOTE: useMemo must be called UNCONDITIONALLY on every render — it
-  // must be declared BEFORE any early `return` so the hooks count stays
-  // stable between the loading-state render and the data-loaded render.
+  // Compute Stats (memoized)
   const stats = useMemo(() => {
     const totalEmployees = staffData.length
     const safeActive = Math.min(Math.max(activeCount, 0), totalEmployees)
     const totalPresentToday = todayPunchins.length
-
     const today = new Date()
     const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate())
     const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)
@@ -360,32 +353,24 @@ export default function Dashboard() {
     }
     const approvedOnLeaveToday = approvedLeaves.filter(isLeaveOverlappingToday)
     const onLeave = approvedOnLeaveToday.length
-
     const latePunchins = todayPunchins.filter(r => getLateInfo(r.punchIn).isLate)
     const validPunchins = todayPunchins.filter(r => r.punchIn)
     const punchedInStaffIds = new Set(todayPunchins.map(r => String(r.staff?._id || '')))
-    const notActiveStaff = staffData.filter(s => !punchedInStaffIds.has(String(s._id)))
+    const onLeaveStaffIds = new Set(
+      approvedOnLeaveToday.flatMap(leave => [String(leave.staff?._id || ''), String(leave.staffId || '')]).filter(Boolean)
+    )
+    const notActiveStaff = staffData.filter(s => !punchedInStaffIds.has(String(s._id)) && !onLeaveStaffIds.has(String(s._id)))
     const notActiveCount = notActiveStaff.length
-
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
+    const ist = new Date(new Date().getTime() + IST_OFFSET_MS)
+    const minutesIST = ist.getUTCHours() * 60 + ist.getUTCMinutes()
+    const absentCount = minutesIST >= (OFFICE_OPEN_HOUR * 60 + OFFICE_OPEN_MIN) ? notActiveCount : 0
     return {
-      totalEmployees,
-      safeActive,
-      totalPresentToday,
-      onLeave,
-      latePunchins,
-      validPunchins,
-      notActiveStaff,
-      notActiveCount,
-      approvedOnLeaveToday,
+      totalEmployees, safeActive, totalPresentToday, onLeave,
+      latePunchins, validPunchins, notActiveStaff, notActiveCount, absentCount, approvedOnLeaveToday,
     }
   }, [staffData, activeCount, todayPunchins, approvedLeaves])
 
-  // Sorting the punch-in list used to allocate a new array + sort on every
-  // render. Memoize so the modals opening don't re-sort.
-  // NOTE: declared at top-level (before any early return) so the hooks
-  // count stays stable across renders. Previously this lived AFTER the
-  // `if (loading) return …` line which caused the
-  // "Rendered more hooks than during the previous render" error.
   const sortedAttendance = useMemo(() => {
     return [...todayPunchins].sort((a, b) => {
       const aLate = getLateInfo(a.punchIn).isLate ? 1 : 0
@@ -524,7 +509,7 @@ export default function Dashboard() {
     )
   }
 
-  const { totalEmployees, safeActive, totalPresentToday, onLeave, latePunchins, notActiveStaff, notActiveCount, approvedOnLeaveToday } = stats
+  const { totalEmployees, safeActive, totalPresentToday, onLeave, latePunchins, notActiveStaff, notActiveCount, absentCount, approvedOnLeaveToday } = stats
   const monthlyTrendPositive = monthlyOverview.trend >= 0
   const monthlyTrendLabel = monthlyOverview.previousPresent === 0 && monthlyOverview.present === 0
     ? '0%'
@@ -668,7 +653,7 @@ export default function Dashboard() {
         <AttentionRequired
           leaveToday={onLeave}
           pendingLeaveCount={pendingLeaves.length}
-          absentCount={notActiveCount}
+          absentCount={absentCount}
           onViewLeave={() => setShowLeaveModal(true)}
           onViewPending={() => navigate('/leave-requests')}
           onViewAbsent={() => setShowNotActiveModal(true)}

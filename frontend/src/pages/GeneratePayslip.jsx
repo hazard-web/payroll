@@ -12,7 +12,7 @@ import api from '../api'
 import PageShell from '../components/PageShell'
 import AnimatedNumber from '../components/AnimatedNumber'
 import {
-  InputField, SelectField, SegmentedControl, Toggle, StepLabel
+  InputField, SelectField, SegmentedControl, Toggle, StepLabel, StaffSearchDropdown
 } from '../components/UI'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -285,52 +285,45 @@ export default function GeneratePayslip() {
                     style={{ marginBottom: 'var(--space-6)' }}
                   />
 
-                  <div style={{ marginBottom: 20 }}>
-                    <label className="label" style={{ marginBottom: 8 }}>Auto-fill from Team Directory</label>
-                    <SelectField
-                      value=""
-                      onChange={(v) => {
-                        const s = staffList.find(x => x._id === v);
-                        if (s) {
-                          const empType = s.type === 'Employee' ? 'regular' : 'intern';
-                          setForm(f => ({
-                            ...f,
-                            employmentType: empType,
-                            employeeName: s.fullName,
-                            employeeId: s.employeeId,
-                            employeeEmail: s.email,
-                            designation: s.designation || '',
-                            department: s.department || '',
-                            dateOfJoining: s.joiningDate ? s.joiningDate.split('T')[0] : '',
-                            panNumber: s.financials?.panNumber || '',
-                            pfNumber: s.pfNumber || '',
-                            bankAccount: s.financials?.accountNumber || '',
-                            bankName: s.financials?.bankName || '',
-                            annualCTC: s.type === 'Employee' ? (s.salaryDetails?.annualCTC || '') : '',
-                            baseSalary: s.type === 'Intern' ? (s.salaryDetails?.baseSalary || '') : '',
-                          }));
-                        }
-                      }}
-                      options={[
-                        ...staffList
-                          .filter(s => {
-                            const type = s.type?.toLowerCase();
-                            const current = form.employmentType?.toLowerCase();
-                            return (current === 'regular' && type === 'employee') || (current === type);
-                          })
-                          .map(s => ({ value: s._id, label: `${s.fullName} (${s.type})` })),
-                      ]}
-                      placeholder={
-                        staffList.filter(s => {
-                          const type = s.type?.toLowerCase();
-                          const current = form.employmentType?.toLowerCase();
-                          return (current === 'regular' && type === 'employee') || (current === type);
-                        }).length === 0
-                          ? `No ${form.employmentType === 'regular' ? 'Employees' : 'Interns'} found in directory.`
-                          : '-- Select Team Member --'
+                  <StaffSearchDropdown
+                    staffList={staffList}
+                    label="Auto-fill from Team Directory"
+                    placeholder="Search by name or Employee ID…"
+                    onSelect={async (s) => {
+                      if (!s) return
+                      // The list API strips bankDetails/financials for performance.
+                      // Fetch the full record so bank account, PAN, etc. are available.
+                      let full = s
+                      try {
+                        const res = await api.get(`/staff/${s._id}`)
+                        full = res.data.data || s
+                      } catch {
+                        // Silently fall back to list data if detail fetch fails
                       }
-                    />
-                  </div>
+                      const empType  = full.type === 'Employee' ? 'regular' : 'intern'
+                      // PAN: top-level (employee self-service) → legacy financials
+                      const pan      = full.panNumber || full.financials?.panNumber || ''
+                      // Bank: new bankDetails → legacy financials
+                      const bankAcc  = full.bankDetails?.accountNumber || full.financials?.accountNumber || ''
+                      const bankNm   = full.bankDetails?.bankName      || full.financials?.bankName      || ''
+                      setForm(f => ({
+                        ...f,
+                        employmentType: empType,
+                        employeeName:   full.fullName,
+                        employeeId:     full.employeeId     || '',
+                        employeeEmail:  full.email          || '',
+                        designation:    full.designation    || '',
+                        department:     full.department     || '',
+                        dateOfJoining:  full.joiningDate ? full.joiningDate.split('T')[0] : '',
+                        panNumber:      pan,
+                        pfNumber:       full.pfNumber       || '',
+                        bankAccount:    bankAcc,
+                        bankName:       bankNm,
+                        annualCTC:      full.type === 'Employee' ? (full.salaryDetails?.annualCTC  || '') : '',
+                        baseSalary:     full.type === 'Intern'   ? (full.salaryDetails?.baseSalary || '') : '',
+                      }))
+                    }}
+                  />
 
                   <InputField label="Employee Name" required value={form.employeeName} onChange={e => setForm({...form, employeeName: e.target.value})} placeholder="Full Name" icon={User} />
                   <div className="form-grid-2">

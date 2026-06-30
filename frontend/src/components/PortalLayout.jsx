@@ -143,9 +143,7 @@ export default function PortalLayout() {
         setDeferredPrompt(null)
       }
     } else {
-      import('react-hot-toast').then(mod => {
-        mod.default('To install, click the Install icon in your browser menu or "Add to Home Screen" on your device.', { duration: 5000, icon: '💡' });
-      });
+      toast('To install, click the Install icon in your browser menu or "Add to Home Screen" on your device.', { duration: 5000, icon: '💡' });
     }
   }
 

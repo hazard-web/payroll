@@ -136,9 +136,7 @@ export default function Layout() {
         setDeferredPrompt(null)
       }
     } else {
-      import('react-hot-toast').then(mod => {
-        mod.default('To install, click the Install icon (🖥️) in your address bar, or use "Add to Home Screen" in your mobile menu.', { duration: 5000, icon: '💡' });
-      });
+      toast('To install, click the Install icon (🖥️) in your address bar, or use "Add to Home Screen" in your mobile menu.', { duration: 5000, icon: '💡' });
     }
   }
 

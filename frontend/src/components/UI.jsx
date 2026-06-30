@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import { Search, AlertCircle } from 'lucide-react'
 
 // ───────────────────────────────────────────────────────────────
@@ -416,6 +416,233 @@ export function SearchInput({
         className="input-field"
         style={{ flex: 1 }}
       />
+    </div>
+  )
+}
+
+// ───────────────────────────────────────────────────────────────
+// StaffSearchDropdown — searchable combobox for staff selection
+// Props:
+//   staffList   – array of staff objects from /staff API
+//   onSelect    – called with the selected staff object
+//   placeholder – input placeholder text
+//   label       – field label
+// ───────────────────────────────────────────────────────────────
+export function StaffSearchDropdown({
+  staffList = [],
+  onSelect,
+  placeholder = 'Search by name or Employee ID…',
+  label = 'Auto-fill from Team Directory',
+}) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const [activeIdx, setActiveIdx] = useState(-1)
+  const [selected, setSelected] = useState(null)
+  const wrapRef = useRef(null)
+  const inputRef = useRef(null)
+  const listRef = useRef(null)
+
+  // Filter staff by name or employeeId
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return staffList.slice(0, 50) // show first 50 when no query
+    return staffList.filter(s =>
+      s.fullName?.toLowerCase().includes(q) ||
+      s.employeeId?.toLowerCase().includes(q)
+    ).slice(0, 50)
+  }, [staffList, query])
+
+  // Close when clicking outside
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  // Scroll active item into view
+  useEffect(() => {
+    if (activeIdx >= 0 && listRef.current) {
+      const item = listRef.current.children[activeIdx]
+      item?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [activeIdx])
+
+  const handleSelect = (staff) => {
+    setSelected(staff)
+    setQuery('')
+    setOpen(false)
+    setActiveIdx(-1)
+    onSelect(staff)
+  }
+
+  const handleClear = () => {
+    setSelected(null)
+    setQuery('')
+    setOpen(false)
+    onSelect(null)
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }
+
+  const handleKeyDown = (e) => {
+    if (!open && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+      setOpen(true)
+      return
+    }
+    if (e.key === 'ArrowDown') {
+      setActiveIdx(i => Math.min(i + 1, filtered.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      setActiveIdx(i => Math.max(i - 1, 0))
+    } else if (e.key === 'Enter' && activeIdx >= 0) {
+      e.preventDefault()
+      handleSelect(filtered[activeIdx])
+    } else if (e.key === 'Escape') {
+      setOpen(false)
+    }
+  }
+
+  return (
+    <div style={{ marginBottom: 20, position: 'relative' }} ref={wrapRef}>
+      {label && (
+        <label className="label" style={{ marginBottom: 8, display: 'block' }}>
+          {label}
+        </label>
+      )}
+
+      {/* Input row */}
+      <div
+        className="input-field"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '0 12px', cursor: 'text',
+          border: open ? '2px solid var(--primary)' : '1px solid var(--border)',
+          borderRadius: 8, background: 'var(--surface)', transition: 'border-color .15s'
+        }}
+        onClick={() => { setOpen(true); inputRef.current?.focus() }}
+      >
+        <Search size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+
+        {selected && !open ? (
+          /* Chip showing selected employee */
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, padding: '9px 0' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {selected.fullName}
+            </span>
+            {selected.employeeId && (
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
+                {selected.employeeId}
+              </span>
+            )}
+            <span style={{
+              marginLeft: 'auto', flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 7px',
+              borderRadius: 999, background: selected.type === 'Intern' ? '#eff6ff' : '#e5ebdd',
+              color: selected.type === 'Intern' ? '#1d4ed8' : '#58833b',
+              border: `1px solid ${selected.type === 'Intern' ? '#bfdbfe' : 'rgba(88,131,59,.25)'}`,
+            }}>
+              {selected.type}
+            </span>
+          </div>
+        ) : (
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={e => { setQuery(e.target.value); setOpen(true); setActiveIdx(-1) }}
+            onFocus={() => setOpen(true)}
+            onKeyDown={handleKeyDown}
+            placeholder={selected ? `Change: ${selected.fullName}` : placeholder}
+            style={{
+              border: 'none', outline: 'none', background: 'transparent',
+              flex: 1, fontSize: 13, color: 'var(--text)', padding: '10px 0',
+              fontFamily: 'inherit'
+            }}
+          />
+        )}
+
+        {selected && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); handleClear() }}
+            style={{
+              flexShrink: 0, border: 'none', background: 'none', cursor: 'pointer',
+              color: 'var(--text-muted)', fontSize: 18, lineHeight: 1, padding: '2px 4px',
+              borderRadius: 4, display: 'flex', alignItems: 'center'
+            }}
+            title="Clear selection"
+          >
+            ×
+          </button>
+        )}
+      </div>
+
+      {/* Dropdown list */}
+      {open && (
+        <div
+          ref={listRef}
+          style={{
+            position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+            zIndex: 9999, maxHeight: 280, overflowY: 'auto',
+          }}
+        >
+          {filtered.length === 0 ? (
+            <div style={{ padding: '14px 16px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
+              No team members found
+            </div>
+          ) : (
+            filtered.map((s, i) => (
+              <div
+                key={s._id}
+                onMouseDown={(e) => { e.preventDefault(); handleSelect(s) }}
+                onMouseEnter={() => setActiveIdx(i)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 16px', cursor: 'pointer',
+                  background: activeIdx === i ? 'rgba(88,131,59,.07)' : 'transparent',
+                  borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none',
+                  transition: 'background .1s',
+                }}
+              >
+                {/* Avatar initial */}
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                  background: s.type === 'Intern' ? '#eff6ff' : 'var(--primary-tint, #e5ebdd)',
+                  color: s.type === 'Intern' ? '#1d4ed8' : 'var(--primary)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 13, fontWeight: 800,
+                }}>
+                  {(s.fullName || '?')[0].toUpperCase()}
+                </div>
+
+                {/* Name + meta */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {s.fullName}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
+                    {[s.employeeId, s.designation, s.department].filter(Boolean).join(' · ') || s.email}
+                  </div>
+                </div>
+
+                {/* Type badge */}
+                <span style={{
+                  flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 7px',
+                  borderRadius: 999,
+                  background: s.type === 'Intern' ? '#eff6ff' : '#e5ebdd',
+                  color: s.type === 'Intern' ? '#1d4ed8' : '#58833b',
+                  border: `1px solid ${s.type === 'Intern' ? '#bfdbfe' : 'rgba(88,131,59,.25)'}`,
+                }}>
+                  {s.type}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   )
 }

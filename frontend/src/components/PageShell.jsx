@@ -5,12 +5,11 @@ import { Loader2 } from 'lucide-react'
  * Standard page container — use inside Layout / PortalLayout viewport.
  * Handles max-width only; padding comes from .page-viewport on the layout.
  */
-export default function PageShell({ children, wide, narrow, fullWidth, className = '', ...props }) {
+export default function PageShell({ children, wide, narrow, className = '', ...props }) {
   const classes = [
     'page-shell',
     wide && 'page-shell--wide',
     narrow && 'page-shell--narrow',
-    fullWidth && 'page-shell--full',
     className,
   ].filter(Boolean).join(' ')
 

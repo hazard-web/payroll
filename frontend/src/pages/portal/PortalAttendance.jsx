@@ -50,8 +50,8 @@ const styles = `
   /* stat card */
   .pa-stat { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; display:flex; align-items:center; gap:14px; }
   /* table */
-  .pa-table-head { display:grid; padding:10px 18px; background:var(--bg); border-bottom:1px solid var(--border); }
-  .pa-table-row  { display:grid; padding:12px 18px; border-bottom:1px solid var(--border); align-items:center; transition:background .12s; }
+  .pa-table-head { display:grid; padding:10px 20px; background:var(--bg); border-bottom:1px solid var(--border); gap:12px; }
+  .pa-table-row  { display:grid; padding:14px 20px; border-bottom:1px solid var(--border); align-items:center; transition:background .12s; gap:12px; }
   .pa-table-row:last-child { border-bottom:none; }
   .pa-table-row:hover { background:rgba(0,0,0,.018); }
   /* card */
@@ -157,7 +157,7 @@ function AttendanceSection() {
         </div>
       ) : (
           <div className="pa-card">
-            <div className="pa-table-head" style={{ gridTemplateColumns:'100px 80px 80px 70px 80px 90px' }}>
+            <div className="pa-table-head" style={{ gridTemplateColumns:'1.8fr 1.2fr 1.2fr 0.9fr 1fr 1.1fr' }}>
               {['Date','Punch In','Punch Out','Hours','Tasks','Status'].map(h => (
                 <div key={h} style={{ fontSize:10, fontWeight:700, color:'var(--text-light)', textTransform:'uppercase', letterSpacing:'.06em' }}>{h}</div>
               ))}
@@ -168,7 +168,7 @@ function AttendanceSection() {
                 const completed = Array.isArray(row.tasks) ? row.tasks.filter(t => t.status === 'Completed').length : 0
                 return (
                   <motion.div key={i} initial={{ opacity:0 }} animate={{ opacity:1 }}
-                    className="pa-table-row" style={{ gridTemplateColumns:'100px 80px 80px 70px 80px 90px' }}>
+                    className="pa-table-row" style={{ gridTemplateColumns:'1.8fr 1.2fr 1.2fr 0.9fr 1fr 1.1fr' }}>
                     <div style={{ fontSize:12, fontWeight:700, color:'var(--primary)' }}>{fmtDate(row.date)}</div>
                     <div style={{ fontSize:12, fontWeight:600, color:'var(--text)' }}>{fmtTime(row.punchIn)}</div>
                     <div style={{ fontSize:12, color:'var(--text-muted)' }}>{row.punchOut ? fmtTime(row.punchOut) : <span className="pa-pill pa-pill-blue" style={{ fontSize:10 }}>Active</span>}</div>
