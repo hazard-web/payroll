@@ -210,7 +210,7 @@ export default function PayslipDetail() {
             style={{ background: p.isPushedToPortal ? 'var(--emerald)' : 'var(--primary)' }}
           >
             {actionLoading[`push_${p._id}`] ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
-            {p.isPushedToPortal ? 'Live on Portal' : 'Push to Portal'}
+            Push to Portal
           </button>
           <button onClick={() => setShowEmailModal(true)} className="btn-primary" style={{ background: '#0284c7' }}>
             <Mail size={14} /> Send Email

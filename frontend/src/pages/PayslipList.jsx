@@ -73,7 +73,7 @@ export default function PayslipList() {
       URL.revokeObjectURL(url)
       toast.success('PDF document ready')
     } catch (err) {
-      toast.error('PDF generation failed')
+      toast.error(err.response?.data?.message || err.message || 'PDF generation failed')
     } finally {
       setActionLoading(a => ({ ...a, [`dl_${id}`]: false }))
     }
