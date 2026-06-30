@@ -216,7 +216,7 @@ export default function StaffList() {
                 <th>Role</th>
                 <th>Type</th>
                 <th>Profile</th>
-                <th>Compensation</th>
+
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -262,19 +262,7 @@ export default function StaffList() {
                     }
                   </td>
 
-                  <td>
-                    <div>
-                      <div className="text-muted" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>
-                        {person.type === 'Employee' ? 'Annual CTC' : 'Monthly Stipend'}
-                      </div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primary)' }}>
-                        ₹{person.type === 'Employee'
-                          ? (person.salaryDetails?.annualCTC?.toLocaleString() || 0)
-                          : (person.salaryDetails?.baseSalary?.toLocaleString() || 0)
-                        }
-                      </div>
-                    </div>
-                  </td>
+
 
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>

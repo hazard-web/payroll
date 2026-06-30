@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const Staff = require('../models/Staff');
 const Notification = require('../models/Notification');
+const Attendance = require('../models/Attendance');
+const LeaveRequest = require('../models/LeaveRequest');
+const Payslip = require('../models/Payslip');
 const { auth: protect } = require('./auth');
 const crypto = require('crypto');
 const emailService = require('../utils/emailService');
@@ -372,6 +375,14 @@ router.delete('/:id', protect, async (req, res) => {
     if (!deletedStaff) {
       return res.status(404).json({ success: false, message: 'Staff member not found' });
     }
+
+    // Cascade delete: remove all related data for this staff member
+    await Promise.all([
+      Attendance.deleteMany({ staff: deletedStaff._id }),
+      LeaveRequest.deleteMany({ staff: deletedStaff._id }),
+      Payslip.deleteMany({ staff: deletedStaff._id }),
+      Notification.deleteMany({ recipient: deletedStaff._id }),
+    ]);
 
     await logActivity(req.user._id, 'STAFF_DELETED', `Deleted staff: ${deletedStaff.fullName}`, { staffId: deletedStaff._id });
 

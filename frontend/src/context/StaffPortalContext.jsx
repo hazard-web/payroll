@@ -51,9 +51,19 @@ export function StaffPortalProvider({ children }) {
     const res = await api.post('/portal/login', { email, password });
     localStorage.setItem('staffToken', res.data.token);
     api.invalidateCache?.('/portal/');
+    // Set basic data immediately so the UI isn't blocked
     setStaffUser(normalizeStaff(res.data.staff, {
       mustChangePassword: res.data.mustChangePassword,
     }));
+    // Then fetch the full profile (all saved fields) in the background
+    try {
+      const fullRes = await api.get('/portal/me', { __skipCache: true });
+      setStaffUser(normalizeStaff(fullRes.data.staff, {
+        mustChangePassword: res.data.mustChangePassword,
+      }));
+    } catch (_) {
+      // If refresh fails, the basic login data is still usable
+    }
     return res.data;
   }, []);
 
