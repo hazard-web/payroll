@@ -14,7 +14,8 @@ const DEFAULT_TIMEOUT_MS = 30000
 // document uploads). These get a longer timeout to avoid spurious
 // "timeout of 30000ms exceeded" errors during legitimate work.
 const SLOW_ENDPOINT_PATTERNS = [
-  /\/payslips\/[^/]+\/download/,         // PDF payslip download
+  /\/payslips\/[^/]+\/download/,         // PDF payslip download (admin)
+  /\/portal\/payslips\/[^/]+\/download/, // PDF payslip download (staff portal)
   /\/payslips\/generate/,
   /\/staff\/[^/]+\/provision-portal/,    // SMTP onboarding email
   /\/staff\/[^/]+\/documents/,           // base64 document upload
@@ -33,9 +34,12 @@ api.interceptors.request.use((config) => {
     url.startsWith('/portal/') ||
     (url.startsWith('/attendance/') && !url.startsWith('/attendance/admin/')) ||
     (url.startsWith('/leaves/') && !url.startsWith('/leaves/admin/'))
-  const isPayslipDownload = url.includes('/payslips/') && url.endsWith('/download')
 
-  const token = isStaffRoute || isPayslipDownload
+  // For payslip download: use staffToken only when explicitly on a portal
+  // route (i.e. the staff portal UI triggered this download). For admin
+  // payslip downloads the admin token must be used, otherwise the backend
+  // receives a staff-audience JWT, looks up by employeeId, and returns 404.
+  const token = isStaffRoute
     ? localStorage.getItem('staffToken') || localStorage.getItem('token')
     : localStorage.getItem('token') || localStorage.getItem('staffToken')
 

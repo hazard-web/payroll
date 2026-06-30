@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const Staff = require('../models/Staff');
 const User = require('../models/User'); // Required to get company details if needed
+const Payslip = require('../models/Payslip');
 const { sendPasswordResetEmail } = require('../utils/emailService');
 
 // PAN validator
@@ -653,7 +654,30 @@ router.get('/payslips', authStaff, async (req, res) => {
   }
 });
 
-// We need to import Payslip model here if not available
-const Payslip = require('../models/Payslip');
+// ─────────────────────────────────────────────────────────────
+// GET /api/portal/payslips/:id/download — Download pushed payslip as PDF (Staff)
+// ─────────────────────────────────────────────────────────────
+router.get('/payslips/:id/download', authStaff, async (req, res) => {
+  try {
+    const payslip = await Payslip.findOne({
+      _id: req.params.id,
+      employeeId: req.staff.employeeId,
+      user: req.staff.user._id,
+      isPushedToPortal: true,
+    });
+
+    if (!payslip) {
+      return res.status(404).json({ success: false, message: 'Payslip not found or access denied' });
+    }
+
+    const { generatePayslipPDF } = require('../utils/pdfGenerator');
+    generatePayslipPDF(payslip, res);
+  } catch (err) {
+    console.error('Portal PDF generation error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Failed to generate PDF: ' + err.message });
+    }
+  }
+});
 
 module.exports = { router, authStaff };

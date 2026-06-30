@@ -17,7 +17,8 @@ export default function PortalPayslips() {
   const fetchPayslips = async (query = '') => {
     try {
       setLoading(true)
-      const res = await api.get(`/portal/payslips?search=${query}`)
+      const searchParam = encodeURIComponent(query.trim())
+      const res = await api.get(`/portal/payslips?search=${searchParam}`)
       setPayslips(res.data.data)
     } catch (err) {
       console.error('Payslips error:', err)
@@ -29,15 +30,19 @@ export default function PortalPayslips() {
 
   const handleDownload = async (id) => {
     try {
-      const response = await api.get(`/payslips/${id}/download`, { responseType: 'blob' })
-      const url = window.URL.createObjectURL(new Blob([response.data]))
+      // Use /portal/payslips/:id/download so the api.js interceptor sends
+      // the staffToken (portal routes get staffToken priority).
+      const response = await api.get(`/portal/payslips/${id}/download`, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
       const link = document.createElement('a')
       link.href = url
       link.setAttribute('download', `Payslip_${id}.pdf`)
       document.body.appendChild(link)
       link.click()
       link.remove()
+      window.URL.revokeObjectURL(url)
     } catch (err) {
+      console.error('Download error:', err)
       toast.error('Download failed')
     }
   }
