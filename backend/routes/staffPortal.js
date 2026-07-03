@@ -5,7 +5,10 @@ const crypto = require('crypto');
 const Staff = require('../models/Staff');
 const User = require('../models/User'); // Required to get company details if needed
 const Payslip = require('../models/Payslip');
+const Attendance = require('../models/Attendance');
+const Notification = require('../models/Notification');
 const { sendPasswordResetEmail } = require('../utils/emailService');
+const { closeAttendanceSession, getDayStart } = require('../utils/attendanceService');
 
 // PAN validator
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
@@ -103,6 +106,40 @@ router.post('/login', async (req, res, next) => {
     staff.lockUntil = undefined;
     staff.lastLogin = Date.now();
     await staff.save();
+
+    const previousDay = getDayStart(new Date());
+    previousDay.setUTCDate(previousDay.getUTCDate() - 1);
+    const previousDayAttendance = await Attendance.findOne({
+      staff: staff._id,
+      date: previousDay,
+    });
+
+    if (previousDayAttendance) {
+      const activeSession = Array.isArray(previousDayAttendance.sessions)
+        ? previousDayAttendance.sessions.find((session) => session && session.isActive)
+        : null;
+      if (activeSession) {
+        const closeResult = closeAttendanceSession(previousDayAttendance, {
+          endTime: new Date(previousDay.getTime() + 23 * 60 * 60 * 1000 + 59 * 60 * 1000 + 59 * 1000 + 999),
+          source: 'AUTO_PUNCH_OUT',
+          reason: 'System auto punch out at end of day'
+        });
+        if (closeResult.success) {
+          previousDayAttendance.lastAutoPunchOutAt = new Date();
+          previousDayAttendance.lastAutoPunchOutReason = 'System auto punch out at end of day';
+          previousDayAttendance.notes = previousDayAttendance.notes ? `${previousDayAttendance.notes}\n` : '' + 'System auto punch out at end of day';
+          await previousDayAttendance.save();
+          await new Notification({
+            admin: staff.user,
+            staff: staff._id,
+            recipientType: 'staff',
+            type: 'ATTENDANCE_ALERT',
+            referenceId: previousDayAttendance._id,
+            message: 'Your previous day attendance was automatically punched out by the system because no manual punch-out was recorded.'
+          }).save();
+        }
+      }
+    }
 
     // Sign JWT with audience 'staff'
     const token = jwt.sign(

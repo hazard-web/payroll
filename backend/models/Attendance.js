@@ -25,6 +25,39 @@ const attendanceSchema = new mongoose.Schema(
     punchOut: {
       type: Date,
     },
+    sessions: [{
+      startTime: { type: Date, required: true },
+      endTime: { type: Date },
+      durationHours: { type: Number, default: 0 },
+      isActive: { type: Boolean, default: true },
+      source: { type: String, enum: ['MANUAL', 'AUTO_PUNCH_OUT', 'SYSTEM'], default: 'MANUAL' },
+      reason: { type: String, default: 'Manual punch in' },
+      tasks: [{
+        project: {
+          type: String,
+          required: true,
+          trim: true
+        },
+        description: {
+          type: String,
+          required: true,
+          trim: true
+        },
+        status: {
+          type: String,
+          enum: ['Pending', 'In Progress', 'Completed'],
+          default: 'Pending'
+        },
+        notes: {
+          type: String,
+          trim: true
+        }
+      }]
+    }],
+    sessionCount: {
+      type: Number,
+      default: 0,
+    },
     totalHours: {
       type: Number,
       default: 0,
@@ -77,12 +110,19 @@ const attendanceSchema = new mongoose.Schema(
     notes: {
       type: String,
     },
+    lastAutoPunchOutAt: {
+      type: Date,
+    },
+    lastAutoPunchOutReason: {
+      type: String,
+    },
   },
   { timestamps: true }
 );
 
-// Ensure only one attendance record per staff per day
-attendanceSchema.index({ staff: 1, date: 1 }, { unique: true });
+// Attendance records are keyed by day, but staff may have multiple sessions
+// within the same day, so this index is non-unique.
+attendanceSchema.index({ staff: 1, date: 1 });
 // Admin dashboard queries:
 //  • { admin, status, punchIn } — flagged / stale-incomplete check (cron + admin dashboard)
 //  • { admin, date } — admin daily view

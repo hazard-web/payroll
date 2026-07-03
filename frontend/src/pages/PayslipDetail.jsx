@@ -9,12 +9,14 @@ import api from '../api'
 import PageShell, { PageLoading } from '../components/PageShell'
 import { Modal, InputField } from '../components/UI'
 
-function InfoRow({ label, value }) {
-  if (!value) return null
+function InfoRow({ label, value, always = false }) {
+  if (!value && !always) return null
   return (
     <div className="preview-row">
       <span className="preview-row__label" style={{ flex: '0 0 160px' }}>{label}</span>
-      <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', textAlign: 'right', wordBreak: 'break-word' }}>{value}</span>
+      <span style={{ fontSize: 13, fontWeight: 500, color: value ? 'var(--text)' : 'var(--text-muted)', textAlign: 'right', wordBreak: 'break-word' }}>
+        {value || '—'}
+      </span>
     </div>
   )
 }
@@ -227,11 +229,28 @@ export default function PayslipDetail() {
             <h3 className="section-card__title">Company</h3>
           </div>
           <div className="section-card__body">
+            {p.companyLogo && (
+              <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+                <img
+                  src={p.companyLogo}
+                  alt={p.companyName || 'Company Logo'}
+                  style={{
+                    height: 52, width: 'auto', maxWidth: '100%',
+                    objectFit: 'contain', borderRadius: 8,
+                    background: 'var(--bg)', padding: 6,
+                    border: '1px solid var(--border)',
+                    display: 'block',
+                  }}
+                />
+              </div>
+            )}
             <InfoRow label="Company Name" value={p.companyName} />
             <InfoRow label="Address" value={p.companyAddress} />
             <InfoRow label="Email" value={p.companyEmail} />
             <InfoRow label="Phone" value={p.companyPhone} />
+            <InfoRow label="Website" value={p.companyWebsite} />
             <InfoRow label="CIN" value={p.companyCIN} />
+            <InfoRow label="GST No." value={p.companyGST} />
           </div>
         </div>
 
@@ -249,10 +268,10 @@ export default function PayslipDetail() {
             <InfoRow label="Department" value={p.department} />
             <InfoRow label="Email" value={p.employeeEmail} />
             <InfoRow label="Date of Joining" value={p.dateOfJoining} />
-            <InfoRow label="PAN" value={p.panNumber} />
-            <InfoRow label="PF No." value={p.pfNumber} />
-            <InfoRow label="Bank Account" value={p.bankAccount ? `****${p.bankAccount.slice(-4)}` : null} />
-            <InfoRow label="Bank Name" value={p.bankName} />
+            <InfoRow label="PAN Number" value={p.panNumber} always />
+            <InfoRow label="PF Number" value={p.pfNumber} always />
+            <InfoRow label="Bank Account" value={p.bankAccount ? `****${String(p.bankAccount).slice(-4)}` : null} always />
+            <InfoRow label="Bank Name" value={p.bankName} always />
           </div>
         </div>
 

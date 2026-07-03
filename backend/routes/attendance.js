@@ -8,6 +8,14 @@ const { authStaff } = require('./staffPortal');
 const { auth: authAdmin } = require('./auth');
 const { logActivity } = require('../utils/logger');
 const { sendPunchOutReminderEmail } = require('../utils/emailService');
+const {
+  createAttendanceDocument,
+  startAttendanceSession,
+  closeAttendanceSession,
+  buildAttendanceSnapshot,
+  getDayStart,
+  DEFAULT_STANDARD_HOURS,
+} = require('../utils/attendanceService');
 
 // Returns the effective working days for a staff member (own override or admin default)
 const getEffectiveWorkDays = (staff) => {
@@ -16,10 +24,28 @@ const getEffectiveWorkDays = (staff) => {
 };
 
 // Helper to get start of day in UTC for querying
-const getStartOfDay = (dateString = null) => {
-  const date = dateString ? new Date(dateString) : new Date();
-  date.setUTCHours(0, 0, 0, 0);
-  return date;
+const getStartOfDay = (dateString = null) => getDayStart(dateString);
+
+const syncAttendanceRecord = (attendance, referenceTime = new Date()) => {
+  if (!attendance) return null;
+  const snapshot = buildAttendanceSnapshot(attendance, referenceTime);
+  const latestClosed = Array.isArray(attendance.sessions)
+    ? attendance.sessions.slice().reverse().find((session) => session && session.endTime)
+    : null;
+  const activeSession = snapshot.activeSession;
+
+  attendance.punchIn = activeSession?.startTime || attendance.punchIn || attendance.sessions?.[0]?.startTime || null;
+  attendance.punchOut = activeSession ? null : (latestClosed?.endTime || null);
+  attendance.totalHours = parseFloat(snapshot.totalHours.toFixed(2));
+  attendance.overtimeHours = Math.max(0, parseFloat((attendance.totalHours - DEFAULT_STANDARD_HOURS).toFixed(2)));
+  attendance.workStatus = snapshot.workStatus;
+  attendance.status = snapshot.status;
+  attendance.sessionCount = snapshot.sessionCount;
+  attendance.tasks = Array.isArray(attendance.sessions) && attendance.sessions.length > 0
+    ? (activeSession?.tasks || latestClosed?.tasks || attendance.sessions[attendance.sessions.length - 1]?.tasks || [])
+    : [];
+
+  return snapshot;
 };
 
 const formatDuration = (start, end = new Date()) => {
@@ -298,7 +324,7 @@ router.post('/punch-in', authStaff, async (req, res) => {
     const { lat, lng, tasks } = req.body;
     const today = getStartOfDay();
     const now = new Date();
-    const dayOfWeek = now.getUTCDay(); // 0=Sun … 6=Sat
+    const dayOfWeek = now.getUTCDay();
 
     const effectiveWorkDays = getEffectiveWorkDays(req.staff);
     if (!effectiveWorkDays.includes(dayOfWeek)) {
@@ -308,67 +334,45 @@ router.post('/punch-in', authStaff, async (req, res) => {
       });
     }
 
-    if (!Array.isArray(tasks) || tasks.length === 0) {
-      return res.status(400).json({ success: false, message: 'Please add at least one task before Punch In.' });
-    }
-
-    const normalizedTasks = tasks.map(task => ({
-      project: (task.project || '').trim(),
-      description: (task.description || '').trim(),
-      status: 'Pending',
-      notes: (task.notes || '').trim()
-    }));
-
-    if (normalizedTasks.some(task => !task.project)) {
-      return res.status(400).json({ success: false, message: 'Please select a project.' });
-    }
-    if (normalizedTasks.some(task => !task.description)) {
-      return res.status(400).json({ success: false, message: 'Please add at least one task before Punch In.' });
-    }
-
-    let attendance = await Attendance.findOne({ staff: req.staff._id, date: today });
-    if (attendance) {
-      return res.status(400).json({ success: false, message: 'Already punched in for today' });
-    }
-
-    // Work criteria: If punch in after 11:00 AM, mark as Half Day
-    // Local time check
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    let initialWorkStatus = 'Full Day';
-
-    if (currentHour > 11 || (currentHour === 11 && currentMinute > 0)) {
-      initialWorkStatus = 'Half Day';
-    }
-
-    // Defensive: a staff without a populated `user` shouldn't crash the route.
-    // `admin` is required by the schema, so fall back to the staff's own _id
-    // (still a valid ObjectId, just not strictly the admin user — better than 500).
     const adminId = (req.staff.user && req.staff.user._id) ? req.staff.user._id : req.staff._id;
 
-    attendance = new Attendance({
-      staff: req.staff._id,
-      admin: adminId,
-      date: today,
-      punchIn: now,
-      status: 'incomplete',
-      workStatus: initialWorkStatus,
-      locationIn: lat && lng ? { lat, lng } : undefined,
-      tasks: normalizedTasks
-    });
+    let attendance = await Attendance.findOne({ staff: req.staff._id, date: today });
+    if (!attendance) {
+      attendance = new Attendance(createAttendanceDocument({ staffId: req.staff._id, adminId, date: today }));
+      attendance.date = today;
+      attendance.punchIn = now;
+      attendance.locationIn = lat && lng ? { lat, lng } : undefined;
+    } else {
+      syncAttendanceRecord(attendance, now);
+      const snapshot = buildAttendanceSnapshot(attendance, now);
+      if (snapshot.activeSession) {
+        return res.status(400).json({ success: false, message: 'An active attendance session already exists. Please punch out before starting a new session.' });
+      }
+      attendance.locationIn = lat && lng ? { lat, lng } : undefined;
+    }
+
+    const startResult = startAttendanceSession(attendance, { startTime: now, tasks });
+    if (!startResult.success) {
+      return res.status(400).json({ success: false, message: startResult.message });
+    }
+
+    syncAttendanceRecord(attendance, now);
+    attendance.admin = adminId;
+    attendance.date = today;
+    attendance.punchIn = now;
+    attendance.locationIn = lat && lng ? { lat, lng } : undefined;
+    attendance.workStatus = 'Active';
+
+    await attendance.save();
 
     try {
-      await attendance.save();
-    } catch (saveErr) {
-      // Handle the unique-index race: two concurrent punch-in requests
-      // both pass the findOne check, then both try to save. The second
-      // save hits the unique index and throws E11000.
-      if (saveErr && saveErr.code === 11000) {
-        return res.status(400).json({ success: false, message: 'Already punched in for today' });
-      }
-      throw saveErr;
+      const activityActor = (req.staff.user && req.staff.user._id) ? req.staff.user._id : req.staff._id;
+      await logActivity(activityActor, 'PUNCH_IN', `Punched in for ${req.staff.fullName}`, { attendanceId: attendance._id });
+    } catch (logErr) {
+      console.warn('logActivity (punch-in) failed:', logErr.message);
     }
-    res.json({ success: true, message: `Punched in successfully. Status: ${initialWorkStatus}`, attendance });
+
+    res.json({ success: true, message: startResult.message, attendance });
   } catch (err) {
     console.error('Punch in error:', err);
     res.status(500).json({ success: false, message: err.message || 'Failed to punch in' });
@@ -395,74 +399,37 @@ router.post('/punch-out', authStaff, async (req, res) => {
     if (!attendance) {
       return res.status(400).json({ success: false, message: 'No punch-in record found for today' });
     }
-    if (attendance.punchOut) {
-      return res.status(400).json({ success: false, message: 'Already punched out for today' });
+
+    syncAttendanceRecord(attendance, now);
+    const closeResult = closeAttendanceSession(attendance, {
+      endTime: now,
+      source: 'MANUAL',
+      reason: 'Manual punch out'
+    });
+
+    if (!closeResult.success) {
+      return res.status(400).json({ success: false, message: closeResult.message });
     }
 
-    if (!Array.isArray(tasks) || tasks.length === 0) {
-      return res.status(400).json({ success: false, message: 'Please add at least one task before Punch In.' });
-    }
-
-    const normalizedTasks = tasks.map(task => ({
+    const normalizedTasks = (Array.isArray(tasks) ? tasks : []).map(task => ({
       project: (task.project || '').trim(),
       description: (task.description || '').trim(),
       status: ['Pending', 'In Progress', 'Completed'].includes(task.status) ? task.status : 'Pending',
       notes: (task.notes || '').trim()
     }));
 
-    if (normalizedTasks.some(task => !task.project)) {
-      return res.status(400).json({ success: false, message: 'Please select a project.' });
-    }
-    if (normalizedTasks.some(task => !task.description)) {
-      return res.status(400).json({ success: false, message: 'Please add at least one task before Punch In.' });
-    }
-
-    attendance.tasks = normalizedTasks;
-
-    attendance.punchOut = now;
-    attendance.locationOut = lat && lng ? { lat, lng } : undefined;
-    
-    const durationMs = attendance.punchOut - attendance.punchIn;
-    const durationHours = durationMs / (1000 * 60 * 60);
-    attendance.totalHours = parseFloat(durationHours.toFixed(2));
-
-    // Refined Work Criteria Logic
-    // Absent/LOP: < 4 hours
-    // Half Day: 4 to 7.9 hours
-    // Full Day: 8.5+ hours
-    // Overtime: Full Day + extra working (max 1h)
-
-    let finalWorkStatus = attendance.workStatus; // Start with what was set at punch-in (Full Day or Half Day)
-
-    if (attendance.totalHours < 4) {
-      finalWorkStatus = 'LOP';
-    } else if (attendance.totalHours >= 4 && attendance.totalHours < 8.0) {
-      finalWorkStatus = 'Half Day';
-    } else if (attendance.totalHours >= 8.5) {
-      // If they punched in before 11:00 AM, they stay Full Day.
-      // If they punched in after 11:00 AM, they stay Half Day (already set at punch-in).
-      if (attendance.workStatus === 'Full Day') {
-        finalWorkStatus = 'Full Day';
+    if (normalizedTasks.length > 0) {
+      if (normalizedTasks.some(task => !task.project)) {
+        return res.status(400).json({ success: false, message: 'Please select a project.' });
       }
-    } else {
-      // 8.0 to 8.4 range - default to Half Day or maintain Half Day
-      finalWorkStatus = 'Half Day';
+      if (normalizedTasks.some(task => !task.description)) {
+        return res.status(400).json({ success: false, message: 'Please add at least one task before Punch In.' });
+      }
+      attendance.tasks = normalizedTasks;
     }
 
-    attendance.workStatus = finalWorkStatus;
-
-    // Overtime Calculation: starts after 8.5h, max 1h (9.5h total cap)
-    if (attendance.totalHours > 8.5) {
-      let ot = attendance.totalHours - 8.5;
-      attendance.overtimeHours = parseFloat(Math.min(ot, 1.0).toFixed(2));
-    } else {
-      attendance.overtimeHours = 0;
-    }
-
-    attendance.status = attendance.totalHours > 9.5 ? 'flagged' : 'complete';
-    if (attendance.totalHours > 9.5) {
-      attendance.notes = `System: Shift duration (${attendance.totalHours}h) exceeds the 9.5h limit (Full Day + 1h OT). Flagged for review.`;
-    }
+    attendance.locationOut = lat && lng ? { lat, lng } : undefined;
+    syncAttendanceRecord(attendance, now);
 
     const taskTotal = Array.isArray(attendance.tasks) ? attendance.tasks.length : 0;
     const completedTasks = Array.isArray(attendance.tasks)
@@ -471,16 +438,15 @@ router.post('/punch-out', authStaff, async (req, res) => {
     const taskCompletionRate = taskTotal ? parseFloat(((completedTasks / taskTotal) * 100).toFixed(0)) : 0;
 
     await attendance.save();
-    // logActivity is fire-and-forget — don't let it fail the response.
     try {
       const activityActor = (req.staff.user && req.staff.user._id) ? req.staff.user._id : req.staff._id;
-      await logActivity(activityActor, 'PUNCH_OUT', `Punched out for ${req.staff.fullName} (Status: ${finalWorkStatus})`, { attendanceId: attendance._id });
+      await logActivity(activityActor, 'PUNCH_OUT', `Punched out for ${req.staff.fullName}`, { attendanceId: attendance._id });
     } catch (logErr) {
       console.warn('logActivity (punch-out) failed:', logErr.message);
     }
     res.json({
       success: true,
-      message: 'Punched out successfully',
+      message: closeResult.message,
       attendance,
       taskSummary: { totalTasks: taskTotal, completedTasks, taskCompletionRate }
     });
@@ -497,9 +463,14 @@ router.get('/today', authStaff, async (req, res) => {
     const attendance = await Attendance.findOne({
       staff: req.staff._id,
       date: today
-    }).lean();
+    });
 
-    res.json({ success: true, attendance });
+    if (attendance) {
+      syncAttendanceRecord(attendance, new Date());
+      await attendance.save();
+    }
+
+    res.json({ success: true, attendance: attendance ? attendance.toObject() : null });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch record' });
   }
@@ -509,12 +480,21 @@ router.get('/today', authStaff, async (req, res) => {
 router.get('/active', authStaff, async (req, res) => {
   try {
     const today = getStartOfDay();
-    const attendance = await Attendance.findOne({
+    let attendance = await Attendance.findOne({
       staff: req.staff._id,
-      date: today,
-      punchOut: null // Only return if not punched out yet
-    }).lean();
-    res.json({ success: true, activeShift: attendance || null });
+      date: today
+    });
+
+    if (attendance) {
+      syncAttendanceRecord(attendance, new Date());
+      await attendance.save();
+    }
+
+    const activeShift = attendance && attendance.sessions?.some((session) => session.isActive)
+      ? attendance.toObject()
+      : null;
+
+    res.json({ success: true, activeShift });
   } catch (err) {
     console.error('Active shift error:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch active shift' });
@@ -539,29 +519,26 @@ router.get('/history', authStaff, async (req, res) => {
       filter.date = { $gte: limitDate };
     }
 
-    // .lean() is already applied. Projection keeps the list payload small:
-    // we don't need locationIn/Out coords, admin ref, or timestamps for the
-    // monthly view. Tasks are needed for the "completed/total" column.
+    // Projection keeps the payload small while still allowing us to compute
+    // aggregate metrics from the stored session list.
     const history = await Attendance.find(filter)
       .sort({ date: -1 })
       .lean()
-      .select('date punchIn punchOut totalHours overtimeHours status workStatus tasks notes');
+      .select('date punchIn punchOut totalHours overtimeHours status workStatus tasks notes sessions sessionCount');
 
-    // Compute hours per record: use the persisted totalHours when available
-    // (closed shifts), or compute live hours from (now - punchIn) for the
-    // currently-open shift so the dashboard reflects real time.
     const nowMs = Date.now();
     const recordsWithLiveHours = history.map(record => {
-      if (record.punchIn && !record.punchOut) {
-        const liveHours = parseFloat(((nowMs - new Date(record.punchIn).getTime()) / (1000 * 60 * 60)).toFixed(2));
-        return { ...record, totalHours: liveHours, workStatus: record.workStatus || 'Active' };
+      const activeSession = Array.isArray(record.sessions) ? record.sessions.find(session => session && session.isActive) : null;
+      if (activeSession) {
+        const liveHours = parseFloat(((nowMs - new Date(activeSession.startTime).getTime()) / (1000 * 60 * 60)).toFixed(2));
+        const totalHours = parseFloat(((record.totalHours || 0) + liveHours).toFixed(2));
+        return { ...record, totalHours, workStatus: 'Active', punchOut: null };
       }
       return record;
     });
 
-    // Map history to handle real-time "ACTIVE" status
     const mappedHistory = recordsWithLiveHours.map(record => {
-      if (!record.punchOut) {
+      if (Array.isArray(record.sessions) && record.sessions.some(session => session && session.isActive)) {
         return { ...record, workStatus: 'Active' };
       }
       return record;

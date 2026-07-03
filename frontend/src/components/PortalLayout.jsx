@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, LogOut, User, Clock,
-  CalendarDays, Menu, ChevronLeft, ChevronRight, Sun, Moon, Monitor, FileText, Bell, Loader2, CheckCheck, AlertTriangle, Headphones
+  CalendarDays, Menu, ChevronLeft, ChevronRight, Sun, Moon, Monitor, FileText, Bell, Loader2, CheckCheck, AlertTriangle, Headphones, Settings, ListChecks
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { useStaffPortal } from '../context/StaffPortalContext'
@@ -13,10 +13,14 @@ import PageTransition from './PageTransition'
 
 const navItems = [
   { to: '/portal/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/portal/attendance', label: 'Attendance', icon: Clock },
-  { to: '/portal/payslips', label: 'My Payslips', icon: FileText },
-  { to: '/portal/summary', label: 'Weekly Summary', icon: CalendarDays },
   { to: '/portal/profile', label: 'My Profile', icon: User },
+  { to: '/portal/tasks', label: 'Tasks', icon: ListChecks },
+  { to: '/portal/attendance', label: 'Attendance', icon: Clock },
+  { to: '/portal/leave', label: 'Leave', icon: CalendarDays },
+  { to: '/portal/payslips', label: 'Payslip', icon: FileText },
+  { to: '/portal/announcements', label: 'Announcements', icon: Bell },
+  { to: '/portal/help', label: 'Help & Support', icon: Headphones },
+  { to: '/portal/settings', label: 'Settings', icon: Settings },
 ]
 
 function useMediaQuery(query) {
@@ -233,11 +237,11 @@ export default function PortalLayout() {
         <nav style={{ padding: '24px 16px', flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
           <div style={{ 
             fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.3)', 
-            letterSpacing: '0.1em', padding: sidebarOpen ? '0 12px 16px' : '0 0 16px', 
+            letterSpacing: '0.1em', padding: sidebarOpen ? '0 12px 14px' : '0 0 14px', 
             textTransform: 'uppercase', textAlign: sidebarOpen ? 'left' : 'center',
             whiteSpace: 'nowrap'
           }}>
-            {sidebarOpen ? 'Work Tools' : '•••'}
+            {sidebarOpen ? 'Portal Menu' : '•••'}
           </div>
           {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink
@@ -248,12 +252,12 @@ export default function PortalLayout() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                gap: 12,
-                padding: '12px 16px',
+                gap: 10,
+                padding: '10px 14px',
                 borderRadius: 6,
                 marginBottom: 6,
                 textDecoration: 'none',
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: isActive ? 600 : 500,
                 color: isActive ? 'white' : 'rgba(255,255,255,0.55)',
                 background: isActive ? 'var(--sidebar-active)' : 'transparent',

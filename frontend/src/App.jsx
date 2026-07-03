@@ -43,9 +43,14 @@ const Profile               = lazy(() => import('./pages/Profile'))
 const PortalChangePassword  = lazy(() => import('./pages/portal/PortalChangePassword'))
 const PortalDashboard       = lazy(() => import('./pages/portal/PortalDashboard'))
 const PortalProfile         = lazy(() => import('./pages/portal/PortalProfile'))
+const PortalTasks           = lazy(() => import('./pages/portal/PortalTasks'))
 const PortalAttendance      = lazy(() => import('./pages/portal/PortalAttendance'))
-const PortalSummary         = lazy(() => import('./pages/portal/PortalSummary'))
+const PortalLeave           = lazy(() => import('./pages/portal/PortalLeave'))
 const PortalPayslips        = lazy(() => import('./pages/portal/PortalPayslips'))
+const PortalAnnouncements   = lazy(() => import('./pages/portal/PortalAnnouncements'))
+const PortalHelp            = lazy(() => import('./pages/portal/PortalHelp'))
+const PortalSettings        = lazy(() => import('./pages/portal/PortalSettings'))
+const PortalSummary         = lazy(() => import('./pages/portal/PortalSummary'))
 
 // Lightweight loading fallback — PageTransition's loader matches the
 // dashboard's loading state so users don't see a visual jump.
@@ -145,9 +150,13 @@ export default function App() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<Lazy component={PortalDashboard} />} />
         <Route path="profile"   element={<Lazy component={PortalProfile} />} />
+        <Route path="tasks"     element={<Lazy component={PortalTasks} />} />
         <Route path="attendance" element={<Lazy component={PortalAttendance} />} />
-        <Route path="summary"   element={<Lazy component={PortalSummary} />} />
+        <Route path="leave"     element={<Lazy component={PortalLeave} />} />
         <Route path="payslips"  element={<Lazy component={PortalPayslips} />} />
+        <Route path="announcements" element={<Lazy component={PortalAnnouncements} />} />
+        <Route path="help"      element={<Lazy component={PortalHelp} />} />
+        <Route path="settings"  element={<Lazy component={PortalSettings} />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>
 

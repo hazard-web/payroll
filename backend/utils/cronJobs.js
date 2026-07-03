@@ -1,6 +1,7 @@
 const Attendance    = require('../models/Attendance');
 const Notification  = require('../models/Notification');
 const { sendPunchOutReminderEmail } = require('./emailService');
+const { closeAttendanceSession, getDayStart } = require('./attendanceService');
 
 const fmt = (start, end = new Date()) => {
   const ms = Math.max(0, new Date(end) - new Date(start));
@@ -12,10 +13,52 @@ const fmt = (start, end = new Date()) => {
 // In MongoDB, { field: null } matches both explicit null and missing fields.
 const notPunchedOut = null;
 
+async function autoPunchOutMissedSessions(now = new Date()) {
+  const previousDay = getDayStart(now);
+  previousDay.setUTCDate(previousDay.getUTCDate() - 1);
+  const missedRecords = await Attendance.find({
+    date: previousDay,
+    'sessions.isActive': true
+  }).populate('staff');
+
+  let autoClosed = 0;
+  for (const record of missedRecords) {
+    const activeSession = Array.isArray(record.sessions) ? record.sessions.find((session) => session && session.isActive) : null;
+    if (!activeSession) continue;
+
+    const result = closeAttendanceSession(record, {
+      endTime: now,
+      source: 'AUTO_PUNCH_OUT',
+      reason: 'System auto punch out at end of day'
+    });
+
+    if (!result.success) continue;
+
+    record.lastAutoPunchOutAt = now;
+    record.lastAutoPunchOutReason = 'System auto punch out at end of day';
+    record.notes = record.notes ? `${record.notes}\n` : '' + 'System auto punch out at end of day';
+    await record.save();
+    autoClosed++;
+
+    if (!record.staff) continue;
+    await new Notification({
+      admin: record.admin,
+      staff: record.staff._id,
+      recipientType: 'staff',
+      type: 'ATTENDANCE_ALERT',
+      referenceId: record._id,
+      message: 'Your previous day attendance was automatically punched out by the system because no manual punch-out was recorded.'
+    }).save();
+  }
+
+  return { autoClosed };
+}
+
 async function runShiftCheck() {
   const loginUrl = process.env.FRONTEND_URL || process.env.APP_URL || 'https://rohit98k-payroll-portal.vercel.app';
   const now = new Date();
 
+  const previousDayAutoPunchOut = await autoPunchOutMissedSessions(now);
   const nineHalfAgo     = new Date(now - 9.5  * 60 * 60 * 1000);
   const eightHalfAgo    = new Date(now - 8.5  * 60 * 60 * 1000);
 
@@ -118,8 +161,8 @@ async function runShiftCheck() {
     remindersSent++;
   }
 
-  console.log(`[cronJobs] autoClosed=${autoClosed} remindersSent=${remindersSent}`);
-  return { autoClosed, remindersSent };
+  console.log(`[cronJobs] autoClosed=${autoClosed} remindersSent=${remindersSent} priorDayAutoPunchOut=${previousDayAutoPunchOut.autoClosed}`);
+  return { autoClosed, remindersSent, priorDayAutoPunchOut: previousDayAutoPunchOut.autoClosed };
 }
 
 // ──────────────────────────────────────────────────────────────────

@@ -392,7 +392,10 @@ export default function GeneratePayslip() {
                       )}
                     </div>
                   )}
-                  <InputField label="Bank Account (Masked)" required value={form.bankAccount} onChange={e => setForm({...form, bankAccount: e.target.value})} placeholder="Account No" icon={Landmark} />
+                  <div className="form-grid-2">
+                    <InputField label="Bank Account (Masked)" required value={form.bankAccount} onChange={e => setForm({...form, bankAccount: e.target.value})} placeholder="Account No" icon={Landmark} />
+                    <InputField label="Bank Name" value={form.bankName} onChange={e => setForm({...form, bankName: e.target.value})} placeholder="e.g. Union Bank of India" />
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

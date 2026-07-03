@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Users, UserCheck, UserX, Calendar, ClipboardList, Clock,
-  AlertTriangle, X, BarChart2, Building2, LogOut
+  AlertTriangle, X, BarChart2
 } from 'lucide-react'
 import api from '../api'
 import PageShell, { PageHeader, PageLoading } from '../components/PageShell'
@@ -14,6 +14,8 @@ const LATE_START_HOUR = 10
 const LATE_START_MINUTE = 30
 const LATE_CUTOFF_HOUR = 11
 const LATE_CUTOFF_MINUTE = 0
+const OFFICE_OPEN_HOUR = 10
+const OFFICE_OPEN_MIN = 30
 
 const fmtTime = (dt) => {
   if (!dt) return '—'
@@ -52,42 +54,6 @@ const fmtLateDuration = (mins) => {
 }
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-
-// ── Office Timing Status ──────────────────────────────────────────
-// Office: 10:30 AM → 7:00 PM IST
-// 7:00–7:30 PM = Grace period (reminder sent)
-// After 7:30 PM = Auto-close zone
-const OFFICE_OPEN_HOUR    = 10
-const OFFICE_OPEN_MIN     = 30
-const OFFICE_CLOSE_HOUR   = 19   // 7 PM
-const OFFICE_CLOSE_MIN    = 0
-const GRACE_END_HOUR      = 19
-const GRACE_END_MIN       = 30
-
-function getOfficeStatus(nowDate) {
-  // Convert to IST (UTC+5:30)
-  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
-  const ist = new Date(nowDate.getTime() + IST_OFFSET_MS)
-  const h = ist.getUTCHours()
-  const m = ist.getUTCMinutes()
-  const total = h * 60 + m
-
-  const openTotal  = OFFICE_OPEN_HOUR  * 60 + OFFICE_OPEN_MIN
-  const closeTotal = OFFICE_CLOSE_HOUR * 60 + OFFICE_CLOSE_MIN
-  const graceTotal = GRACE_END_HOUR    * 60 + GRACE_END_MIN
-
-  const timeStr = `${String(h % 12 || 12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
-
-  if (total < openTotal) {
-    return { status: 'before-open', label: 'Not Open Yet', color: '#6b7280', bg: '#f9fafb', dotColor: '#6b7280', timeStr }
-  } else if (total < closeTotal) {
-    return { status: 'open', label: 'Office Open', color: '#15803d', bg: '#f0fdf4', dotColor: '#22c55e', timeStr }
-  } else if (total < graceTotal) {
-    return { status: 'grace', label: 'Grace Period', color: '#b45309', bg: '#fffbeb', dotColor: '#f59e0b', timeStr }
-  } else {
-    return { status: 'closed', label: 'Office Closed', color: '#b91c1c', bg: '#fef2f2', dotColor: '#ef4444', timeStr }
-  }
-}
 
 const monthValue = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 
@@ -194,16 +160,70 @@ const PunchRow = ({ name, designation, meta, badge, bg, color }) => (
   </div>
 )
 
+const getLatestAttendanceSession = (record) => {
+  const sessions = Array.isArray(record?.sessions) ? record.sessions.filter(Boolean) : []
+  const normalized = sessions
+    .map((session) => ({
+      ...session,
+      startTime: session?.startTime ? new Date(session.startTime) : null,
+      endTime: session?.endTime ? new Date(session.endTime) : null,
+    }))
+    .filter((session) => session.startTime && !Number.isNaN(session.startTime.getTime()))
+
+  if (!normalized.length) {
+    if (!record?.punchIn) return null
+    return {
+      startTime: new Date(record.punchIn),
+      endTime: record.punchOut ? new Date(record.punchOut) : null,
+      isActive: !record.punchOut,
+      source: record?.source || 'MANUAL',
+      durationHours: Number(record?.totalHours) || 0,
+    }
+  }
+
+  normalized.sort((a, b) => new Date(b.startTime) - new Date(a.startTime))
+  return normalized[0]
+}
+
+const formatAttendanceLogout = (session, active) => {
+  if (active) return 'Active'
+  if (!session?.endTime) return '—'
+
+  const endTime = new Date(session.endTime)
+  const isAutoAt1159 = (session?.source === 'AUTO_PUNCH_OUT' || session?.source === 'SYSTEM') &&
+    endTime.getHours() === 23 && endTime.getMinutes() === 59
+
+  if (isAutoAt1159) return '11:59 PM (Auto)'
+  return fmtTime(endTime)
+}
+
+const calcWorkedTimeFromSession = (session, now) => {
+  if (!session?.startTime) return '—'
+
+  const start = new Date(session.startTime)
+  const end = session?.endTime ? new Date(session.endTime) : now
+  const diffMs = Math.max(0, end - start)
+  const h = Math.floor(diffMs / 3600000)
+  const m = Math.floor((diffMs % 3600000) / 60000)
+  return `${h}h ${String(m).padStart(2, '0')}m`
+}
+
 // ── Attendance Row (used in main panel + modal) ───────────────────
 const AttendanceRow = ({ record, now }) => {
-  const { isLate: late, lateByMinutes } = getLateInfo(record.punchIn)
-  const active = !record.punchOut
-  const worked = calcWorkedTime(record, now)
-  const avatarBg = late ? '#fff7ed' : active ? '#eff6ff' : '#f1f5f9'
-  const avatarColor = late ? '#c2410c' : active ? '#1d4ed8' : '#475569'
+  const latestSession = getLatestAttendanceSession(record)
+  const loginTime = latestSession?.startTime || record.punchIn
+  const active = Boolean(latestSession?.isActive)
+  const worked = calcWorkedTimeFromSession(latestSession, now)
+  const logoutLabel = formatAttendanceLogout(latestSession, active)
+  const avatarBg = active ? '#eff6ff' : '#f1f5f9'
+  const avatarColor = active ? '#1d4ed8' : '#475569'
+  const isAutoPunchOut = Boolean(latestSession?.endTime && (latestSession?.source === 'AUTO_PUNCH_OUT' || latestSession?.source === 'SYSTEM') &&
+    new Date(latestSession.endTime).getHours() === 23 && new Date(latestSession.endTime).getMinutes() === 59)
+  const statusLabel = active ? 'Active' : isAutoPunchOut ? 'Auto Punch Out' : 'Not Active'
+  const statusClass = active ? 'pill-blue' : isAutoPunchOut ? 'pill-orange' : 'pill-green'
 
   return (
-    <div className="att-row">
+    <div className="att-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.7fr) minmax(88px, 0.9fr) minmax(88px, 0.9fr) minmax(74px, 0.7fr) minmax(84px, 0.7fr)', gap: 12, alignItems: 'center' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
         <Avatar name={record.staff?.fullName} style={{ background: avatarBg, color: avatarColor, width: 32, height: 32, fontSize: 12 }} />
         <div style={{ minWidth: 0 }}>
@@ -213,16 +233,18 @@ const AttendanceRow = ({ record, now }) => {
           <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{record.staff?.designation || 'Team Member'}</div>
         </div>
       </div>
-      <div style={{ fontSize: 13, fontWeight: 600, color: late ? '#c2410c' : 'var(--text)' }}>
-        {fmtTime(record.punchIn)}
-        {late && <div style={{ fontSize: 10, color: '#c2410c', fontWeight: 500 }}>Late by {fmtLateDuration(lateByMinutes)}</div>}
+      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+        {loginTime ? fmtTime(loginTime) : '—'}
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+        {logoutLabel}
       </div>
       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 4 }}>
         {worked}
         {active && <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#58833b' }} />}
       </div>
-      <span className={`pill ${active ? 'pill-blue' : late ? 'pill-orange' : 'pill-green'}`}>
-        {active ? 'Active' : late ? 'Late' : 'On Time'}
+      <span className={`pill ${statusClass}`}>
+        {statusLabel}
       </span>
     </div>
   )
@@ -249,11 +271,7 @@ export default function Dashboard() {
   const [previousMonthlyAttendance, setPreviousMonthlyAttendance] = useState([])
   const [monthlyLoading, setMonthlyLoading] = useState(false)
   const [monthlyError, setMonthlyError] = useState('')
-
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 30000)
-    return () => clearInterval(t)
-  }, [])
+  const [attendanceSearch, setAttendanceSearch] = useState('')
 
   // Pull all the parallel fetches into a stable callback so the effect's
   // dependency array stays minimal and we don't refetch on every render.
@@ -297,6 +315,19 @@ export default function Dashboard() {
       setLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30000)
+    return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    const refreshTimer = setInterval(() => {
+      fetchData()
+    }, 30000)
+
+    return () => clearInterval(refreshTimer)
+  }, [fetchData])
 
   useEffect(() => {
     fetchData()
@@ -373,15 +404,25 @@ export default function Dashboard() {
 
   const sortedAttendance = useMemo(() => {
     return [...todayPunchins].sort((a, b) => {
-      const aLate = getLateInfo(a.punchIn).isLate ? 1 : 0
-      const bLate = getLateInfo(b.punchIn).isLate ? 1 : 0
-      if (aLate !== bLate) return bLate - aLate
-      const aActive = !a.punchOut ? 1 : 0
-      const bActive = !b.punchOut ? 1 : 0
+      const aSession = getLatestAttendanceSession(a)
+      const bSession = getLatestAttendanceSession(b)
+      const aStart = aSession?.startTime ? new Date(aSession.startTime) : new Date(a.punchIn || 0)
+      const bStart = bSession?.startTime ? new Date(bSession.startTime) : new Date(b.punchIn || 0)
+      const aActive = Boolean(aSession?.isActive) ? 1 : 0
+      const bActive = Boolean(bSession?.isActive) ? 1 : 0
       if (aActive !== bActive) return bActive - aActive
-      return new Date(b.punchIn) - new Date(a.punchIn)
+      return new Date(bStart) - new Date(aStart)
     })
   }, [todayPunchins])
+  const filteredAttendance = useMemo(() => {
+    const query = attendanceSearch.trim().toLowerCase()
+    if (!query) return sortedAttendance
+    return sortedAttendance.filter((record) => {
+      const fullName = String(record.staff?.fullName || '').toLowerCase()
+      const employeeId = String(record.staff?.employeeId || '').toLowerCase()
+      return fullName.includes(query) || employeeId.includes(query)
+    })
+  }, [sortedAttendance, attendanceSearch])
   const activeAttendance = useMemo(() => sortedAttendance.filter((r) => !r.punchOut), [sortedAttendance])
 
   // Computed inside useMemo (no hook) so it stays stable across renders.
@@ -551,103 +592,6 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* ── Office Timing Card ──────────────────────────────────── */}
-      {(() => {
-        const officeStatus = getOfficeStatus(now)
-        const isGrace  = officeStatus.status === 'grace'
-        const isClosed = officeStatus.status === 'closed'
-        const staffStillActive = Math.max(activeAttendance.length, safeActive)
-        const showAlert = (isGrace || isClosed) && staffStillActive > 0
-
-        return (
-          <div style={{
-            marginBottom: 'var(--space-6)',
-            border: `1.5px solid ${officeStatus.color}30`,
-            borderRadius: 'var(--radius-lg)',
-            background: officeStatus.bg,
-            padding: '14px 20px',
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 16,
-            transition: 'all 0.4s ease',
-          }}>
-            {/* Icon + Label */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-              <div style={{
-                width: 38, height: 38, borderRadius: '50%',
-                background: `${officeStatus.color}18`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Building2 size={18} color={officeStatus.color} />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: officeStatus.color, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Office Timing
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
-                  10:30 AM – 7:00 PM IST
-                </div>
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div style={{ width: 1, height: 36, background: `${officeStatus.color}30`, flexShrink: 0 }} />
-
-            {/* Live Clock */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              <span style={{
-                display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-                background: officeStatus.dotColor,
-                boxShadow: `0 0 0 2px ${officeStatus.dotColor}40`,
-                animation: officeStatus.status === 'open' ? 'pulse 2s infinite' : 'none',
-              }} />
-              <span style={{ fontSize: 16, fontWeight: 800, color: officeStatus.color, fontVariantNumeric: 'tabular-nums', letterSpacing: 0 }}>
-                {officeStatus.timeStr}
-              </span>
-              <span style={{
-                fontSize: 11, fontWeight: 700, color: officeStatus.color,
-                background: `${officeStatus.color}15`,
-                padding: '2px 8px', borderRadius: 20,
-              }}>
-                {officeStatus.label}
-              </span>
-            </div>
-
-            {/* Spacer */}
-            <div style={{ flex: 1 }} />
-
-            {/* Grace / Closed alert */}
-            {showAlert && (
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                background: isGrace ? '#fffbeb' : '#fef2f2',
-                border: `1px solid ${isGrace ? '#fcd34d' : '#fca5a5'}`,
-                borderRadius: 10, padding: '6px 12px',
-              }}>
-                <LogOut size={14} color={isGrace ? '#b45309' : '#b91c1c'} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: isGrace ? '#b45309' : '#b91c1c' }}>
-                  {staffStillActive} staff still active
-                </span>
-                <span style={{ fontSize: 12, color: isGrace ? '#92400e' : '#7f1d1d' }}>
-                  {isGrace ? '— reminder sent, auto-close at 7:30 PM' : '— auto-close in progress'}
-                </span>
-              </div>
-            )}
-
-            {/* Status message */}
-            {!showAlert && (
-              <div style={{ fontSize: 12, color: officeStatus.color, fontWeight: 600, opacity: 0.8 }}>
-                {officeStatus.status === 'open' && 'Office hours active. Staff can punch in/out.'}
-                {officeStatus.status === 'before-open' && 'Office opens at 10:30 AM.'}
-                {officeStatus.status === 'grace' && 'Grace period — all staff have punched out ✓'}
-                {officeStatus.status === 'closed' && 'Office closed — all attendance settled.'}
-              </div>
-            )}
-          </div>
-        )
-      })()}
-
       {/* ── Middle Row ───────────────────────────────────────────── */}
       <div className="form-grid-2" style={{ marginBottom: 'var(--space-6)', alignItems: 'stretch' }}>
         <AttentionRequired
@@ -664,7 +608,7 @@ export default function Dashboard() {
           <div className="panel-head" style={{ padding: '14px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <ClipboardList size={17} color="var(--primary)" />
-              <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>Recent Punch-In</span>
+              <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>Recent Attendance</span>
               {latePunchins.length > 0 && (
                 <span className="pill pill-orange">
                   <AlertTriangle size={10} />
@@ -673,6 +617,16 @@ export default function Dashboard() {
               )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--border)', borderRadius: 999, padding: '6px 10px', background: 'var(--surface)', minWidth: 180 }}>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>🔍</span>
+                <input
+                  type="text"
+                  value={attendanceSearch}
+                  onChange={(e) => setAttendanceSearch(e.target.value)}
+                  placeholder="Search..."
+                  style={{ border: 'none', outline: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, width: '100%' }}
+                />
+              </div>
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{todayPunchins.length} present</span>
               <button
                 onClick={() => setShowAllAttendance(true)}
@@ -683,40 +637,29 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {avgLoginTime && (
-            <div className="panel-subhead" style={{ padding: '6px 20px' }}>
-              <Clock size={12} color="var(--text-muted)" />
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                Avg login: <strong style={{ color: 'var(--text)' }}>{avgLoginTime}</strong>
-              </span>
-            </div>
-          )}
-
-          <div className="att-table-head" style={{ padding: '8px 20px' }}>
+          <div className="att-table-head" style={{ padding: '8px 20px', display: 'grid', gridTemplateColumns: 'minmax(0, 1.7fr) minmax(88px, 0.9fr) minmax(88px, 0.9fr) minmax(74px, 0.7fr) minmax(84px, 0.7fr)', gap: 12 }}>
             <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Employee</div>
             <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Login</div>
+            <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Logout</div>
             <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Worked</div>
             <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div>
           </div>
 
           <div className="scroll-list" style={{ flex: 1, maxHeight: 220, minHeight: 160 }}>
-            {sortedAttendance.length === 0 ? (
+            {filteredAttendance.length === 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
                 <div className="stat-icon" style={{ width: 40, height: 40, marginBottom: 10 }}>
                   <ClipboardList size={18} color="var(--text-light)" />
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 600 }}>No punch-ins recorded today.</div>
+                <div style={{ fontSize: 12, fontWeight: 600 }}>{attendanceSearch ? 'No matching employees found.' : 'No punch-ins recorded today.'}</div>
               </div>
-            ) : sortedAttendance.map(record => <AttendanceRow key={record._id} record={record} now={now} />)}
+            ) : filteredAttendance.map(record => <AttendanceRow key={record._id} record={record} now={now} />)}
           </div>
 
-          {sortedAttendance.length > 0 && (
+          {filteredAttendance.length > 0 && (
             <div style={{ padding: '8px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 16 }}>
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Present: <strong style={{ color: 'var(--text)' }}>{totalPresentToday}</strong></span>
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Active: <strong style={{ color: '#1d4ed8' }}>{safeActive}</strong></span>
-              {latePunchins.length > 0 && (
-                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Late: <strong style={{ color: '#c2410c' }}>{latePunchins.length}</strong></span>
-              )}
             </div>
           )}
         </div>
@@ -727,12 +670,13 @@ export default function Dashboard() {
       <Modal
         open={showAllAttendance}
         onClose={() => setShowAllAttendance(false)}
-        title={`All Punch-Ins · ${sortedAttendance.length} total`}
+        title={`All Attendance · ${sortedAttendance.length} total`}
         size="lg"
       >
-        <div className="att-table-head" style={{ padding: '8px 16px' }}>
+        <div className="att-table-head" style={{ padding: '8px 16px', display: 'grid', gridTemplateColumns: 'minmax(0, 1.7fr) minmax(88px, 0.9fr) minmax(88px, 0.9fr) minmax(74px, 0.7fr) minmax(84px, 0.7fr)', gap: 12 }}>
           <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}>Employee</div>
           <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}>Login</div>
+          <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}>Logout</div>
           <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}>Worked</div>
           <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' }}>Status</div>
         </div>
