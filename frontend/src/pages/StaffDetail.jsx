@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 import api from '../api'
 import PageShell, { TabBar as ShellTabBar } from '../components/PageShell'
 
+
 const TABS = [
   { id: 'details', label: 'Details', icon: User },
   { id: 'attendance', label: 'Attendance', icon: Clock },

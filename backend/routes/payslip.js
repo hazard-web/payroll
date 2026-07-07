@@ -126,6 +126,26 @@ router.get('/', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
+// GET /api/payslips/latest-paydate?employeeId=XXX
+// Returns the payDate of the most recent payslip for a given employee.
+// Used by the payslip form to auto-calculate working days for the next period.
+// MUST stay above /:id to avoid Express treating "latest-paydate" as a MongoDB ObjectId.
+// ─────────────────────────────────────────────────────────────
+router.get('/latest-paydate', async (req, res) => {
+  try {
+    const { employeeId } = req.query;
+    if (!employeeId) return res.json({ success: true, payDate: null });
+    const latest = await Payslip.findOne({ user: req.user._id, employeeId })
+      .sort({ createdAt: -1 })
+      .select('payDate')
+      .lean();
+    res.json({ success: true, payDate: latest?.payDate || null });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to fetch latest pay date' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
 // BUG FIX: /stats/summary MUST be before /:id to prevent Express
 // matching "stats" as a MongoDB ObjectId param (causes a guaranteed crash)
 // ─────────────────────────────────────────────────────────────

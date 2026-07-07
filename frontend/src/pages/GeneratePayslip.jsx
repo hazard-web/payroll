@@ -26,7 +26,7 @@ const INITIAL = {
   dateOfJoining: '', bankAccount: '', bankName: '', panNumber: '', pfNumber: '',
   month: MONTHS[new Date().getMonth()], year: CURRENT_YEAR,
   payDate: new Date().toISOString().split('T')[0],
-  workingDays: 26, paidDays: 26,
+  workingDays: 0, paidDays: 0,
   employmentType: 'regular', annualCTC: '', baseSalary: '', stipend: '', employerPF: '',
   basicSalary: '0', hra: '0', specialAllowance: '0', otherEarnings: '0',
   providentFund: '0', esi: '0', professionalTax: '0', tds: '0',
@@ -69,6 +69,25 @@ export default function GeneratePayslip() {
   const staffId = searchParams.get('staffId')
 
   const [staffList, setStaffList] = useState([])
+  const [selectedStaffId, setSelectedStaffId] = useState(staffId || null)
+  const [attendanceLoading, setAttendanceLoading] = useState(false)
+  const [workingDaysLoading, setWorkingDaysLoading] = useState(false)
+  const [workingDaysPeriod, setWorkingDaysPeriod] = useState(null) // { from, to, isFirst }
+
+  // Helper: count Mon–Fri days between two dates (inclusive)
+  function countWorkingDays(start, end) {
+    let count = 0;
+    const cur = new Date(start);
+    cur.setHours(0, 0, 0, 0);
+    const endD = new Date(end);
+    endD.setHours(23, 59, 59, 999);
+    while (cur <= endD) {
+      const dow = cur.getDay(); // 0=Sun, 6=Sat
+      if (dow !== 0 && dow !== 6) count++;
+      cur.setDate(cur.getDate() + 1);
+    }
+    return count;
+  }
   useEffect(() => {
     api.get('/staff').then(res => {
       const list = res.data.data;
@@ -95,6 +114,7 @@ export default function GeneratePayslip() {
             annualCTC: s.type === 'Employee' ? (s.salaryDetails?.annualCTC || '') : '',
             baseSalary: s.type === 'Intern' ? (s.salaryDetails?.baseSalary || '') : '',
           }))
+          setSelectedStaffId(staffId)
           setStep(1); // Jump to first form stage
         }
       }
@@ -145,6 +165,78 @@ export default function GeneratePayslip() {
   })
 
   const [submitting, setSubmitting] = useState(false)
+
+  // Auto-calculate Paid Days from real attendance when staff + month/year is set
+  useEffect(() => {
+    if (!selectedStaffId) return;
+    const monthIndex = MONTHS.indexOf(form.month) + 1;
+    const year = parseInt(form.year);
+    if (!monthIndex || !year) return;
+    setAttendanceLoading(true);
+    api.get('/attendance/admin/monthly', { params: { month: monthIndex, year }, __skipCache: true })
+      .then(res => {
+        const records = res.data.data || [];
+        const staffRecords = records.filter(r => {
+          const rId = r.staff?._id || r.staff;
+          return String(rId) === String(selectedStaffId);
+        });
+        const paid = staffRecords.filter(r => r.status === 'complete' || r.status === 'flagged').length;
+        setForm(f => ({ ...f, paidDays: paid }));
+      })
+      .catch(err => console.error('Attendance fetch error:', err))
+      .finally(() => setAttendanceLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStaffId, form.month, form.year]);
+
+  // Auto-calculate Working Days based on payment period
+  // Period = (lastPayDate + 1 day) OR dateOfJoining  →  payDate
+  useEffect(() => {
+    const payDate = form.payDate;
+    const joining = form.dateOfJoining;
+    const empId = form.employeeId;
+    if (!payDate) return;
+    setWorkingDaysLoading(true);
+    // Fetch last payslip's payDate for this employee (null if first payslip)
+    const fetchPromise = empId
+      ? api.get('/payslips/latest-paydate', { params: { employeeId: empId }, __skipCache: true })
+          .then(r => r.data.payDate)
+          .catch(() => null)
+      : Promise.resolve(null);
+    fetchPromise.then(lastPayDate => {
+      let periodStart;
+      let isFirst = false;
+      if (lastPayDate) {
+        // Next period starts the day after last payout
+        const d = new Date(lastPayDate);
+        d.setDate(d.getDate() + 1);
+        periodStart = d;
+      } else if (joining) {
+        periodStart = new Date(joining);
+        isFirst = true;
+      } else {
+        // No joining date yet — can't compute
+        setWorkingDaysLoading(false);
+        return;
+      }
+      const endDate = new Date(payDate);
+      if (periodStart > endDate) {
+        setForm(f => ({ ...f, workingDays: 0 }));
+        setWorkingDaysPeriod({ from: periodStart.toISOString().split('T')[0], to: payDate, isFirst, count: 0 });
+        setWorkingDaysLoading(false);
+        return;
+      }
+      const count = countWorkingDays(periodStart, endDate);
+      setForm(f => ({ ...f, workingDays: count }));
+      setWorkingDaysPeriod({
+        from: periodStart.toISOString().split('T')[0],
+        to: payDate,
+        isFirst,
+        count,
+        lastPayDate,
+      });
+    }).finally(() => setWorkingDaysLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.employeeId, form.payDate, form.dateOfJoining]);
 
   const totals = useMemo(() => {
     const annualCTC = parseFloat(form.annualCTC) || 0;
@@ -306,6 +398,7 @@ export default function GeneratePayslip() {
                       // Bank: new bankDetails → legacy financials
                       const bankAcc  = full.bankDetails?.accountNumber || full.financials?.accountNumber || ''
                       const bankNm   = full.bankDetails?.bankName      || full.financials?.bankName      || ''
+                      setSelectedStaffId(full._id)
                       setForm(f => ({
                         ...f,
                         employmentType: empType,
@@ -363,9 +456,37 @@ export default function GeneratePayslip() {
                   </div>
                   <div className="panel" style={{ padding: 'var(--space-5)' }}>
                     <div className="form-grid-2" style={{ marginBottom: 0 }}>
-                      <InputField label="Working Days" required type="number" min="0" max="31" value={form.workingDays} onChange={e => setForm({...form, workingDays: Math.max(0, parseInt(e.target.value) || 0)})} />
-                      <InputField label="Paid Days" required type="number" min="0" max="31" value={form.paidDays} onChange={e => setForm({...form, paidDays: Math.max(0, parseInt(e.target.value) || 0)})} />
+                      <InputField
+                        label={workingDaysLoading ? 'Working Days (calculating…)' : workingDaysPeriod ? 'Working Days (auto)' : 'Working Days'}
+                        required
+                        type="number"
+                        min="0"
+                        max="31"
+                        value={form.workingDays}
+                        onChange={e => setForm({...form, workingDays: Math.max(0, parseInt(e.target.value) || 0)})}
+                      />
+                      <InputField
+                        label={attendanceLoading ? 'Paid Days (fetching…)' : selectedStaffId ? 'Paid Days (from attendance)' : 'Paid Days'}
+                        required
+                        type="number"
+                        min="0"
+                        max="31"
+                        value={form.paidDays}
+                        onChange={e => setForm({...form, paidDays: Math.max(0, parseInt(e.target.value) || 0)})}
+                      />
                     </div>
+                    {workingDaysPeriod && (
+                      <p style={{ margin: '8px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>
+                        📅 Period: <strong>{workingDaysPeriod.from}</strong> → <strong>{workingDaysPeriod.to}</strong>
+                        {workingDaysPeriod.isFirst ? ' (from joining date)' : ` (from last payout + 1 day)`}
+                        {' · '}{workingDaysPeriod.count} Mon–Fri days. You can edit manually.
+                      </p>
+                    )}
+                    {selectedStaffId && !workingDaysPeriod && (
+                      <p style={{ margin: '8px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>
+                        ✓ Paid Days auto-fetched from attendance for {form.month} {form.year}. Edit manually if needed.
+                      </p>
+                    )}
                   </div>
                 </motion.div>
               )}

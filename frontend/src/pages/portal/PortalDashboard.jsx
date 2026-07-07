@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   LogIn, LogOut, Clock, Loader2, X, Plus, Timer,
   Briefcase, Activity, CheckCircle2, ListChecks,
-  Coffee, Zap
+  Coffee, Zap, Radio, BellRing
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import api from '../../api'
@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useStaffPortal } from '../../context/StaffPortalContext'
 import { useNavigate } from 'react-router-dom'
 import { UserCheck } from 'lucide-react'
+import AnnouncementPreviewWidget from '../../components/AnnouncementPreviewWidget'
 
 // ── Mini stat card for the 4-metric row ──────────────────────────────
 function MetricCard({ icon: Icon, label, value, sub, accent, active }) {
@@ -93,6 +94,27 @@ export default function PortalDashboard() {
   const [taskMode, setTaskMode] = useState('in')
   const [taskItems, setTaskItems] = useState([{ project: '', description: '', status: 'Pending', notes: '' }])
   const [taskSubmitting, setTaskSubmitting] = useState(false)
+
+  // Announcements
+  const [announcements, setAnnouncements] = useState([])
+  const [announcementsLoading, setAnnouncementsLoading] = useState(true)
+
+  // Fetch announcements via portal-auth endpoint
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        setAnnouncementsLoading(true)
+        const res = await api.get('/portal/announcements')
+        setAnnouncements(res.data.data || [])
+      } catch (err) {
+        console.error('Failed to fetch announcements:', err)
+        setAnnouncements([])
+      } finally {
+        setAnnouncementsLoading(false)
+      }
+    }
+    fetchAnnouncements()
+  }, [])
 
   const normalizeTasks = (items) => items.map(task => ({
     project: (task.project || '').trim(),
@@ -579,6 +601,14 @@ export default function PortalDashboard() {
             )}
           </div>
         </motion.section>
+
+        {/* ── Announcements Preview Widget ── */}
+        <AnnouncementPreviewWidget
+          announcements={announcements}
+          loading={announcementsLoading}
+          viewAllPath="/portal/announcements"
+          emptyMessage="No active announcements."
+        />
       </div>
 
       {/* ── Pulse keyframe ── */}

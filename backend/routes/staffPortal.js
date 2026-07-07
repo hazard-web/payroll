@@ -717,4 +717,40 @@ router.get('/payslips/:id/download', authStaff, async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────
+// GET /api/portal/announcements — Active announcements for staff
+// ─────────────────────────────────────────────────────────────
+const Announcement = require('../models/Announcement');
+
+router.get('/announcements', authStaff, async (req, res) => {
+  try {
+    const userId = req.staff.user?._id || req.staff.user;
+    const now = new Date();
+
+    const announcements = await Announcement.find({
+      user: userId,
+      isActive: true,
+      $or: [
+        { startDate: null, endDate: null },
+        { startDate: { $lte: now }, endDate: null },
+        { startDate: null, endDate: { $gte: now } },
+        { startDate: { $lte: now }, endDate: { $gte: now } },
+      ],
+    }).sort({ createdAt: -1 });
+
+    // Sort: Urgent → Important → Normal, then newest first (already sorted by date above)
+    const priorityOrder = { Urgent: 0, Important: 1, Normal: 2 };
+    announcements.sort((a, b) => {
+      const pDiff = (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99);
+      if (pDiff !== 0) return pDiff;
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+
+    res.json({ success: true, data: announcements });
+  } catch (err) {
+    console.error('Portal announcements error:', err.message);
+    res.status(500).json({ success: false, message: 'Failed to fetch announcements' });
+  }
+});
+
 module.exports = { router, authStaff };

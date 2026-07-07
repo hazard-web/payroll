@@ -19,7 +19,6 @@ const navItems = [
   { to: '/portal/leave', label: 'Leave', icon: CalendarDays },
   { to: '/portal/payslips', label: 'Payslip', icon: FileText },
   { to: '/portal/announcements', label: 'Announcements', icon: Bell },
-  { to: '/portal/help', label: 'Help & Support', icon: Headphones },
   { to: '/portal/settings', label: 'Settings', icon: Settings },
 ]
 

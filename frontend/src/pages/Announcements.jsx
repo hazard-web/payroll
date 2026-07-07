@@ -1,0 +1,363 @@
+import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
+import {
+  Plus, Radio, Loader2, Trash2, Edit3, ToggleLeft, ToggleRight,
+  AlertTriangle, Bell, Zap, Eye, X, Save
+} from 'lucide-react'
+import toast from 'react-hot-toast'
+import api from '../api'
+import PageShell, { PageHeader, PageLoading } from '../components/PageShell'
+import { InputField, SelectField, Modal, Badge, ActionBtn, EmptyState, Toggle } from '../components/UI'
+
+const PRIORITY_OPTIONS = [
+  { value: 'Normal', label: 'Normal' },
+  { value: 'Important', label: 'Important' },
+  { value: 'Urgent', label: 'Urgent' },
+]
+
+const priorityConfig = {
+  Normal:    { icon: Bell,     badge: 'pill--green',  color: '#58833b', bg: '#e5ebdd', border: 'rgba(88,131,59,0.25)' },
+  Important: { icon: AlertTriangle, badge: 'pill--amber', color: '#b45309', bg: '#fef3c7', border: 'rgba(180,83,9,0.25)' },
+  Urgent:    { icon: Zap,      badge: 'pill--red',    color: '#dc2626', bg: '#fee2e2', border: 'rgba(220,38,38,0.25)' },
+}
+
+const emptyForm = () => ({
+  title: '',
+  message: '',
+  priority: 'Normal',
+  startDate: '',
+  endDate: '',
+  isActive: true,
+})
+
+export default function Announcements() {
+  const [announcements, setAnnouncements] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [formData, setFormData] = useState(emptyForm)
+  const navigate = useNavigate()
+
+  useEffect(() => { fetchAnnouncements() }, [])
+
+  const fetchAnnouncements = async () => {
+    try {
+      setLoading(true)
+      const res = await api.get('/announcements')
+      setAnnouncements(res.data.data || [])
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to fetch announcements')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const openCreate = () => {
+    setEditingId(null)
+    setFormData(emptyForm())
+    setShowModal(true)
+  }
+
+  const openEdit = (item) => {
+    setEditingId(item._id)
+    setFormData({
+      title: item.title,
+      message: item.message,
+      priority: item.priority || 'Normal',
+      startDate: item.startDate ? item.startDate.split('T')[0] : '',
+      endDate: item.endDate ? item.endDate.split('T')[0] : '',
+      isActive: item.isActive,
+    })
+    setShowModal(true)
+  }
+
+  const closeModal = () => {
+    setShowModal(false)
+    setEditingId(null)
+    setFormData(emptyForm())
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!formData.title.trim()) { toast.error('Title is required'); return }
+    if (!formData.message.trim()) { toast.error('Message is required'); return }
+
+    setSubmitting(true)
+    try {
+      const payload = {
+        title: formData.title.trim(),
+        message: formData.message.trim(),
+        priority: formData.priority,
+        isActive: formData.isActive,
+        startDate: formData.startDate || undefined,
+        endDate: formData.endDate || undefined,
+      }
+
+      let res
+      if (editingId) {
+        res = await api.put(`/announcements/${editingId}`, payload)
+        setAnnouncements(prev => prev.map(a => a._id === editingId ? res.data.data : a))
+        toast.success('Announcement updated')
+      } else {
+        res = await api.post('/announcements', payload)
+        setAnnouncements(prev => [res.data.data, ...prev])
+        toast.success('Announcement created')
+      }
+      closeModal()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Action failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this announcement?')) return
+    try {
+      await api.delete(`/announcements/${id}`)
+      setAnnouncements(prev => prev.filter(a => a._id !== id))
+      toast.success('Announcement deleted')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete')
+    }
+  }
+
+  const handleToggle = async (id) => {
+    try {
+      const res = await api.put(`/announcements/${id}/toggle`)
+      setAnnouncements(prev => prev.map(a => a._id === id ? res.data.data : a))
+      toast.success(res.data.data.isActive ? 'Announcement activated' : 'Announcement deactivated')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Action failed')
+    }
+  }
+
+  const fmtDate = (d) => {
+    if (!d) return null
+    return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
+
+  if (loading) return <PageLoading label="Loading announcements…" />
+
+  return (
+    <PageShell>
+      <PageHeader
+        title="Announcements"
+        subtitle="Create and manage company-wide announcements."
+        actions={
+          <button onClick={openCreate} className="btn-primary" style={{ height: 48, padding: '0 24px' }}>
+            <Plus size={20} strokeWidth={2.5} /> New Announcement
+          </button>
+        }
+      />
+
+      {/* Stats bar */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
+        {[
+          { label: 'Total', value: announcements.length, icon: Radio, accent: '#58833b' },
+          { label: 'Active', value: announcements.filter(a => a.isActive).length, icon: Eye, accent: '#1d4ed8' },
+          { label: 'Inactive', value: announcements.filter(a => !a.isActive).length, icon: X, accent: '#6b7280' },
+          { label: 'Urgent', value: announcements.filter(a => a.priority === 'Urgent').length, icon: Zap, accent: '#dc2626' },
+        ].map(stat => (
+          <div key={stat.label} style={{
+            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
+            padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14,
+          }}>
+            <div className="stat-icon" style={{ background: `${stat.accent}15`, color: stat.accent, width: 40, height: 40 }}>
+              <stat.icon size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', lineHeight: 1.1 }}>{stat.value}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.06 }}>{stat.label}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Announcement list */}
+      {announcements.length === 0 ? (
+        <EmptyState
+          icon={Radio}
+          title="No announcements yet"
+          description="Create your first announcement to notify your team."
+          action={
+            <button onClick={openCreate} className="btn-primary">
+              <Plus size={16} /> Create Announcement
+            </button>
+          }
+        />
+      ) : (
+        <div style={{ display: 'grid', gap: 12 }}>
+          {announcements.map((item, i) => {
+            const config = priorityConfig[item.priority] || priorityConfig.Normal
+            return (
+              <motion.div
+                key={item._id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.03 }}
+                style={{
+                  background: 'var(--surface)', border: `1px solid ${item.isActive ? 'var(--border)' : 'var(--border)'}`,
+                  borderRadius: 12, overflow: 'hidden',
+                  boxShadow: item.isActive ? '0 1px 4px rgba(0,0,0,0.04)' : 'none',
+                  opacity: item.isActive ? 1 : 0.7,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '18px 22px', flexWrap: 'wrap' }}>
+                  {/* Priority indicator strip */}
+                  <div style={{
+                    width: 4, borderRadius: 4, alignSelf: 'stretch',
+                    background: config.color, flexShrink: 0, minHeight: 40,
+                  }} />
+
+                  <div style={{ flex: 1, minWidth: 220 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+                      <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>{item.title}</h3>
+                      <span className={`pill ${config.badge}`} style={{ background: config.bg, color: config.color, border: `1px solid ${config.border}` }}>
+                        {item.priority}
+                      </span>
+                      {!item.isActive && (
+                        <span className="pill pill--slate" style={{ background: 'var(--bg)', color: 'var(--text-muted)' }}>
+                          Inactive
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 10px' }}>
+                      {item.message.length > 180 ? item.message.slice(0, 180) + '…' : item.message}
+                    </p>
+                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                      {item.startDate && (
+                        <span style={{ fontSize: 11, color: 'var(--text-light)', fontWeight: 600 }}>
+                          From: {fmtDate(item.startDate)}
+                        </span>
+                      )}
+                      {item.endDate && (
+                        <span style={{ fontSize: 11, color: 'var(--text-light)', fontWeight: 600 }}>
+                          Until: {fmtDate(item.endDate)}
+                        </span>
+                      )}
+                      {!item.startDate && !item.endDate && (
+                        <span style={{ fontSize: 11, color: 'var(--text-light)', fontWeight: 600 }}>
+                          No date restriction
+                        </span>
+                      )}
+                      <span style={{ fontSize: 11, color: 'var(--text-light)', fontWeight: 600, marginLeft: 'auto' }}>
+                        {new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+                    <button
+                      onClick={() => handleToggle(item._id)}
+                      className="btn-hover"
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)',
+                        background: item.isActive ? 'rgba(88,131,59,0.08)' : 'var(--bg)',
+                        color: item.isActive ? 'var(--primary)' : 'var(--text-muted)',
+                        cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {item.isActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                      {item.isActive ? 'Active' : 'Inactive'}
+                    </button>
+                    <button onClick={() => openEdit(item)} className="btn-icon" style={{ width: 36, height: 36 }}>
+                      <Edit3 size={15} />
+                    </button>
+                    <button onClick={() => handleDelete(item._id)} className="btn-icon btn-danger" style={{ width: 36, height: 36 }}>
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Create / Edit Modal */}
+      <Modal
+        open={showModal}
+        onClose={closeModal}
+        title={editingId ? 'Edit Announcement' : 'New Announcement'}
+        size="lg"
+        footer={
+          <>
+            <button type="button" onClick={closeModal} className="btn-ghost" style={{ padding: '10px 22px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
+              Cancel
+            </button>
+            <button type="submit" form="announcementForm" disabled={submitting} className="btn-primary" style={{ padding: '10px 24px', minWidth: 120 }}>
+              {submitting
+                ? <Loader2 size={16} className="animate-spin" />
+                : <><Save size={15} /> {editingId ? 'Update' : 'Create'}</>
+              }
+            </button>
+          </>
+        }
+      >
+        <form id="announcementForm" onSubmit={handleSubmit}>
+          <InputField
+            label="Title"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            required
+            placeholder="e.g. Office Holiday Notice"
+          />
+          <div style={{ marginBottom: 20 }}>
+            <label className="label">Message</label>
+            <textarea
+              value={formData.message}
+              onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+              rows={4}
+              required
+              placeholder="Write your announcement message..."
+              style={{
+                width: '100%', padding: '10px 14px', borderRadius: 10,
+                border: '1px solid var(--border)', background: 'var(--bg)',
+                color: 'var(--text)', fontSize: 14, resize: 'vertical',
+                fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+            <SelectField
+              label="Priority"
+              value={formData.priority}
+              onChange={(v) => setFormData({ ...formData, priority: v })}
+              options={PRIORITY_OPTIONS}
+            />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', paddingTop: 24 }}>
+              <Toggle checked={formData.isActive} onChange={(v) => setFormData({ ...formData, isActive: v })} />
+              <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
+                {formData.isActive ? 'Active' : 'Inactive'}
+              </span>
+            </label>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 8 }}>
+            <InputField
+              label="Start Date (Optional)"
+              type="date"
+              value={formData.startDate}
+              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+            />
+            <InputField
+              label="End Date (Optional)"
+              type="date"
+              value={formData.endDate}
+              onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+            />
+          </div>
+          <p className="text-muted" style={{ fontSize: 12 }}>
+            Leave dates blank for announcements with no time restriction. Active announcements are shown on the Team Portal and Dashboard.
+          </p>
+        </form>
+      </Modal>
+    </PageShell>
+  )
+}

@@ -2,12 +2,13 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Users, UserCheck, UserX, Calendar, ClipboardList, Clock,
-  AlertTriangle, X, BarChart2
+  AlertTriangle, X, BarChart2, Eye, Loader2
 } from 'lucide-react'
 import api from '../api'
 import PageShell, { PageHeader, PageLoading } from '../components/PageShell'
 import { useAuth } from '../context/AuthContext'
-import { Modal, StatCard, Avatar } from '../components/UI'
+import { Modal, StatCard, Avatar, Badge } from '../components/UI'
+import AnnouncementPreviewWidget from '../components/AnnouncementPreviewWidget'
 
 // ── Helpers ────────────────────────────────────────────────────────
 const LATE_START_HOUR = 10
@@ -666,6 +667,10 @@ export default function Dashboard() {
       </div>
 
 
+      {/* ── Announcements ── */}
+      <AnnouncementsSection />
+
+
       {/* ── Modals ── */}
       <Modal
         open={showAllAttendance}
@@ -796,5 +801,51 @@ export default function Dashboard() {
         </div>
       </Modal>
     </PageShell>
+  )
+}
+
+// ─── Announcements Dashboard Section ─────────────────────────────────────────
+function AnnouncementsSection() {
+  const [announcements, setAnnouncements] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const res = await api.get('/announcements')
+        const all = res.data.data || []
+        // Filter to only active, in-date-range announcements
+        const now = new Date()
+        const active = all.filter((a) => {
+          if (!a.isActive) return false
+          if (a.startDate && new Date(a.startDate) > now) return false
+          if (a.endDate && new Date(a.endDate) < now) return false
+          return true
+        })
+        // Sort: Urgent -> Important -> Normal, newest first
+        const priorityOrder = { Urgent: 0, Important: 1, Normal: 2 }
+        active.sort((a, b) => {
+          const pDiff = (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99)
+          if (pDiff !== 0) return pDiff
+          return new Date(b.createdAt) - new Date(a.createdAt)
+        })
+        setAnnouncements(active)
+      } catch {
+        // silently fail for dashboard widget
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  return (
+    <AnnouncementPreviewWidget
+      announcements={announcements}
+      loading={loading}
+      viewAllPath="/announcements"
+      emptyMessage="No active announcements."
+    />
   )
 }

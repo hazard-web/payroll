@@ -12,8 +12,10 @@ const { router: staffPortalRoutes } = require('./routes/staffPortal');
 const attendanceRoutes = require('./routes/attendance');
 const activitiesRoutes = require('./routes/activities');
 const leavesRoutes = require('./routes/leaves');
+const leavePolicyRoutes = require('./routes/leave-policy');
 const notificationsRoutes = require('./routes/notifications');
 const supportRoutes = require('./routes/support');
+const announcementsRoutes = require('./routes/announcements');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -66,8 +68,10 @@ app.use('/api/portal', staffPortalRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/activities', activitiesRoutes);
 app.use('/api/leaves', leavesRoutes);
+app.use('/api/leave-policy', leavePolicyRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/announcements', announcementsRoutes);
 
 const path = require('path');
 

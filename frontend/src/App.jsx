@@ -37,8 +37,10 @@ const AuditLogs             = lazy(() => import('./pages/AuditLogs'))
 const TeamPerformance       = lazy(() => import('./pages/TeamPerformance'))
 const StaffPerformanceDetail = lazy(() => import('./pages/StaffPerformanceDetail'))
 const LeaveRequests         = lazy(() => import('./pages/LeaveRequests'))
+const LeavePolicy           = lazy(() => import('./pages/LeavePolicy'))
 const StaffSupport          = lazy(() => import('./pages/StaffSupport'))
 const Profile               = lazy(() => import('./pages/Profile'))
+const Announcements         = lazy(() => import('./pages/Announcements'))
 
 const PortalChangePassword  = lazy(() => import('./pages/portal/PortalChangePassword'))
 const PortalDashboard       = lazy(() => import('./pages/portal/PortalDashboard'))
@@ -193,6 +195,8 @@ export default function App() {
         <Route path="leave-requests"  element={<Lazy component={LeaveRequests} />} />
         <Route path="staff-support"   element={<Lazy component={StaffSupport} />} />
         <Route path="profile"         element={<Lazy component={Profile} />} />
+        <Route path="announcements"   element={<Lazy component={Announcements} />} />
+        <Route path="leave-policy"    element={<Lazy component={LeavePolicy} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

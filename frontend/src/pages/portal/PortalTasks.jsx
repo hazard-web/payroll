@@ -247,7 +247,7 @@ export default function PortalTasks() {
             key={s}
             onClick={() => setFilterStatus(s)}
             style={{
-              padding: '5px 14px', borderRadius: 999, border: 'none',
+              padding: '5px 14px', borderRadius: 999,
               background: filterStatus === s ? 'var(--primary)' : 'var(--bg)',
               color: filterStatus === s ? '#fff' : 'var(--text-muted)',
               fontWeight: 600, fontSize: 12, cursor: 'pointer',

@@ -5,7 +5,7 @@ import {
   Settings, User, Users,
   Sun, Moon, ChevronLeft, ChevronRight, Bell, CalendarDays, Activity, TrendingUp,
   LogOut, AlertTriangle, Loader2, FileText, UserCheck, CheckCheck,
-  Download, Sparkles, ChevronDown
+  Download, Sparkles, ChevronDown, Radio, ShieldCheck
 } from 'lucide-react'
 import api from '../api'
 import { toast } from 'react-hot-toast'
@@ -20,6 +20,8 @@ const navItems = [
   { to: '/leave-requests', label: 'Attendance & Leave', icon: CalendarDays },
   { to: '/performance', label: 'Team Performance', icon: TrendingUp },
   { to: '/payslips', label: 'All Payslips', icon: List },
+  { to: '/leave-policy', label: 'Leave Policy', icon: ShieldCheck },
+  { to: '/announcements', label: 'Announcements', icon: Radio },
   { to: '/audit-logs', label: 'Activity Logs', icon: Activity },
   { to: '/profile', label: 'Company Profile', icon: Settings },
 ]

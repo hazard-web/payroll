@@ -166,8 +166,8 @@ async function runShiftCheck() {
 }
 
 // ──────────────────────────────────────────────────────────────────
-// Office Closing Time: 7:00 PM IST
-// IST = UTC + 5:30, so 7:00 PM IST = 13:30 UTC
+// Office Closing Time: 11:59 PM IST
+// IST = UTC + 5:30, so 11:59 PM IST = 18:29 UTC
 // ──────────────────────────────────────────────────────────────────
 
 /**
@@ -199,12 +199,12 @@ function getISTDayRange(reference = new Date()) {
   return {
     start: new Date(startUtcMs),
     end: new Date(startUtcMs + 24 * 60 * 60 * 1000),
-    close: new Date(startUtcMs + 19 * 60 * 60 * 1000),
+    close: new Date(startUtcMs + (23 * 60 + 59) * 60 * 1000),
   };
 }
 
 /**
- * Compute workStatus and totalHours from punchIn → punchOut (7:00 PM IST).
+ * Compute workStatus and totalHours from punchIn → punchOut (11:59 PM IST).
  * Rules:
  *  Full Day  → 8.5+ hours
  *  Half Day  → 4 to 8.49 hours
@@ -221,7 +221,7 @@ function computeWorkStatus(punchIn, punchOut) {
 }
 
 /**
- * 7:00 PM IST — Send reminder emails to all staff still punched in.
+ * 11:30 PM IST — Send reminder emails to all staff still punched in.
  * Won't send duplicate reminders for the same shift.
  */
 async function runOfficeClosingReminder() {
@@ -255,7 +255,7 @@ async function runOfficeClosingReminder() {
       shiftDate:  new Date(shift.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
       duration,
       workStatus: 'In Progress',
-      reason:     'Office closing time (7:00 PM) has been reached. Please punch out within 30 minutes, or the system will automatically mark your attendance at 7:00 PM.',
+      reason:     'Office closing time (11:59 PM) has been reached. Please punch out within 30 minutes, or the system will automatically mark your attendance at 11:59 PM.',
       autoClosed: false,
       officeClosing: true,
     }).catch(err => console.error('[Office Closing] Reminder email error:', err.message));
@@ -267,7 +267,7 @@ async function runOfficeClosingReminder() {
       recipientType: 'staff',
       type:          'OFFICE_CLOSING_REMINDER',
       referenceId:   shift._id,
-      message:       '⏰ Office closing time (7:00 PM) reached. Please punch out now. If not done within 30 minutes, your attendance will be auto-closed at 7:00 PM.'
+      message:       '⏰ Office closing time (11:59 PM) reached. Please punch out now. If not done within 30 minutes, your attendance will be auto-closed at 11:59 PM.'
     }).save();
 
     remindersSent++;
@@ -278,8 +278,8 @@ async function runOfficeClosingReminder() {
 }
 
 /**
- * 7:30 PM IST — Auto punch-out all staff still active.
- * Closes shift at exactly 7:00 PM IST, marks as flagged.
+ * 11:59 PM IST — Auto punch-out all staff still active.
+ * Closes shift at exactly 11:59 PM IST, marks as flagged.
  */
 async function runOfficeClosingAutoClose() {
   const loginUrl = process.env.FRONTEND_URL || process.env.APP_URL || 'https://rohit98k-payroll-portal.vercel.app';
@@ -309,7 +309,7 @@ async function runOfficeClosingAutoClose() {
     shift.workStatus = workStatus;
     shift.status     = 'flagged';
     shift.notes      = (shift.notes ? shift.notes + ' | ' : '') +
-                       'System: Auto punch-out at 7:00 PM IST (office closing time). Contact HR/Admin if correction needed.';
+                       'System: Auto punch-out at 11:59 PM IST (office closing time). Contact HR/Admin if correction needed.';
     await shift.save();
     autoClosed++;
 
@@ -322,7 +322,7 @@ async function runOfficeClosingAutoClose() {
       recipientType: 'staff',
       type:          'ATTENDANCE_ALERT',
       referenceId:   shift._id,
-      message:       `Your attendance has been auto-closed at 7:00 PM IST (office closing time) on ${new Date(shift.date).toLocaleDateString('en-IN')}. Work status: ${workStatus}. Contact HR if correction needed.`
+      message:       `Your attendance has been auto-closed at 11:59 PM IST (office closing time) on ${new Date(shift.date).toLocaleDateString('en-IN')}. Work status: ${workStatus}. Contact HR if correction needed.`
     }).save();
 
     // Email — send to staff with portal + email
@@ -332,7 +332,7 @@ async function runOfficeClosingAutoClose() {
         shiftDate:  new Date(shift.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
         duration,
         workStatus,
-        reason:     'Your attendance has been automatically closed at 7:00 PM IST as you did not punch out before the office closing time. Please contact HR/Admin if any correction is needed.',
+        reason:     'Your attendance has been automatically closed at 11:59 PM IST as you did not punch out before the office closing time. Please contact HR/Admin if any correction is needed.',
         autoClosed: true,
         officeClosing: true,
       }).catch(err => console.error('[Office Closing] Auto-close email error:', err.message));
@@ -345,9 +345,9 @@ async function runOfficeClosingAutoClose() {
 
 async function runOfficeClosingCheck() {
   const { totalMinutes } = getISTTime();
-  const reminderStart = 19 * 60;
+  const reminderStart = 23 * 60 + 30;   // 11:30 PM IST
   const reminderEnd = reminderStart + 5;
-  const autoCloseStart = 19 * 60 + 30;
+  const autoCloseStart = 23 * 60 + 59;  // 11:59 PM IST
   const autoCloseEnd = autoCloseStart + 5;
 
   if (totalMinutes >= reminderStart && totalMinutes < reminderEnd) {
