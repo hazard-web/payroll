@@ -71,8 +71,7 @@ export default function GeneratePayslip() {
   const [staffList, setStaffList] = useState([])
   const [selectedStaffId, setSelectedStaffId] = useState(staffId || null)
   const [attendanceLoading, setAttendanceLoading] = useState(false)
-  const [workingDaysLoading, setWorkingDaysLoading] = useState(false)
-  const [workingDaysPeriod, setWorkingDaysPeriod] = useState(null) // { from, to, isFirst }
+  const [workingDaysPeriod, setWorkingDaysPeriod] = useState(null)
 
   // Helper: count Mon–Fri days between two dates (inclusive)
   function countWorkingDays(start, end) {
@@ -188,55 +187,24 @@ export default function GeneratePayslip() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStaffId, form.month, form.year]);
 
-  // Auto-calculate Working Days based on payment period
-  // Period = (lastPayDate + 1 day) OR dateOfJoining  →  payDate
+  // Auto-calculate Working Days = Mon–Fri days in the selected month & year
   useEffect(() => {
-    const payDate = form.payDate;
-    const joining = form.dateOfJoining;
-    const empId = form.employeeId;
-    if (!payDate) return;
-    setWorkingDaysLoading(true);
-    // Fetch last payslip's payDate for this employee (null if first payslip)
-    const fetchPromise = empId
-      ? api.get('/payslips/latest-paydate', { params: { employeeId: empId }, __skipCache: true })
-          .then(r => r.data.payDate)
-          .catch(() => null)
-      : Promise.resolve(null);
-    fetchPromise.then(lastPayDate => {
-      let periodStart;
-      let isFirst = false;
-      if (lastPayDate) {
-        // Next period starts the day after last payout
-        const d = new Date(lastPayDate);
-        d.setDate(d.getDate() + 1);
-        periodStart = d;
-      } else if (joining) {
-        periodStart = new Date(joining);
-        isFirst = true;
-      } else {
-        // No joining date yet — can't compute
-        setWorkingDaysLoading(false);
-        return;
-      }
-      const endDate = new Date(payDate);
-      if (periodStart > endDate) {
-        setForm(f => ({ ...f, workingDays: 0 }));
-        setWorkingDaysPeriod({ from: periodStart.toISOString().split('T')[0], to: payDate, isFirst, count: 0 });
-        setWorkingDaysLoading(false);
-        return;
-      }
-      const count = countWorkingDays(periodStart, endDate);
-      setForm(f => ({ ...f, workingDays: count }));
-      setWorkingDaysPeriod({
-        from: periodStart.toISOString().split('T')[0],
-        to: payDate,
-        isFirst,
-        count,
-        lastPayDate,
-      });
-    }).finally(() => setWorkingDaysLoading(false));
+    const monthIndex = MONTHS.indexOf(form.month); // 0-based
+    const year = parseInt(form.year);
+    if (monthIndex === -1 || !year) return;
+
+    // First day and last day of the selected month
+    const start = new Date(year, monthIndex, 1);
+    const end = new Date(year, monthIndex + 1, 0); // last day of month
+    const count = countWorkingDays(start, end);
+    setForm(f => ({ ...f, workingDays: count }));
+    setWorkingDaysPeriod({
+      from: start.toISOString().split('T')[0],
+      to: end.toISOString().split('T')[0],
+      count,
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.employeeId, form.payDate, form.dateOfJoining]);
+  }, [form.month, form.year]);
 
   const totals = useMemo(() => {
     const annualCTC = parseFloat(form.annualCTC) || 0;
@@ -457,7 +425,7 @@ export default function GeneratePayslip() {
                   <div className="panel" style={{ padding: 'var(--space-5)' }}>
                     <div className="form-grid-2" style={{ marginBottom: 0 }}>
                       <InputField
-                        label={workingDaysLoading ? 'Working Days (calculating…)' : workingDaysPeriod ? 'Working Days (auto)' : 'Working Days'}
+                        label={workingDaysPeriod ? `Working Days — ${form.month} ${form.year}` : 'Working Days'}
                         required
                         type="number"
                         min="0"
@@ -477,13 +445,11 @@ export default function GeneratePayslip() {
                     </div>
                     {workingDaysPeriod && (
                       <p style={{ margin: '8px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>
-                        📅 Period: <strong>{workingDaysPeriod.from}</strong> → <strong>{workingDaysPeriod.to}</strong>
-                        {workingDaysPeriod.isFirst ? ' (from joining date)' : ` (from last payout + 1 day)`}
-                        {' · '}{workingDaysPeriod.count} Mon–Fri days. You can edit manually.
+                        📅 {workingDaysPeriod.count} working days (Mon–Fri) in <strong>{form.month} {form.year}</strong>. You can edit manually.
                       </p>
                     )}
-                    {selectedStaffId && !workingDaysPeriod && (
-                      <p style={{ margin: '8px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>
+                    {selectedStaffId && (
+                      <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>
                         ✓ Paid Days auto-fetched from attendance for {form.month} {form.year}. Edit manually if needed.
                       </p>
                     )}

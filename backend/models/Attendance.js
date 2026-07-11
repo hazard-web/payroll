@@ -1,5 +1,49 @@
 const mongoose = require('mongoose');
 
+// ─── Task subdocument schema (reused for both sessions[].tasks and top-level tasks) ───
+const taskSchema = new mongoose.Schema({
+  project: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  description: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  status: {
+    type: String,
+    enum: ['Pending', 'In Progress', 'Completed'],
+    default: 'Pending'
+  },
+  notes: {
+    type: String,
+    trim: true
+  },
+  // ── Time tracking fields ──────────────────────────────────────────────────
+  startedAt: {
+    type: Date,
+    default: null
+  },
+  completedAt: {
+    type: Date,
+    default: null
+  },
+  durationMinutes: {
+    type: Number,
+    default: 0
+  },
+  isRunning: {
+    type: Boolean,
+    default: false
+  },
+  lastUpdated: {
+    type: Date,
+    default: null
+  }
+}, { _id: true });
+
 const attendanceSchema = new mongoose.Schema(
   {
     staff: {
@@ -32,27 +76,7 @@ const attendanceSchema = new mongoose.Schema(
       isActive: { type: Boolean, default: true },
       source: { type: String, enum: ['MANUAL', 'AUTO_PUNCH_OUT', 'SYSTEM'], default: 'MANUAL' },
       reason: { type: String, default: 'Manual punch in' },
-      tasks: [{
-        project: {
-          type: String,
-          required: true,
-          trim: true
-        },
-        description: {
-          type: String,
-          required: true,
-          trim: true
-        },
-        status: {
-          type: String,
-          enum: ['Pending', 'In Progress', 'Completed'],
-          default: 'Pending'
-        },
-        notes: {
-          type: String,
-          trim: true
-        }
-      }]
+      tasks: [taskSchema]
     }],
     sessionCount: {
       type: Number,
@@ -84,29 +108,7 @@ const attendanceSchema = new mongoose.Schema(
       lat: Number,
       lng: Number
     },
-    tasks: [
-      {
-        project: {
-          type: String,
-          required: true,
-          trim: true
-        },
-        description: {
-          type: String,
-          required: true,
-          trim: true
-        },
-        status: {
-          type: String,
-          enum: ['Pending', 'In Progress', 'Completed'],
-          default: 'Pending'
-        },
-        notes: {
-          type: String,
-          trim: true
-        }
-      }
-    ],
+    tasks: [taskSchema],
     notes: {
       type: String,
     },

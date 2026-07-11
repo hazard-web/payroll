@@ -1,32 +1,107 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   ListChecks, CheckCircle2, Clock, Loader2,
   ChevronLeft, ChevronRight, CalendarDays,
   Circle, AlertCircle, Briefcase, TrendingUp,
-  Calendar
+  Calendar, Play, Square, RotateCcw, Timer,
+  X, AlertTriangle, Zap
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import api from '../../api'
 import { motion, AnimatePresence } from 'framer-motion'
 import PageShell from '../../components/PageShell'
 
-// ── CSS ──────────────────────────────────────────────────────────────────────
+// ── Injected CSS ─────────────────────────────────────────────────────────────
 const STYLES = `
-  .pt-pill { display:inline-flex;align-items:center;gap:3px;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap; }
-  .pt-pill-green  { background:#e5ebdd;color:#58833b;border:1px solid rgba(88,131,59,.25); }
-  .pt-pill-amber  { background:#fff7ed;color:#b45309;border:1px solid #fed7aa; }
-  .pt-pill-slate  { background:#f1f5f9;color:#475569;border:1px solid #e2e8f0; }
-  .pt-pill-blue   { background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe; }
+  /* Layout */
+  .pt-pill { display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;letter-spacing:.02em; }
+  .pt-pill-green  { background:linear-gradient(135deg,#e6f0da,#d4e8c4);color:#3d6b20;border:1px solid rgba(88,131,59,.25); }
+  .pt-pill-blue   { background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#1e40af;border:1px solid #93c5fd; }
+  .pt-pill-slate  { background:linear-gradient(135deg,#f1f5f9,#e2e8f0);color:#475569;border:1px solid #cbd5e1; }
+  .pt-pill-running { background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border:1px solid #fcd34d;animation:pt-pulse-badge 1.5s ease-in-out infinite; }
+  @keyframes pt-pulse-badge { 0%,100%{opacity:1} 50%{opacity:.7} }
+
   .pt-tab { display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:none;
             font-size:13px;font-weight:600;cursor:pointer;transition:all .16s;background:transparent;color:var(--text-muted); }
   .pt-tab:hover { background:var(--bg);color:var(--text); }
-  .pt-tab.active { background:var(--primary);color:#fff;box-shadow:0 4px 12px rgba(88,131,59,.2); }
-  .pt-stat { background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px; }
-  .pt-card { background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px; }
-  .pt-day-head { padding:10px 18px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between; }
-  .pt-task-row { padding:14px 18px;border-bottom:1px solid var(--border);display:grid;gap:10px; }
-  .pt-task-row:last-child { border-bottom:none; }
-  .pt-task-row:hover { background:rgba(0,0,0,.015); }
+  .pt-tab.active { background:var(--primary);color:#fff;box-shadow:0 4px 12px rgba(88,131,59,.25); }
+
+  .pt-stat { background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;transition:box-shadow .2s; }
+  .pt-stat:hover { box-shadow:0 4px 16px rgba(0,0,0,.06); }
+
+  .pt-task-card {
+    background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    overflow:hidden;margin-bottom:12px;transition:all .2s;
+  }
+  .pt-task-card:hover { box-shadow:0 6px 20px rgba(0,0,0,.08);transform:translateY(-1px); }
+  .pt-task-card.running {
+    border-color:rgba(245,158,11,.4);
+    box-shadow:0 0 0 3px rgba(245,158,11,.08), 0 4px 16px rgba(245,158,11,.12);
+  }
+  .pt-task-card.completed { border-color:rgba(88,131,59,.3); }
+
+  .pt-task-header { padding:14px 16px 10px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px; }
+  .pt-task-meta { padding:0 16px 12px;display:flex;align-items:center;flex-wrap:wrap;gap:8px; }
+  .pt-task-actions { padding:10px 16px 14px;display:flex;gap:8px;border-top:1px solid var(--border);background:rgba(0,0,0,.015); }
+
+  .pt-action-btn {
+    display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;
+    border:1px solid;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;
+    white-space:nowrap;
+  }
+  .pt-action-btn:disabled { opacity:.5;cursor:not-allowed; }
+  .pt-action-btn.start  { background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border-color:transparent;box-shadow:0 2px 8px rgba(59,130,246,.3); }
+  .pt-action-btn.start:hover:not(:disabled)  { box-shadow:0 4px 14px rgba(59,130,246,.45);transform:translateY(-1px); }
+  .pt-action-btn.complete { background:linear-gradient(135deg,#58833b,#4a7030);color:#fff;border-color:transparent;box-shadow:0 2px 8px rgba(88,131,59,.3); }
+  .pt-action-btn.complete:hover:not(:disabled) { box-shadow:0 4px 14px rgba(88,131,59,.45);transform:translateY(-1px); }
+  .pt-action-btn.pending  { background:var(--bg);color:var(--text-muted);border-color:var(--border); }
+  .pt-action-btn.pending:hover:not(:disabled)  { background:var(--surface);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.08); }
+
+  /* Live timer */
+  .pt-timer { font-family:'Courier New',monospace;font-size:13px;font-weight:700;color:#92400e;
+              background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);
+              border-radius:6px;padding:3px 8px;letter-spacing:.05em; }
+
+  /* Modal overlay */
+  .pt-modal-overlay {
+    position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;
+    display:flex;align-items:center;justify-content:center;padding:20px;
+    backdrop-filter:blur(4px);
+  }
+  .pt-modal {
+    background:var(--surface);border-radius:16px;padding:28px;max-width:420px;width:100%;
+    box-shadow:0 24px 48px rgba(0,0,0,.18);border:1px solid var(--border);
+  }
+  .pt-modal h3 { margin:0 0 6px;font-size:16px;font-weight:800;color:var(--text); }
+  .pt-modal p { margin:0 0 20px;font-size:13px;color:var(--text-muted);line-height:1.5; }
+  .pt-modal-btns { display:flex;gap:8px;justify-content:flex-end; }
+
+  .pt-input {
+    width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);
+    background:var(--bg);color:var(--text);font-size:14px;font-weight:500;
+    outline:none;transition:border-color .15s;box-sizing:border-box;
+  }
+  .pt-input:focus { border-color:var(--primary); }
+
+  .pt-duration-grid { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px; }
+
+  /* Date group */
+  .pt-date-section { margin-bottom:20px; }
+  .pt-date-label { padding:8px 0;display:flex;align-items:center;gap:8px;margin-bottom:8px; }
+
+  /* Running pulse dot */
+  .pt-pulse-dot {
+    width:8px;height:8px;border-radius:50%;background:#f59e0b;
+    animation:pt-dot-pulse 1.2s ease-in-out infinite;display:inline-block;
+  }
+  @keyframes pt-dot-pulse {
+    0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.6);opacity:1}
+    50%{box-shadow:0 0 0 5px rgba(245,158,11,0);opacity:.8}
+  }
+
+  /* Progress bar */
+  .pt-progress { height:5px;border-radius:999px;background:var(--border);overflow:hidden;margin-top:4px; }
+  .pt-progress-fill { height:100%;border-radius:999px;background:linear-gradient(90deg,#58833b,#7cb84c);transition:width .5s ease; }
 `
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -35,60 +110,349 @@ const fmtDate = dt => dt
   ? new Date(dt).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
   : '—'
 
-const fmtDateShort = dt => dt
-  ? new Date(dt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-  : '—'
+const fmtTime = dt => dt
+  ? new Date(dt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+  : null
 
-function StatusPill({ status }) {
-  if (status === 'Completed')  return <span className="pt-pill pt-pill-green"><CheckCircle2 size={10} /> Completed</span>
-  if (status === 'In Progress') return <span className="pt-pill pt-pill-amber"><Clock size={10} /> In Progress</span>
-  return <span className="pt-pill pt-pill-slate"><Circle size={10} /> Pending</span>
+const fmtDuration = (minutes) => {
+  if (!minutes || minutes <= 0) return null
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h === 0) return `${m}m`
+  return `${h}h ${String(m).padStart(2, '0')}m`
 }
 
-// Build date range for "today", "week", or use month/year
-function buildFilter(view, month, year) {
-  const now = new Date()
-  if (view === 'today') {
-    return { month: now.getMonth() + 1, year: now.getFullYear() }
+const isToday = (dateStr) => new Date(dateStr).toDateString() === new Date().toDateString()
+const isThisWeek = (dateStr) => {
+  const d = new Date(dateStr), now = new Date()
+  const start = new Date(now)
+  start.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1))
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(start); end.setDate(start.getDate() + 6); end.setHours(23, 59, 59, 999)
+  return d >= start && d <= end
+}
+
+// ── Status Badge ──────────────────────────────────────────────────────────────
+function StatusBadge({ status, isRunning }) {
+  if (isRunning) return (
+    <span className="pt-pill pt-pill-running">
+      <span className="pt-pulse-dot" />
+      Running
+    </span>
+  )
+  if (status === 'Completed') return (
+    <span className="pt-pill pt-pill-green">
+      <CheckCircle2 size={10} />
+      Completed
+    </span>
+  )
+  if (status === 'In Progress') return (
+    <span className="pt-pill pt-pill-blue">
+      <Clock size={10} />
+      In Progress
+    </span>
+  )
+  return (
+    <span className="pt-pill pt-pill-slate">
+      <Circle size={10} />
+      Pending
+    </span>
+  )
+}
+
+// ── Live Timer ────────────────────────────────────────────────────────────────
+function LiveTimer({ startedAt, baseDurationMinutes = 0 }) {
+  const [elapsed, setElapsed] = useState(0)
+  const intervalRef = useRef(null)
+
+  useEffect(() => {
+    const calcElapsed = () => {
+      const base = (baseDurationMinutes || 0) * 60
+      const live = startedAt ? Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000) : 0
+      return base + live
+    }
+    setElapsed(calcElapsed())
+    intervalRef.current = setInterval(() => setElapsed(calcElapsed()), 1000)
+    return () => clearInterval(intervalRef.current)
+  }, [startedAt, baseDurationMinutes])
+
+  const h = Math.floor(elapsed / 3600)
+  const m = Math.floor((elapsed % 3600) / 60)
+  const s = elapsed % 60
+  return (
+    <span className="pt-timer">
+      {String(h).padStart(2, '0')}:{String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}
+    </span>
+  )
+}
+
+// ── Conflict Modal ────────────────────────────────────────────────────────────
+function ConflictModal({ task, onConfirm, onCancel }) {
+  return (
+    <div className="pt-modal-overlay" onClick={onCancel}>
+      <motion.div
+        className="pt-modal"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(245,158,11,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <AlertTriangle size={18} color="#f59e0b" />
+          </div>
+          <h3>Active Task Running</h3>
+        </div>
+        <p>
+          You already have a task in progress. Do you want to <strong>stop it</strong> and start this new task?
+        </p>
+        <div style={{ background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.2)', borderRadius: 8, padding: '10px 12px', marginBottom: 20, fontSize: 13, color: '#92400e' }}>
+          The elapsed time of the current task will be saved automatically.
+        </div>
+        <div className="pt-modal-btns">
+          <button className="pt-action-btn pending" onClick={onCancel}>Cancel</button>
+          <button className="pt-action-btn start" onClick={onConfirm}>
+            <Zap size={13} /> Stop & Start New
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+// ── Manual Duration Modal ─────────────────────────────────────────────────────
+function ManualDurationModal({ task, onSave, onCancel, saving }) {
+  const [hours, setHours] = useState('')
+  const [minutes, setMinutes] = useState('')
+
+  const handleSave = () => {
+    const h = parseInt(hours) || 0
+    const m = parseInt(minutes) || 0
+    if (h === 0 && m === 0) {
+      toast.error('Please enter a valid duration')
+      return
+    }
+    onSave(h, m)
   }
-  if (view === 'week') {
-    return { month: now.getMonth() + 1, year: now.getFullYear() }
-  }
-  return { month, year }
+
+  return (
+    <div className="pt-modal-overlay" onClick={onCancel}>
+      <motion.div
+        className="pt-modal"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(88,131,59,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Timer size={18} color="var(--primary)" />
+          </div>
+          <h3>Enter Task Duration</h3>
+        </div>
+        <p>
+          Start time was not recorded for <strong>"{task?.description}"</strong>. 
+          Please enter the total time you worked on this task.
+        </p>
+
+        <div className="pt-duration-grid">
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.05em' }}>Hours</label>
+            <input
+              type="number"
+              min="0"
+              max="23"
+              placeholder="0"
+              value={hours}
+              onChange={e => setHours(e.target.value)}
+              className="pt-input"
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.05em' }}>Minutes</label>
+            <input
+              type="number"
+              min="0"
+              max="59"
+              placeholder="0"
+              value={minutes}
+              onChange={e => setMinutes(e.target.value)}
+              className="pt-input"
+            />
+          </div>
+        </div>
+
+        <div className="pt-modal-btns">
+          <button className="pt-action-btn pending" onClick={onCancel} disabled={saving}>Cancel</button>
+          <button className="pt-action-btn complete" onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+            {saving ? 'Saving…' : 'Save & Complete'}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
 }
 
-// Check if a record falls in current week
-function isThisWeek(dateStr) {
-  const d = new Date(dateStr)
-  const now = new Date()
-  const startOfWeek = new Date(now)
-  startOfWeek.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)) // Mon
-  startOfWeek.setHours(0, 0, 0, 0)
-  const endOfWeek = new Date(startOfWeek)
-  endOfWeek.setDate(startOfWeek.getDate() + 6)
-  endOfWeek.setHours(23, 59, 59, 999)
-  return d >= startOfWeek && d <= endOfWeek
+// ── Task Card ─────────────────────────────────────────────────────────────────
+function TaskCard({ task, onAction, actionLoading }) {
+  const isRunning = !!task.isRunning
+  const isCompleted = task.status === 'Completed'
+  const isPending = task.status === 'Pending'
+
+  const startTime = fmtTime(task.startedAt)
+  const endTime = fmtTime(task.completedAt)
+  const duration = fmtDuration(task.liveDurationMinutes || task.durationMinutes)
+
+  const cardClass = `pt-task-card${isRunning ? ' running' : ''}${isCompleted ? ' completed' : ''}`
+
+  return (
+    <motion.div
+      className={cardClass}
+      layout
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.97 }}
+      transition={{ duration: 0.18 }}
+    >
+      {/* Header */}
+      <div className="pt-task-header">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Project chip */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+            <Briefcase size={11} color="var(--text-muted)" />
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+              {task.project || 'Untitled Project'}
+            </span>
+          </div>
+          {/* Description */}
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, marginBottom: 4 }}>
+            {task.description}
+          </div>
+          {task.notes && (
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              {task.notes}
+            </div>
+          )}
+        </div>
+        <StatusBadge status={task.status} isRunning={isRunning} />
+      </div>
+
+      {/* Meta: time info */}
+      <div className="pt-task-meta">
+        {/* Live timer when running */}
+        {isRunning && (
+          <LiveTimer startedAt={task.startedAt} baseDurationMinutes={task.durationMinutes || 0} />
+        )}
+
+        {/* Start time */}
+        {startTime && !isRunning && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-muted)' }}>
+            <Play size={11} color="#3b82f6" />
+            <span>Started: <strong style={{ color: 'var(--text)' }}>{startTime}</strong></span>
+          </div>
+        )}
+        {isRunning && startTime && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-muted)' }}>
+            <Play size={11} color="#f59e0b" />
+            <span>Started: <strong style={{ color: '#92400e' }}>{startTime}</strong></span>
+          </div>
+        )}
+
+        {/* End time */}
+        {endTime && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-muted)' }}>
+            <Square size={11} color="#58833b" />
+            <span>Completed: <strong style={{ color: 'var(--text)' }}>{endTime}</strong></span>
+          </div>
+        )}
+
+        {/* Duration */}
+        {duration && !isRunning && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-muted)' }}>
+            <Clock size={11} color="var(--text-muted)" />
+            <span>Duration: <strong style={{ color: 'var(--text)' }}>{duration}</strong></span>
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="pt-task-actions">
+        {/* START button — show for Pending tasks */}
+        {isPending && (
+          <button
+            className="pt-action-btn start"
+            onClick={() => onAction(task, 'start')}
+            disabled={actionLoading === task._id}
+          >
+            {actionLoading === task._id
+              ? <Loader2 size={13} className="animate-spin" />
+              : <Play size={13} />}
+            Start Task
+          </button>
+        )}
+
+        {/* START button — also show for In Progress (restart / resume) */}
+        {task.status === 'In Progress' && !isRunning && (
+          <button
+            className="pt-action-btn start"
+            onClick={() => onAction(task, 'start')}
+            disabled={actionLoading === task._id}
+          >
+            {actionLoading === task._id
+              ? <Loader2 size={13} className="animate-spin" />
+              : <Play size={13} />}
+            Resume
+          </button>
+        )}
+
+        {/* COMPLETE button */}
+        {!isCompleted && (
+          <button
+            className="pt-action-btn complete"
+            onClick={() => onAction(task, 'complete')}
+            disabled={actionLoading === task._id}
+          >
+            {actionLoading === task._id
+              ? <Loader2 size={13} className="animate-spin" />
+              : <CheckCircle2 size={13} />}
+            Mark Complete
+          </button>
+        )}
+
+        {/* PENDING button — show for In Progress and Completed */}
+        {!isPending && (
+          <button
+            className="pt-action-btn pending"
+            onClick={() => onAction(task, 'pending')}
+            disabled={actionLoading === task._id}
+          >
+            <RotateCcw size={13} />
+            Move to Pending
+          </button>
+        )}
+      </div>
+    </motion.div>
+  )
 }
 
-function isToday(dateStr) {
-  const d = new Date(dateStr)
-  const now = new Date()
-  return d.toDateString() === now.toDateString()
-}
-
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function PortalTasks() {
   const now = new Date()
-  const [view, setView] = useState('today') // 'today' | 'week' | 'month'
+  const [view, setView] = useState('today')
   const [month, setMonth] = useState(now.getMonth() + 1)
-  const [year, setYear]   = useState(now.getFullYear())
-  const [records, setRecords] = useState([])
-  const [summary, setSummary] = useState(null)
+  const [year, setYear] = useState(now.getFullYear())
+  const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filterStatus, setFilterStatus] = useState('All') // 'All' | 'Completed' | 'In Progress' | 'Pending'
+  const [filterStatus, setFilterStatus] = useState('All')
+  const [actionLoading, setActionLoading] = useState(null) // taskId being acted upon
 
-  // Inject CSS
+  // Modals
+  const [conflictModal, setConflictModal] = useState(null)   // { task, pendingAction }
+  const [manualModal, setManualModal] = useState(null)       // { task, attendanceId }
+  const [manualSaving, setManualSaving] = useState(false)
+
+  // ── Inject CSS ──
   useEffect(() => {
-    const id = 'pt-styles'
+    const id = 'pt-v2-styles'
     if (!document.getElementById(id)) {
       const el = document.createElement('style')
       el.id = id; el.innerHTML = STYLES
@@ -97,13 +461,13 @@ export default function PortalTasks() {
     return () => { const el = document.getElementById(id); if (el) el.remove() }
   }, [])
 
-  const fetchData = useCallback(async () => {
+  // ── Fetch tasks ──
+  const fetchTasks = useCallback(async () => {
     setLoading(true)
     try {
-      const { month: m, year: y } = buildFilter(view, month, year)
-      const res = await api.get(`/attendance/history?month=${m}&year=${y}`)
-      setRecords(res.data.history || [])
-      setSummary(res.data.summary || null)
+      const params = view === 'month' ? `?month=${month}&year=${year}` : ''
+      const res = await api.get(`/attendance/tasks/today${params}`)
+      setTasks(res.data.tasks || [])
     } catch {
       toast.error('Failed to load tasks')
     } finally {
@@ -111,74 +475,188 @@ export default function PortalTasks() {
     }
   }, [view, month, year])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { fetchTasks() }, [fetchTasks])
 
-  // Filter records by view
-  const filteredRecords = useMemo(() => {
-    let recs = records.filter(r => Array.isArray(r.tasks) && r.tasks.length > 0)
-    if (view === 'today')  recs = recs.filter(r => isToday(r.date))
-    if (view === 'week')   recs = recs.filter(r => isThisWeek(r.date))
-    return recs
-  }, [records, view])
+  // ── Refresh live duration for running tasks every 30s ──
+  useEffect(() => {
+    const hasRunning = tasks.some(t => t.isRunning)
+    if (!hasRunning) return
+    const interval = setInterval(fetchTasks, 30000)
+    return () => clearInterval(interval)
+  }, [tasks, fetchTasks])
 
-  // Flat list of all tasks with parent date info
-  const allTasks = useMemo(() => {
-    const tasks = []
-    filteredRecords.forEach(record => {
-      (record.tasks || []).forEach(task => {
-        tasks.push({ ...task, _date: record.date, _recordId: record._id })
-      })
-    })
+  // ── Filter by view ──
+  const filteredByView = useMemo(() => {
+    if (view === 'today') return tasks.filter(t => isToday(t.taskDate))
+    if (view === 'week')  return tasks.filter(t => isThisWeek(t.taskDate))
     return tasks
-  }, [filteredRecords])
+  }, [tasks, view])
 
-  // Apply status filter
+  // ── Filter by status ──
   const visibleTasks = useMemo(() => {
-    if (filterStatus === 'All') return allTasks
-    return allTasks.filter(t => t.status === filterStatus)
-  }, [allTasks, filterStatus])
+    if (filterStatus === 'All') return filteredByView
+    if (filterStatus === 'Running') return filteredByView.filter(t => t.isRunning)
+    return filteredByView.filter(t => t.status === filterStatus)
+  }, [filteredByView, filterStatus])
 
-  // Aggregate counts
+  // ── Counts ──
   const counts = useMemo(() => ({
-    total: allTasks.length,
-    completed: allTasks.filter(t => t.status === 'Completed').length,
-    inProgress: allTasks.filter(t => t.status === 'In Progress').length,
-    pending: allTasks.filter(t => t.status === 'Pending').length,
-  }), [allTasks])
+    total: filteredByView.length,
+    completed: filteredByView.filter(t => t.status === 'Completed').length,
+    inProgress: filteredByView.filter(t => t.status === 'In Progress').length,
+    pending: filteredByView.filter(t => t.status === 'Pending').length,
+    running: filteredByView.filter(t => t.isRunning).length,
+  }), [filteredByView])
 
   const completionRate = counts.total ? Math.round((counts.completed / counts.total) * 100) : 0
+
+  // ── Group by date ──
+  const groupedByDate = useMemo(() => {
+    const map = {}
+    visibleTasks.forEach(task => {
+      const key = new Date(task.taskDate).toDateString()
+      if (!map[key]) map[key] = { dateStr: task.taskDate, tasks: [] }
+      map[key].tasks.push(task)
+    })
+    return Object.values(map).sort((a, b) => new Date(b.dateStr) - new Date(a.dateStr))
+  }, [visibleTasks])
+
+  // ── Check for running task in current view ──
+  const runningTask = useMemo(() => filteredByView.find(t => t.isRunning), [filteredByView])
 
   const prevMonth = () => { if (month === 1) { setMonth(12); setYear(y => y - 1) } else setMonth(m => m - 1) }
   const nextMonth = () => { if (month === 12) { setMonth(1); setYear(y => y + 1) } else setMonth(m => m + 1) }
 
-  // Group by date for display
-  const groupedByDate = useMemo(() => {
-    const map = {}
-    visibleTasks.forEach(task => {
-      const key = task._date
-      if (!map[key]) map[key] = []
-      map[key].push(task)
-    })
-    return Object.entries(map).sort((a, b) => new Date(b[0]) - new Date(a[0]))
-  }, [visibleTasks])
+  // ── Action handler ──
+  const handleAction = useCallback(async (task, action, confirmed = false) => {
+    // If starting a task and there's already a running task (not this one), show conflict modal
+    if (action === 'start' && runningTask && runningTask._id !== task._id && !confirmed) {
+      setConflictModal({ task, pendingAction: action })
+      return
+    }
+
+    setActionLoading(task._id)
+    try {
+      const res = await api.patch(
+        `/attendance/tasks/${task.attendanceId}/${task._id}/status`,
+        { action }
+      )
+
+      if (res.data.needsManualDuration) {
+        // Show manual duration modal
+        setManualModal({ task, attendanceId: task.attendanceId })
+        return
+      }
+
+      // Update the task in local state for instant feedback
+      setTasks(prev => prev.map(t => {
+        if (t._id === task._id) {
+          return { ...t, ...res.data.task }
+        }
+        // If there was a stopped previous task, update it too
+        if (res.data.stoppedPreviousTask && t._id === res.data.stoppedPreviousTask.taskId?.toString()) {
+          return { ...t, isRunning: false, durationMinutes: res.data.stoppedPreviousTask.durationMinutes }
+        }
+        return t
+      }))
+
+      const messages = {
+        start: '▶ Task started',
+        complete: '✓ Task completed',
+        pending: '↩ Moved to Pending'
+      }
+      toast.success(messages[action] || 'Updated')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update task')
+    } finally {
+      setActionLoading(null)
+      setConflictModal(null)
+    }
+  }, [runningTask])
+
+  // ── Manual duration save ──
+  const handleManualDuration = async (hours, minutes) => {
+    if (!manualModal) return
+    setManualSaving(true)
+    try {
+      const res = await api.patch(
+        `/attendance/tasks/${manualModal.attendanceId}/${manualModal.task._id}/manual-duration`,
+        { hours, minutes }
+      )
+      setTasks(prev => prev.map(t =>
+        t._id === manualModal.task._id ? { ...t, ...res.data.task } : t
+      ))
+      toast.success(`✓ Task completed: ${hours}h ${minutes}m recorded`)
+      setManualModal(null)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save duration')
+    } finally {
+      setManualSaving(false)
+    }
+  }
 
   return (
     <PageShell>
+      {/* ── Conflict Modal ── */}
+      <AnimatePresence>
+        {conflictModal && (
+          <ConflictModal
+            task={conflictModal.task}
+            onConfirm={() => handleAction(conflictModal.task, 'start', true)}
+            onCancel={() => setConflictModal(null)}
+          />
+        )}
+        {manualModal && (
+          <ManualDurationModal
+            task={manualModal.task}
+            onSave={handleManualDuration}
+            onCancel={() => setManualModal(null)}
+            saving={manualSaving}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ── Header ── */}
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: 'var(--text)' }}>My Tasks</h1>
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: 'var(--text)' }}>
+          My Tasks
+        </h1>
         <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>
-          All tasks you submitted during punch-in & punch-out
+          Manage task status and track time independently of your punch schedule.
         </p>
       </div>
 
-      {/* ── View Tabs ── */}
+      {/* ── Running task banner ── */}
+      <AnimatePresence>
+        {runningTask && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            style={{
+              background: 'linear-gradient(135deg, rgba(245,158,11,.12), rgba(245,158,11,.06))',
+              border: '1px solid rgba(245,158,11,.35)',
+              borderRadius: 12, padding: '12px 16px', marginBottom: 16,
+              display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+            }}
+          >
+            <span className="pt-pulse-dot" />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#92400e' }}>Task in progress: </span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#78350f' }}>{runningTask.description}</span>
+            </div>
+            <LiveTimer startedAt={runningTask.startedAt} baseDurationMinutes={runningTask.durationMinutes || 0} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── View Tabs + Month nav ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 18 }}>
         <div style={{ display: 'flex', gap: 6, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, padding: 4 }}>
           {[
-            { id: 'today', label: 'Today',  icon: Calendar },
-            { id: 'week',  label: 'This Week', icon: CalendarDays },
-            { id: 'month', label: 'Monthly', icon: TrendingUp },
+            { id: 'today', label: 'Today',      icon: Calendar },
+            { id: 'week',  label: 'This Week',  icon: CalendarDays },
+            { id: 'month', label: 'Monthly',    icon: TrendingUp },
           ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -191,7 +669,6 @@ export default function PortalTasks() {
           ))}
         </div>
 
-        {/* Month nav — only shown in monthly view */}
         {view === 'month' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '3px 6px' }}>
             <button onClick={prevMonth} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px 6px', color: 'var(--text)' }}>
@@ -208,12 +685,12 @@ export default function PortalTasks() {
       </div>
 
       {/* ── Stat Cards ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px,1fr))', gap: 10, marginBottom: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px,1fr))', gap: 10, marginBottom: 16 }}>
         {[
-          { label: 'Total',      value: counts.total,      icon: ListChecks,   bg: '#f1f5f9', color: '#475569' },
-          { label: 'Completed',  value: counts.completed,  icon: CheckCircle2, bg: '#e5ebdd', color: '#58833b' },
-          { label: 'In Progress',value: counts.inProgress, icon: Clock,        bg: '#fff7ed', color: '#b45309' },
-          { label: 'Pending',    value: counts.pending,    icon: AlertCircle,  bg: '#fef2f2', color: '#991b1b' },
+          { label: 'Total',       value: counts.total,      icon: ListChecks,   bg: '#f1f5f9', color: '#475569' },
+          { label: 'Completed',   value: counts.completed,  icon: CheckCircle2, bg: '#e5f0d8', color: '#58833b' },
+          { label: 'In Progress', value: counts.inProgress, icon: Clock,        bg: '#eff6ff', color: '#2563eb' },
+          { label: 'Pending',     value: counts.pending,    icon: AlertCircle,  bg: '#fef2f2', color: '#991b1b' },
         ].map(({ label, value, icon: Icon, bg, color }) => (
           <div key={label} className="pt-stat">
             <div style={{ width: 34, height: 34, borderRadius: 9, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -230,32 +707,37 @@ export default function PortalTasks() {
       {/* ── Progress bar ── */}
       {counts.total > 0 && (
         <div style={{ marginBottom: 16, padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>Completion Rate</span>
             <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--primary)' }}>{completionRate}%</span>
           </div>
-          <div style={{ height: 6, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}>
-            <div style={{ width: `${completionRate}%`, height: '100%', background: 'linear-gradient(90deg, #58833b, #7da859)', borderRadius: 999, transition: 'width 0.5s ease' }} />
+          <div className="pt-progress">
+            <div className="pt-progress-fill" style={{ width: `${completionRate}%` }} />
           </div>
         </div>
       )}
 
       {/* ── Status Filter Chips ── */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
-        {['All', 'Completed', 'In Progress', 'Pending'].map(s => (
+        {[
+          { id: 'All',         label: `All (${counts.total})` },
+          { id: 'In Progress', label: `In Progress (${counts.inProgress})` },
+          { id: 'Pending',     label: `Pending (${counts.pending})` },
+          { id: 'Completed',   label: `Completed (${counts.completed})` },
+          ...(counts.running > 0 ? [{ id: 'Running', label: `🟡 Running (${counts.running})` }] : []),
+        ].map(({ id, label }) => (
           <button
-            key={s}
-            onClick={() => setFilterStatus(s)}
+            key={id}
+            onClick={() => setFilterStatus(id)}
             style={{
-              padding: '5px 14px', borderRadius: 999,
-              background: filterStatus === s ? 'var(--primary)' : 'var(--bg)',
-              color: filterStatus === s ? '#fff' : 'var(--text-muted)',
-              fontWeight: 600, fontSize: 12, cursor: 'pointer',
-              border: filterStatus === s ? '1px solid transparent' : '1px solid var(--border)',
+              padding: '5px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              background: filterStatus === id ? 'var(--primary)' : 'var(--bg)',
+              color: filterStatus === id ? '#fff' : 'var(--text-muted)',
+              border: filterStatus === id ? '1px solid transparent' : '1px solid var(--border)',
               transition: 'all .15s',
             }}
           >
-            {s} {s === 'All' ? `(${counts.total})` : s === 'Completed' ? `(${counts.completed})` : s === 'In Progress' ? `(${counts.inProgress})` : `(${counts.pending})`}
+            {label}
           </button>
         ))}
       </div>
@@ -266,75 +748,43 @@ export default function PortalTasks() {
           <Loader2 size={28} className="animate-spin" style={{ color: 'var(--primary)' }} />
         </div>
       ) : groupedByDate.length === 0 ? (
-        <div style={{ padding: 52, textAlign: 'center', background: 'var(--surface)', borderRadius: 12, border: '1px dashed var(--border)' }}>
+        <div style={{ padding: 52, textAlign: 'center', background: 'var(--surface)', borderRadius: 14, border: '1px dashed var(--border)' }}>
           <ListChecks size={36} color="var(--text-light)" style={{ marginBottom: 10 }} />
           <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>No tasks found</div>
           <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-            {view === 'today' ? 'No tasks submitted today.' : view === 'week' ? 'No tasks this week.' : `No tasks for ${MONTHS[month - 1]} ${year}.`}
+            {view === 'today' ? 'No tasks logged today. Tasks are created when you punch in.' : view === 'week' ? 'No tasks this week.' : `No tasks for ${MONTHS[month - 1]} ${year}.`}
           </div>
         </div>
       ) : (
         <AnimatePresence>
-          {groupedByDate.map(([dateStr, tasks]) => (
-            <motion.div
-              key={dateStr}
-              className="pt-card"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.18 }}
-            >
-              {/* Day header */}
-              <div className="pt-day-head">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <CalendarDays size={14} color="var(--primary)" />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
-                    {fmtDate(dateStr)}
-                    {isToday(dateStr) && (
-                      <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: 'rgba(88,131,59,0.12)', color: 'var(--primary)' }}>
-                        Today
-                      </span>
-                    )}
-                  </span>
-                </div>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
-                  {tasks.filter(t => t.status === 'Completed').length}/{tasks.length} done
+          {groupedByDate.map(({ dateStr, tasks: dayTasks }) => (
+            <div key={dateStr} className="pt-date-section">
+              {/* Date label */}
+              <div className="pt-date-label">
+                <CalendarDays size={14} color="var(--primary)" />
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
+                  {fmtDate(dateStr)}
+                  {isToday(dateStr) && (
+                    <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: 'rgba(88,131,59,.12)', color: 'var(--primary)' }}>
+                      Today
+                    </span>
+                  )}
+                </span>
+                <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
+                  {dayTasks.filter(t => t.status === 'Completed').length}/{dayTasks.length} done
                 </span>
               </div>
 
-              {/* Task rows */}
-              {tasks.map((task, idx) => (
-                <div key={idx} className="pt-task-row" style={{ gridTemplateColumns: 'auto 1fr auto' }}>
-                  {/* Status indicator dot */}
-                  <div style={{
-                    width: 10, height: 10, borderRadius: '50%', flexShrink: 0, marginTop: 4,
-                    background: task.status === 'Completed' ? '#58833b' : task.status === 'In Progress' ? '#f59e0b' : '#d1d5db',
-                    boxShadow: task.status === 'Completed' ? '0 0 0 3px rgba(88,131,59,0.15)' : 'none',
-                  }} />
-
-                  <div style={{ minWidth: 0 }}>
-                    {/* Project name */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
-                      <Briefcase size={12} color="var(--text-muted)" />
-                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)' }}>
-                        {task.project || 'Untitled Project'}
-                      </span>
-                    </div>
-                    {/* Task description */}
-                    <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5, fontWeight: 500 }}>
-                      {task.description || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No description</span>}
-                    </div>
-                    {/* Notes */}
-                    {task.notes && (
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, fontStyle: 'italic' }}>
-                        Note: {task.notes}
-                      </div>
-                    )}
-                  </div>
-
-                  <StatusPill status={task.status} />
-                </div>
+              {/* Task cards */}
+              {dayTasks.map(task => (
+                <TaskCard
+                  key={task._id}
+                  task={task}
+                  onAction={handleAction}
+                  actionLoading={actionLoading}
+                />
               ))}
-            </motion.div>
+            </div>
           ))}
         </AnimatePresence>
       )}

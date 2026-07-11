@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Calendar, CheckCircle2, Clock, ListChecks, Loader2, MoreHorizontal } from 'lucide-react'
+import { ArrowLeft, Calendar, CheckCircle2, Clock, ListChecks, Loader2, MoreHorizontal, Timer, Play, Square } from 'lucide-react'
 import PageShell, { PageLoading } from '../components/PageShell'
 import { Avatar } from '../components/UI'
 import api from '../api'
@@ -24,12 +24,32 @@ const formatTime = (value) => {
   return new Date(value).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
 }
 
-const getStatusColor = (status) => {
+const getStatusColor = (status, isRunning) => {
+  if (isRunning) return { bg: '#fef3c7', color: '#92400e' }
   switch (status) {
     case 'Completed': return { bg: '#e5ebdd', color: '#58833b' }
-    case 'In Progress': return { bg: '#ffedd5', color: '#c2410c' }
+    case 'In Progress': return { bg: '#dbeafe', color: '#1e40af' }
     default: return { bg: '#f1f5f9', color: '#475569' }
   }
+}
+
+const fmtDuration = (minutes) => {
+  if (!minutes || minutes <= 0) return null
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h === 0) return `${m}m`
+  return `${h}h ${String(m).padStart(2, '0')}m`
+}
+
+// Pulse dot for running tasks
+function PulseDot() {
+  return (
+    <span style={{
+      display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
+      background: '#f59e0b', marginRight: 4,
+      animation: 'spd-pulse 1.2s ease-in-out infinite'
+    }} />
+  )
 }
 
 const StatCard = ({ icon: Icon, label, value, color }) => (
@@ -45,15 +65,20 @@ const StatCard = ({ icon: Icon, label, value, color }) => (
 )
 
 const TaskRow = ({ task }) => {
-  const colors = getStatusColor(task.status)
+  const isRunning = !!task.isRunning
+  const colors = getStatusColor(task.status, isRunning)
+  const duration = fmtDuration(task.durationMinutes)
+
   return (
     <div style={{
-      padding: 14,
-      borderRadius: 10,
-      border: '1px solid var(--border)',
-      background: 'var(--bg)',
-      marginBottom: 10
+      padding: 14, borderRadius: 10, marginBottom: 10,
+      border: `1px solid ${isRunning ? 'rgba(245,158,11,.4)' : 'var(--border)'}`,
+      background: isRunning ? 'rgba(254,243,199,.4)' : 'var(--bg)',
+      boxShadow: isRunning ? '0 0 0 3px rgba(245,158,11,.08)' : 'none',
+      transition: 'all .2s',
     }}>
+      <style>{`@keyframes spd-pulse{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.6)}50%{box-shadow:0 0 0 5px rgba(245,158,11,0)}}`}</style>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>
@@ -64,17 +89,48 @@ const TaskRow = ({ task }) => {
           </div>
         </div>
         <span style={{
-          padding: '4px 10px',
-          borderRadius: 999,
-          background: colors.bg,
-          color: colors.color,
-          fontSize: 11,
-          fontWeight: 700,
-          whiteSpace: 'nowrap'
+          padding: '4px 10px', borderRadius: 999,
+          background: colors.bg, color: colors.color,
+          fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
+          display: 'inline-flex', alignItems: 'center',
         }}>
-          {task.status}
+          {isRunning && <PulseDot />}
+          {isRunning ? 'Running' : task.status}
         </span>
       </div>
+
+      {/* Time tracking info */}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
+        {task.startedAt && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <Play size={10} color="#3b82f6" />
+            <span>Started: <strong style={{ color: 'var(--text)' }}>{formatTime(task.startedAt)}</strong></span>
+          </div>
+        )}
+        {task.completedAt && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <Square size={10} color="#58833b" />
+            <span>Completed: <strong style={{ color: 'var(--text)' }}>{formatTime(task.completedAt)}</strong></span>
+          </div>
+        )}
+        {duration && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <Timer size={10} color="var(--text-muted)" />
+            <span>Duration: <strong style={{ color: 'var(--text)' }}>{duration}</strong></span>
+          </div>
+        )}
+        {isRunning && task.liveDurationFormatted && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            background: 'rgba(245,158,11,.15)', border: '1px solid rgba(245,158,11,.3)',
+            borderRadius: 6, padding: '2px 8px', color: '#92400e', fontWeight: 700,
+          }}>
+            <Timer size={10} />
+            {task.liveDurationFormatted}
+          </div>
+        )}
+      </div>
+
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 11, color: 'var(--text-muted)' }}>
         <div>Assigned: {formatDate(task.taskDate)}</div>
         {task.punchIn && <div>Punch In: {formatTime(task.punchIn)}</div>}

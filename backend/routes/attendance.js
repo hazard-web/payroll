@@ -456,6 +456,322 @@ router.post('/punch-out', authStaff, async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────
+// TASK MANAGEMENT ENDPOINTS (Independent of Punch-In/Out)
+// ─────────────────────────────────────────────────────────────
+
+// Helper: calculate elapsed minutes from startedAt to now
+const calcElapsedMinutes = (startedAt) => {
+  if (!startedAt) return 0;
+  return Math.round((Date.now() - new Date(startedAt).getTime()) / 60000);
+};
+
+// Helper: format duration as "1h 25m"
+const formatDurationMinutes = (minutes) => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}m`;
+  return `${h}h ${String(m).padStart(2, '0')}m`;
+};
+
+// GET /api/attendance/tasks/today — Get today's tasks for the authenticated staff
+router.get('/tasks/today', authStaff, async (req, res) => {
+  try {
+    const today = getStartOfDay();
+    // Also include tasks from all recent attendance records (for the tasks view)
+    const { month, year } = req.query;
+    let filter = { staff: req.staff._id };
+
+    if (month && year) {
+      const m = parseInt(month);
+      const y = parseInt(year);
+      filter.date = {
+        $gte: new Date(Date.UTC(y, m - 1, 1)),
+        $lt: new Date(Date.UTC(y, m, 1))
+      };
+    } else {
+      // Default: today only
+      filter.date = { $gte: today, $lt: new Date(today.getTime() + 86400000) };
+    }
+
+    const records = await Attendance.find(filter).sort({ date: -1 }).lean();
+
+    const nowMs = Date.now();
+    const allTasks = [];
+    records.forEach(record => {
+      (record.tasks || []).forEach(task => {
+        // Compute live elapsed if running
+        let liveDurationMinutes = task.durationMinutes || 0;
+        if (task.isRunning && task.startedAt) {
+          const elapsed = Math.round((nowMs - new Date(task.startedAt).getTime()) / 60000);
+          liveDurationMinutes = (task.durationMinutes || 0) + elapsed;
+        }
+        allTasks.push({
+          ...task,
+          attendanceId: record._id,
+          taskDate: record.date,
+          liveDurationMinutes,
+          liveDurationFormatted: formatDurationMinutes(liveDurationMinutes),
+        });
+      });
+    });
+
+    res.json({ success: true, tasks: allTasks, records: records.map(r => ({
+      _id: r._id,
+      date: r.date,
+      punchIn: r.punchIn,
+      punchOut: r.punchOut,
+      workStatus: r.workStatus,
+    }))});
+  } catch (err) {
+    console.error('Tasks/today error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch tasks' });
+  }
+});
+
+// PATCH /api/attendance/tasks/:attendanceId/:taskId/status — Change task status
+// Body: { action: 'start' | 'complete' | 'pending' }
+router.patch('/tasks/:attendanceId/:taskId/status', authStaff, async (req, res) => {
+  try {
+    const { attendanceId, taskId } = req.params;
+    const { action } = req.body;
+
+    if (!['start', 'complete', 'pending'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'Invalid action. Use: start, complete, pending' });
+    }
+
+    const attendance = await Attendance.findOne({
+      _id: attendanceId,
+      staff: req.staff._id,
+    });
+
+    if (!attendance) {
+      return res.status(404).json({ success: false, message: 'Attendance record not found' });
+    }
+
+    // Find the task in the top-level tasks array
+    const taskIndex = attendance.tasks.findIndex(t => t._id.toString() === taskId);
+    if (taskIndex === -1) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    const task = attendance.tasks[taskIndex];
+    const now = new Date();
+    let stoppedPreviousTask = null;
+
+    if (action === 'start') {
+      // ── Check for another running task across ALL attendance records today ──
+      const today = getStartOfDay();
+      const allTodayRecords = await Attendance.find({
+        staff: req.staff._id,
+        date: { $gte: today, $lt: new Date(today.getTime() + 86400000) }
+      });
+
+      for (const rec of allTodayRecords) {
+        const runningTaskIdx = rec.tasks.findIndex(t =>
+          t.isRunning && t._id.toString() !== taskId
+        );
+        if (runningTaskIdx !== -1) {
+          const runningTask = rec.tasks[runningTaskIdx];
+          // Stop the running task and save elapsed time
+          const elapsed = calcElapsedMinutes(runningTask.startedAt);
+          runningTask.durationMinutes = (runningTask.durationMinutes || 0) + elapsed;
+          runningTask.isRunning = false;
+          runningTask.status = 'In Progress'; // keep In Progress, just stop timer
+          runningTask.lastUpdated = now;
+          stoppedPreviousTask = {
+            taskId: runningTask._id,
+            description: runningTask.description,
+            durationMinutes: runningTask.durationMinutes
+          };
+          await rec.save();
+          break;
+        }
+      }
+
+      // ── Start this task ──
+      task.status = 'In Progress';
+      task.startedAt = task.startedAt || now; // don't overwrite if already set
+      task.isRunning = true;
+      task.lastUpdated = now;
+
+    } else if (action === 'complete') {
+      // Check if task was never started
+      if (!task.startedAt) {
+        return res.json({
+          success: true,
+          needsManualDuration: true,
+          message: 'Start time not found. Please enter duration manually.',
+          taskId: task._id,
+          attendanceId: attendance._id,
+        });
+      }
+
+      // Calculate duration
+      const elapsed = calcElapsedMinutes(task.startedAt);
+      task.durationMinutes = (task.durationMinutes || 0) + elapsed;
+      task.status = 'Completed';
+      task.completedAt = now;
+      task.isRunning = false;
+      task.lastUpdated = now;
+
+    } else if (action === 'pending') {
+      // Stop timer if running and save elapsed time
+      if (task.isRunning && task.startedAt) {
+        const elapsed = calcElapsedMinutes(task.startedAt);
+        task.durationMinutes = (task.durationMinutes || 0) + elapsed;
+      }
+      task.status = 'Pending';
+      task.isRunning = false;
+      task.completedAt = null;
+      task.lastUpdated = now;
+    }
+
+    // Sync back to sessions array if present
+    if (Array.isArray(attendance.sessions)) {
+      for (const session of attendance.sessions) {
+        if (Array.isArray(session.tasks)) {
+          const sidx = session.tasks.findIndex(t => t._id && t._id.toString() === taskId);
+          if (sidx !== -1) {
+            session.tasks[sidx] = { ...session.tasks[sidx].toObject?.() || session.tasks[sidx], ...task.toObject?.() || task };
+            break;
+          }
+        }
+      }
+    }
+
+    await attendance.save();
+
+    const nowMs = Date.now();
+    let liveDurationMinutes = task.durationMinutes || 0;
+    if (task.isRunning && task.startedAt) {
+      liveDurationMinutes += Math.round((nowMs - new Date(task.startedAt).getTime()) / 60000);
+    }
+
+    res.json({
+      success: true,
+      message: `Task ${action === 'start' ? 'started' : action === 'complete' ? 'completed' : 'moved to pending'}`,
+      task: { ...task.toObject(), liveDurationMinutes, liveDurationFormatted: formatDurationMinutes(liveDurationMinutes) },
+      stoppedPreviousTask,
+    });
+  } catch (err) {
+    console.error('Task status update error:', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed to update task status' });
+  }
+});
+
+// PATCH /api/attendance/tasks/:attendanceId/:taskId/manual-duration — Save manual duration
+// Body: { hours: number, minutes: number }
+router.patch('/tasks/:attendanceId/:taskId/manual-duration', authStaff, async (req, res) => {
+  try {
+    const { attendanceId, taskId } = req.params;
+    const { hours = 0, minutes = 0 } = req.body;
+
+    const totalMinutes = (parseInt(hours) || 0) * 60 + (parseInt(minutes) || 0);
+    if (totalMinutes <= 0) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid duration (at least 1 minute)' });
+    }
+
+    const attendance = await Attendance.findOne({
+      _id: attendanceId,
+      staff: req.staff._id,
+    });
+
+    if (!attendance) {
+      return res.status(404).json({ success: false, message: 'Attendance record not found' });
+    }
+
+    const taskIndex = attendance.tasks.findIndex(t => t._id.toString() === taskId);
+    if (taskIndex === -1) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    const now = new Date();
+    const task = attendance.tasks[taskIndex];
+    task.durationMinutes = totalMinutes;
+    task.status = 'Completed';
+    task.completedAt = now;
+    task.isRunning = false;
+    task.lastUpdated = now;
+    // Estimate startedAt from manual duration
+    if (!task.startedAt) {
+      task.startedAt = new Date(now.getTime() - totalMinutes * 60000);
+    }
+
+    await attendance.save();
+
+    res.json({
+      success: true,
+      message: `Task marked as completed with ${hours}h ${minutes}m duration`,
+      task: { ...task.toObject(), liveDurationFormatted: formatDurationMinutes(totalMinutes) },
+    });
+  } catch (err) {
+    console.error('Manual duration error:', err);
+    res.status(500).json({ success: false, message: err.message || 'Failed to save duration' });
+  }
+});
+
+// GET /api/attendance/tasks/admin/team — Admin: view all team tasks with running indicators
+router.get('/tasks/admin/team', authAdmin, async (req, res) => {
+  try {
+    const today = getStartOfDay();
+    const { date } = req.query;
+    const targetDate = date ? new Date(date) : today;
+    targetDate.setUTCHours(0, 0, 0, 0);
+
+    const records = await Attendance.find({
+      admin: req.user._id,
+      date: { $gte: targetDate, $lt: new Date(targetDate.getTime() + 86400000) }
+    })
+      .populate('staff', 'fullName employeeId designation department')
+      .lean();
+
+    const nowMs = Date.now();
+    const teamTasks = [];
+
+    records.forEach(record => {
+      (record.tasks || []).forEach(task => {
+        let liveDurationMinutes = task.durationMinutes || 0;
+        if (task.isRunning && task.startedAt) {
+          const elapsed = Math.round((nowMs - new Date(task.startedAt).getTime()) / 60000);
+          liveDurationMinutes = (task.durationMinutes || 0) + elapsed;
+        }
+        teamTasks.push({
+          ...task,
+          attendanceId: record._id,
+          taskDate: record.date,
+          staff: record.staff,
+          liveDurationMinutes,
+          liveDurationFormatted: formatDurationMinutes(liveDurationMinutes),
+        });
+      });
+    });
+
+    // Sort: running first, then In Progress, then Pending, then Completed
+    const statusOrder = { 'In Progress': 0, 'Pending': 1, 'Completed': 2 };
+    teamTasks.sort((a, b) => {
+      if (a.isRunning && !b.isRunning) return -1;
+      if (!a.isRunning && b.isRunning) return 1;
+      return (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
+    });
+
+    res.json({
+      success: true,
+      tasks: teamTasks,
+      summary: {
+        total: teamTasks.length,
+        running: teamTasks.filter(t => t.isRunning).length,
+        inProgress: teamTasks.filter(t => t.status === 'In Progress').length,
+        completed: teamTasks.filter(t => t.status === 'Completed').length,
+        pending: teamTasks.filter(t => t.status === 'Pending').length,
+      }
+    });
+  } catch (err) {
+    console.error('Admin team tasks error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch team tasks' });
+  }
+});
+
 // GET /api/attendance/today
 router.get('/today', authStaff, async (req, res) => {
   try {

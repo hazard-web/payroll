@@ -240,13 +240,24 @@ router.get('/profile', auth, async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 router.put('/profile', auth, async (req, res, next) => {
   try {
-    const updates = ['companyName', 'companyAddress', 'companyPhone', 'companyEmail', 'companyCIN', 'companyGST', 'companyWebsite', 'companyLogo'];
-    updates.forEach(field => {
-      if (req.body[field] !== undefined) req.user[field] = req.body[field];
+    // req.user may be a lean() plain object from the auth cache (no .save()).
+    // Always fetch a full Mongoose document for any write operation.
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const allowedFields = ['companyName', 'companyAddress', 'companyPhone', 'companyEmail', 'companyCIN', 'companyGST', 'companyWebsite', 'companyLogo'];
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) user[field] = req.body[field];
     });
-    
-    await req.user.save();
-    res.json({ success: true, message: 'Profile updated', user: req.user });
+
+    await user.save();
+
+    // Bust the in-process auth cache so the next GET /profile returns
+    // the freshly saved data instead of the stale lean object.
+    const token = req.token;
+    if (token) authCache.delete(token);
+
+    res.json({ success: true, message: 'Profile updated', user: user.toObject() });
   } catch (err) {
     console.error('Profile update error:', err);
     return next(err);

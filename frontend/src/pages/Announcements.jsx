@@ -340,18 +340,36 @@ export default function Announcements() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 8 }}>
-            <InputField
-              label="Start Date (Optional)"
-              type="date"
-              value={formData.startDate}
-              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-            />
-            <InputField
-              label="End Date (Optional)"
-              type="date"
-              value={formData.endDate}
-              onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-            />
+            <div style={{ marginBottom: 0 }}>
+              <label className="label">Start Date <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}>(Optional)</span></label>
+              <input
+                type="date"
+                value={formData.startDate}
+                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                style={{
+                  width: '100%', padding: '0 12px', height: 36, borderRadius: 6,
+                  border: '0.5px solid var(--border)', background: 'var(--surface)',
+                  color: 'var(--text)', fontSize: 14, outline: 'none',
+                  boxSizing: 'border-box', cursor: 'pointer',
+                  colorScheme: 'light dark',
+                }}
+              />
+            </div>
+            <div style={{ marginBottom: 0 }}>
+              <label className="label">End Date <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}>(Optional)</span></label>
+              <input
+                type="date"
+                value={formData.endDate}
+                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                style={{
+                  width: '100%', padding: '0 12px', height: 36, borderRadius: 6,
+                  border: '0.5px solid var(--border)', background: 'var(--surface)',
+                  color: 'var(--text)', fontSize: 14, outline: 'none',
+                  boxSizing: 'border-box', cursor: 'pointer',
+                  colorScheme: 'light dark',
+                }}
+              />
+            </div>
           </div>
           <p className="text-muted" style={{ fontSize: 12 }}>
             Leave dates blank for announcements with no time restriction. Active announcements are shown on the Team Portal and Dashboard.
