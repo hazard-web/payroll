@@ -72,6 +72,7 @@ export default function GeneratePayslip() {
   const [selectedStaffId, setSelectedStaffId] = useState(staffId || null)
   const [attendanceLoading, setAttendanceLoading] = useState(false)
   const [workingDaysPeriod, setWorkingDaysPeriod] = useState(null)
+  const [payrollBreakdown, setPayrollBreakdown] = useState(null) // { workingDays, presentDays, paidLeaveDays, lwpDays, absentDays, paidDays }
 
   // Helper: count Mon–Fri days between two dates (inclusive)
   function countWorkingDays(start, end) {
@@ -165,46 +166,52 @@ export default function GeneratePayslip() {
 
   const [submitting, setSubmitting] = useState(false)
 
-  // Auto-calculate Paid Days from real attendance when staff + month/year is set
-  useEffect(() => {
-    if (!selectedStaffId) return;
-    const monthIndex = MONTHS.indexOf(form.month) + 1;
-    const year = parseInt(form.year);
-    if (!monthIndex || !year) return;
-    setAttendanceLoading(true);
-    api.get('/attendance/admin/monthly', { params: { month: monthIndex, year }, __skipCache: true })
-      .then(res => {
-        const records = res.data.data || [];
-        const staffRecords = records.filter(r => {
-          const rId = r.staff?._id || r.staff;
-          return String(rId) === String(selectedStaffId);
-        });
-        const paid = staffRecords.filter(r => r.status === 'complete' || r.status === 'flagged').length;
-        setForm(f => ({ ...f, paidDays: paid }));
-      })
-      .catch(err => console.error('Attendance fetch error:', err))
-      .finally(() => setAttendanceLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStaffId, form.month, form.year]);
-
-  // Auto-calculate Working Days = Mon–Fri days in the selected month & year
+  // ── Payroll calculation: fetch full breakdown when staff + month + year changes ──
   useEffect(() => {
     const monthIndex = MONTHS.indexOf(form.month); // 0-based
     const year = parseInt(form.year);
     if (monthIndex === -1 || !year) return;
 
-    // First day and last day of the selected month
+    // Always compute working days locally (Mon–Fri for the month)
     const start = new Date(year, monthIndex, 1);
-    const end = new Date(year, monthIndex + 1, 0); // last day of month
-    const count = countWorkingDays(start, end);
-    setForm(f => ({ ...f, workingDays: count }));
-    setWorkingDaysPeriod({
-      from: start.toISOString().split('T')[0],
-      to: end.toISOString().split('T')[0],
-      count,
-    });
+    const end = new Date(year, monthIndex + 1, 0);
+    const localWorkingDays = countWorkingDays(start, end);
+
+    if (!selectedStaffId) {
+      // No staff selected — just show working days, reset paid days
+      setForm(f => ({ ...f, workingDays: localWorkingDays, paidDays: 0 }));
+      setWorkingDaysPeriod({ count: localWorkingDays });
+      setPayrollBreakdown(null);
+      return;
+    }
+
+    // Staff selected — fetch full payroll summary from backend
+    setAttendanceLoading(true);
+    setPayrollBreakdown(null);
+    api.get('/attendance/admin/payroll-summary', {
+      params: { staffId: selectedStaffId, month: monthIndex + 1, year },
+      __skipCache: true,
+    })
+      .then(res => {
+        const s = res.data.summary;
+        setPayrollBreakdown(s);
+        setForm(f => ({
+          ...f,
+          workingDays: s.workingDays,
+          paidDays:    s.paidDays,
+        }));
+        setWorkingDaysPeriod({ count: s.workingDays });
+      })
+      .catch(err => {
+        console.error('Payroll summary error:', err);
+        // Fallback: just set working days locally, leave paid days as-is
+        setForm(f => ({ ...f, workingDays: localWorkingDays }));
+        setWorkingDaysPeriod({ count: localWorkingDays });
+      })
+      .finally(() => setAttendanceLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.month, form.year]);
+  }, [selectedStaffId, form.month, form.year]);
+
 
   const totals = useMemo(() => {
     const annualCTC = parseFloat(form.annualCTC) || 0;
@@ -425,7 +432,7 @@ export default function GeneratePayslip() {
                   <div className="panel" style={{ padding: 'var(--space-5)' }}>
                     <div className="form-grid-2" style={{ marginBottom: 0 }}>
                       <InputField
-                        label={workingDaysPeriod ? `Working Days — ${form.month} ${form.year}` : 'Working Days'}
+                        label={`Working Days — ${form.month} ${form.year}`}
                         required
                         type="number"
                         min="0"
@@ -434,28 +441,67 @@ export default function GeneratePayslip() {
                         onChange={e => setForm({...form, workingDays: Math.max(0, parseInt(e.target.value) || 0)})}
                       />
                       <InputField
-                        label={attendanceLoading ? 'Paid Days (fetching…)' : selectedStaffId ? 'Paid Days (from attendance)' : 'Paid Days'}
+                        label={attendanceLoading ? 'Paid Days (calculating…)' : selectedStaffId ? 'Paid Days (auto)' : 'Paid Days'}
                         required
                         type="number"
                         min="0"
                         max="31"
                         value={form.paidDays}
-                        onChange={e => setForm({...form, paidDays: Math.max(0, parseInt(e.target.value) || 0)})}
+                        onChange={e => setForm({...form, paidDays: Math.min(form.workingDays, Math.max(0, parseInt(e.target.value) || 0))})}
                       />
                     </div>
-                    {workingDaysPeriod && (
-                      <p style={{ margin: '8px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>
-                        📅 {workingDaysPeriod.count} working days (Mon–Fri) in <strong>{form.month} {form.year}</strong>. You can edit manually.
-                      </p>
+
+                    {/* Payroll Breakdown Panel */}
+                    {attendanceLoading && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 12, color: 'var(--text-muted)' }}>
+                        <Loader2 size={13} className="animate-spin" />
+                        Calculating from attendance &amp; leave records…
+                      </div>
                     )}
-                    {selectedStaffId && (
-                      <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>
-                        ✓ Paid Days auto-fetched from attendance for {form.month} {form.year}. Edit manually if needed.
+
+                    {!attendanceLoading && payrollBreakdown && (
+                      <div style={{
+                        marginTop: 14, padding: '12px 14px',
+                        background: 'var(--bg)', borderRadius: 8,
+                        border: '1px solid var(--border)',
+                      }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>
+                          Payroll Breakdown — {form.month} {form.year}
+                        </div>
+                        {[
+                          { label: 'Working Days',  value: payrollBreakdown.workingDays,  color: 'var(--text)',       bold: false },
+                          { label: 'Present',       value: payrollBreakdown.presentDays,  color: '#16a34a',           bold: false },
+                          { label: 'Paid Leave',    value: payrollBreakdown.paidLeaveDays,color: '#2563eb',           bold: false },
+                          { label: 'LWP',           value: payrollBreakdown.lwpDays,      color: '#dc2626',           bold: false },
+                          { label: 'Absent',        value: payrollBreakdown.absentDays,   color: '#b45309',           bold: false },
+                        ].map(row => (
+                          <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>{row.label}</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: row.color }}>{row.value}</span>
+                          </div>
+                        ))}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0 2px', marginTop: 2 }}>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)' }}>Final Paid Days</span>
+                          <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--primary)', background: 'var(--primary-tint, #e5ebdd)', padding: '2px 10px', borderRadius: 6 }}>
+                            {payrollBreakdown.paidDays}
+                          </span>
+                        </div>
+                        <p style={{ margin: '8px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>
+                          Auto-calculated from attendance + approved leaves. Edit the fields above to override.
+                        </p>
+                      </div>
+                    )}
+
+                    {!attendanceLoading && !payrollBreakdown && workingDaysPeriod && (
+                      <p style={{ margin: '10px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>
+                        📅 {workingDaysPeriod.count} working days (Mon–Fri) in <strong>{form.month} {form.year}</strong>.
+                        {!selectedStaffId && ' Select an employee to auto-calculate Paid Days.'}
                       </p>
                     )}
                   </div>
                 </motion.div>
               )}
+
 
               {step === 3 && (
                 <motion.div key="s3" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}>

@@ -103,6 +103,131 @@ router.get('/admin/monthly', authAdmin, async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────
+// GET /api/attendance/admin/payroll-summary
+// Returns a complete payroll breakdown for a staff member for a month.
+// Query params: staffId, month (1-12), year
+// ─────────────────────────────────────────────────────────────
+router.get('/admin/payroll-summary', authAdmin, async (req, res) => {
+  try {
+    const { staffId, month, year } = req.query;
+    if (!staffId || !month || !year) {
+      return res.status(400).json({ success: false, message: 'staffId, month, and year are required' });
+    }
+
+    const m = parseInt(month);
+    const y = parseInt(year);
+
+    // ── 1. Working days: Mon–Fri in the month, minus company holidays ──────────
+    const LeavePolicy = require('../models/LeavePolicy');
+    const policy = await LeavePolicy.findOne({ user: req.user._id }).lean();
+    const weekendDays = policy?.weekendDays ?? [0, 6]; // 0=Sun, 6=Sat
+    const holidays = new Set((policy?.holidays || []).map(h => {
+      const d = new Date(h);
+      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    }));
+
+    const monthStart = new Date(Date.UTC(y, m - 1, 1));
+    const monthEnd   = new Date(Date.UTC(y, m, 0)); // last day of month (UTC)
+
+    let workingDays = 0;
+    const cur = new Date(monthStart);
+    while (cur <= monthEnd) {
+      const dow = cur.getUTCDay();
+      const key = `${cur.getUTCFullYear()}-${cur.getUTCMonth()}-${cur.getUTCDate()}`;
+      if (!weekendDays.includes(dow) && !holidays.has(key)) workingDays++;
+      cur.setUTCDate(cur.getUTCDate() + 1);
+    }
+
+    // ── 2. Attendance records: deduplicate by date, count present days ─────────
+    const attRecords = await Attendance.find({
+      admin: req.user._id,
+      staff: staffId,
+      date: { $gte: monthStart, $lte: monthEnd },
+    }).lean();
+
+    // Deduplicate: one record per calendar date (take best status if duplicate)
+    const byDate = {};
+    for (const r of attRecords) {
+      const dk = new Date(r.date).toISOString().split('T')[0];
+      if (!byDate[dk] || r.status === 'complete') byDate[dk] = r;
+    }
+    const uniqueRecords = Object.values(byDate);
+
+    // Count present = complete + flagged (flagged = completed but with notes)
+    const presentDays = uniqueRecords.filter(r =>
+      r.status === 'complete' || r.status === 'flagged'
+    ).length;
+
+    // ── 3. Leave records: fetch approved leaves overlapping this month ─────────
+    const LeaveRequest = require('../models/LeaveRequest');
+    const approvedLeaves = await LeaveRequest.find({
+      admin: req.user._id,
+      staff: staffId,
+      status: 'Approved',
+      startDate: { $lte: monthEnd },
+      endDate:   { $gte: monthStart },
+    }).lean();
+
+    // Helper: count working days within a leave that fall in the month
+    const countLeaveDays = (leave) => {
+      const lStart = new Date(Math.max(new Date(leave.startDate), monthStart));
+      const lEnd   = new Date(Math.min(new Date(leave.endDate),   monthEnd));
+      let days = 0;
+      const d = new Date(lStart);
+      while (d <= lEnd) {
+        const dow = d.getUTCDay();
+        const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
+        if (!weekendDays.includes(dow) && !holidays.has(key)) days++;
+        d.setUTCDate(d.getUTCDate() + 1);
+      }
+      return days;
+    };
+
+    // Casual + Sick = paid leave (isPaid from policy)
+    // Custom = LWP (Leave Without Pay)
+    let paidLeaveDays = 0;
+    let lwpDays = 0;
+    const leaveBreakdown = [];
+
+    for (const leave of approvedLeaves) {
+      const days = countLeaveDays(leave);
+      const isPaid = leave.type === 'Casual' || leave.type === 'Sick';
+      if (isPaid) {
+        paidLeaveDays += days;
+      } else {
+        lwpDays += days;
+      }
+      leaveBreakdown.push({ type: leave.type, days, isPaid, startDate: leave.startDate, endDate: leave.endDate });
+    }
+
+    // ── 4. Calculate final paid days ─────────────────────────────────────────
+    // Paid Days = present + paidLeave - LWP, capped to [0, workingDays]
+    // Absent days = workingDays - present - paidLeave - lwp  (floor at 0)
+    const rawPaidDays = presentDays + paidLeaveDays - lwpDays;
+    const paidDays   = Math.min(workingDays, Math.max(0, rawPaidDays));
+    const absentDays = Math.max(0, workingDays - presentDays - paidLeaveDays - lwpDays);
+
+    res.json({
+      success: true,
+      summary: {
+        workingDays,
+        presentDays,
+        paidLeaveDays,
+        lwpDays,
+        absentDays,
+        paidDays,
+        leaveBreakdown,
+      }
+    });
+  } catch (err) {
+    console.error('Payroll summary error:', err);
+    res.status(500).json({ success: false, message: 'Failed to compute payroll summary' });
+  }
+});
+
+
+
 // GET /api/attendance/admin/daily?date=YYYY-MM-DD — Records for a specific date across all staff
 router.get('/admin/daily', authAdmin, async (req, res) => {
   try {
