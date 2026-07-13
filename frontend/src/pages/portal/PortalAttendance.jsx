@@ -1,7 +1,7 @@
 import { memo, useState, useEffect, useCallback } from 'react'
 import {
   Calendar as CalendarIcon, Clock, AlertCircle, Loader2,
-  ChevronLeft, ChevronRight, CheckCircle2, ListChecks
+  ChevronLeft, ChevronRight, CheckCircle2, ListChecks, Wrench
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import api from '../../api'
@@ -24,12 +24,45 @@ const styles = `
   .pa-table-row:last-child { border-bottom:none; }
   .pa-table-row:hover { background:rgba(0,0,0,.018); }
   .pa-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .pa-fix-btn {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:7px 14px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
+    background:#fff7ed; color:#c2410c; border:1px solid #fed7aa;
+    transition:all .15s;
+  }
+  .pa-fix-btn:hover { background:#ffedd5; }
+  .pa-fix-btn:disabled { opacity:.6; cursor:not-allowed; }
 `
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
 const fmtTime = dt => dt ? new Date(dt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'
 const fmtDate = dt => dt ? new Date(dt).toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' }) : '—'
+
+/**
+ * Returns true if the given date (UTC midnight) is before today (UTC).
+ * Used to detect past-day records that must never show "Active".
+ */
+const isPastDay = (dateVal) => {
+  if (!dateVal) return false
+  const d = new Date(dateVal)
+  d.setUTCHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setUTCHours(0, 0, 0, 0)
+  return d.getTime() < today.getTime()
+}
+
+/**
+ * Determine the display workStatus for a row.
+ * Past-day records must NEVER show "Active" — they are always auto-closed.
+ */
+const resolveWorkStatus = (row) => {
+  if (row.workStatus === 'Active' && isPastDay(row.date)) {
+    // Past day with no punch-out = auto-closed by system
+    return row.totalHours >= 8 ? 'Full Day' : row.totalHours >= 4 ? 'Half Day' : 'LOP'
+  }
+  return row.workStatus
+}
 
 const WorkStatusPill = memo(function WorkStatusPill({ status }) {
   if (!status) return null
@@ -49,6 +82,7 @@ export default function PortalAttendance() {
   const [history, setHistory]   = useState([])
   const [summary, setSummary]   = useState(null)
   const [loading, setLoading]   = useState(true)
+  const [fixing, setFixing]     = useState(false)
 
   // inject styles once
   useEffect(() => {
@@ -80,6 +114,38 @@ export default function PortalAttendance() {
   const prevMonth = () => { if (month === 1) { setMonth(12); setYear(y => y - 1) } else setMonth(m => m - 1) }
   const nextMonth = () => { if (month === 12) { setMonth(1); setYear(y => y + 1) } else setMonth(m => m + 1) }
 
+  // ── Trigger migration fix for stale / inflated records ──────────────────
+  const handleFixData = useCallback(async () => {
+    setFixing(true)
+    try {
+      const res = await api.post('/attendance/admin/fix-stale-records')
+      if (res.data.success) {
+        const { openFixed = 0, inflatedFixed = 0, fixedCount = 0 } = res.data
+        if (fixedCount === 0) {
+          toast.success('All attendance records are already correct. No fixes needed.')
+        } else {
+          toast.success(
+            `Fixed ${fixedCount} record(s): ${openFixed} open, ${inflatedFixed} inflated. Refreshing…`,
+            { duration: 4000 }
+          )
+          await fetchHistory()
+        }
+      } else {
+        toast.error(res.data.message || 'Fix failed')
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.message || err.message || 'Fix failed'
+      // If not admin, show a friendlier message
+      if (err?.response?.status === 401 || err?.response?.status === 403) {
+        toast.error('Only admins can trigger the data fix. Ask your administrator to run it from the admin panel.')
+      } else {
+        toast.error(msg)
+      }
+    } finally {
+      setFixing(false)
+    }
+  }, [fetchHistory])
+
   return (
     <PageShell>
       {/* Header */}
@@ -89,17 +155,33 @@ export default function PortalAttendance() {
           <p style={{ margin: '3px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>Your monthly work logs</p>
         </div>
 
-        {/* Month nav */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '3px 6px' }}>
-          <button onClick={prevMonth} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px 6px', color: 'var(--text)' }}>
-            <ChevronLeft size={16} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Fix button — shown when any record might be corrupted */}
+          <button
+            className="pa-fix-btn"
+            onClick={handleFixData}
+            disabled={fixing}
+            title="Auto-close any attendance records that were never punched out and recalculate hours correctly"
+          >
+            {fixing
+              ? <Loader2 size={13} className="animate-spin" />
+              : <Wrench size={13} />
+            }
+            {fixing ? 'Fixing…' : 'Fix Attendance Data'}
           </button>
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', minWidth: 110, textAlign: 'center' }}>
-            {MONTHS[month - 1]} {year}
-          </span>
-          <button onClick={nextMonth} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px 6px', color: 'var(--text)' }}>
-            <ChevronRight size={16} />
-          </button>
+
+          {/* Month nav */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '3px 6px' }}>
+            <button onClick={prevMonth} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px 6px', color: 'var(--text)' }}>
+              <ChevronLeft size={16} />
+            </button>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', minWidth: 110, textAlign: 'center' }}>
+              {MONTHS[month - 1]} {year}
+            </span>
+            <button onClick={nextMonth} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px 6px', color: 'var(--text)' }}>
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -146,17 +228,35 @@ export default function PortalAttendance() {
             {history.map((row, i) => {
               const taskCount = Array.isArray(row.tasks) ? row.tasks.length : 0
               const completed = Array.isArray(row.tasks) ? row.tasks.filter(t => t.status === 'Completed').length : 0
+              const isRecordPastDay = isPastDay(row.date)
+              const displayStatus   = resolveWorkStatus(row)
+
+              // Hard-cap displayed hours at 23.99 — impossible values should never appear,
+              // but this is a last-resort visual guard in case the backend migration hasn't
+              // run yet.
+              const rawHours  = row.totalHours || 0
+              const dispHours = Math.min(rawHours, 23.99)
+              const hoursWarn = rawHours > 23.99 // still show a warning indicator
+
+              // Punch-out display: past-day records with no punchOut are auto-closed at 11:59 PM
+              const punchOutDisplay = row.punchOut
+                ? fmtTime(row.punchOut)
+                : isRecordPastDay
+                  ? <span className="pa-pill pa-pill-orange" style={{ fontSize: 10 }}>Auto 11:59 PM</span>
+                  : <span className="pa-pill pa-pill-blue" style={{ fontSize: 10 }}>Active</span>
+
               return (
                 <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                   className="pa-table-row" style={{ gridTemplateColumns: '1.8fr 1.2fr 1.2fr 0.9fr 1fr 1.1fr' }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)' }}>{fmtDate(row.date)}</div>
                   <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{fmtTime(row.punchIn)}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {row.punchOut ? fmtTime(row.punchOut) : <span className="pa-pill pa-pill-blue" style={{ fontSize: 10 }}>Active</span>}
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{punchOutDisplay}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: hoursWarn ? '#c2410c' : 'var(--text)' }}>
+                    {dispHours ? `${dispHours.toFixed(1)}h` : '—'}
+                    {hoursWarn && <span title="Data needs fixing — click 'Fix Attendance Data'" style={{ marginLeft: 4, color: '#c2410c' }}>⚠</span>}
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{row.totalHours ? `${row.totalHours.toFixed(1)}h` : '—'}</div>
                   <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 700 }}>{taskCount ? `${completed}/${taskCount}` : '—'}</div>
-                  <WorkStatusPill status={row.workStatus === 'Active' ? 'Active' : row.workStatus} />
+                  <WorkStatusPill status={displayStatus} />
                 </motion.div>
               )
             })}

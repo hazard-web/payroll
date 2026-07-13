@@ -16,6 +16,16 @@ function getDayStart(date) {
   return value;
 }
 
+/**
+ * Returns 23:59:59.999 UTC on the given date.
+ * Used as the maximum cap for any attendance record on that date.
+ */
+function getDayEnd(date) {
+  const value = normalizeDate(date);
+  value.setUTCHours(23, 59, 59, 999);
+  return value;
+}
+
 function createAttendanceDocument({ staffId, adminId, date }) {
   return {
     staff: staffId,
@@ -44,17 +54,56 @@ function determineWorkStatus(totalHours) {
   return 'LOP';
 }
 
+/**
+ * Build a point-in-time snapshot of an attendance record.
+ *
+ * CRITICAL SAFETY RULE:
+ *   If the active session belongs to a PAST day (i.e., the record's `date`
+ *   is before today in UTC), we must NOT compute live hours up to `referenceTime`
+ *   (which could be hours/days/weeks later). Instead we cap the active session
+ *   at 23:59:59 of the record's own date — just like autoCloseStaleAttendance.
+ *
+ *   This prevents the infamous 163h / 285h / 462h values from ever being
+ *   written to MongoDB or returned in API responses.
+ *
+ * @param {Object} attendance    - Mongoose attendance document
+ * @param {Date}   referenceTime - The "now" reference (defaults to actual now)
+ */
 function buildAttendanceSnapshot(attendance, referenceTime = new Date()) {
   const sessions = Array.isArray(attendance.sessions) ? attendance.sessions : [];
   const completedSessions = sessions.filter(session => session && session.endTime && !session.isActive);
   const activeSession = sessions.find(session => session && session.isActive);
-  const totalHours = completedSessions.reduce((sum, session) => sum + (session.durationHours || 0), 0);
-  const liveHours = activeSession
-    ? computeSessionHours(activeSession.startTime, referenceTime)
-    : 0;
-  const totalWithLive = parseFloat((totalHours + liveHours).toFixed(2));
+
+  // ── Past-day guard ───────────────────────────────────────────────────────
+  // If the attendance record belongs to a previous calendar day, any "active"
+  // session is stale. We cap its contribution at the end of that day rather
+  // than computing from startTime → referenceTime (which would span days).
+  let liveHours = 0;
+  if (activeSession) {
+    const recordDayEnd = attendance.date
+      ? getDayEnd(new Date(attendance.date))
+      : null;
+
+    const todayStart = getDayStart(new Date(referenceTime));
+    const recordDate = attendance.date ? getDayStart(new Date(attendance.date)) : null;
+    const isPastDay = recordDate && recordDate.getTime() < todayStart.getTime();
+
+    if (isPastDay && recordDayEnd) {
+      // Cap at end of the record's own day — never let it bleed into today
+      const sessionStart = new Date(activeSession.startTime);
+      const capTime = recordDayEnd > sessionStart ? recordDayEnd : sessionStart;
+      liveHours = computeSessionHours(sessionStart, capTime);
+    } else {
+      // Normal case: today's active session — compute live duration
+      liveHours = computeSessionHours(activeSession.startTime, referenceTime);
+    }
+  }
+
+  const closedHours = completedSessions.reduce((sum, session) => sum + (session.durationHours || 0), 0);
+  const totalWithLive = parseFloat((closedHours + liveHours).toFixed(2));
   const remainingHours = parseFloat(Math.max(0, DEFAULT_STANDARD_HOURS - totalWithLive).toFixed(2));
   const sessionCount = completedSessions.length + (activeSession ? 1 : 0);
+
   return {
     sessions,
     completedSessions,
@@ -126,7 +175,7 @@ function closeAttendanceSession(attendance, { endTime = new Date(), source = 'MA
   if (!activeSession) {
     return {
       success: false,
-      message: 'No active attendance session found. Please punch in before punching out.' 
+      message: 'No active attendance session found. Please punch in before punching out.'
     };
   }
 
@@ -152,6 +201,82 @@ function closeAttendanceSession(attendance, { endTime = new Date(), source = 'MA
   };
 }
 
+/**
+ * Auto-close a stale open attendance record.
+ *
+ * Sets punchOut to 23:59:59 on the record's OWN date (never "now"),
+ * recalculates totalHours / overtimeHours / workStatus / status,
+ * and closes any active sessions in the sessions[] array.
+ *
+ * This is the canonical fix for records that were never punched out —
+ * worked hours are always bounded by midnight of the attendance date.
+ *
+ * @param {Object} attendance  - Mongoose attendance document (mutable)
+ * @returns {{ fixed: boolean, autoPunchOut: Date }}
+ */
+function autoCloseStaleAttendance(attendance) {
+  if (!attendance || !attendance.punchIn) {
+    return { fixed: false, autoPunchOut: null };
+  }
+
+  // Compute 23:59:59 UTC on the record's own date
+  const recordDate = new Date(attendance.date);
+  const autoPunchOut = new Date(Date.UTC(
+    recordDate.getUTCFullYear(),
+    recordDate.getUTCMonth(),
+    recordDate.getUTCDate(),
+    23, 59, 59, 0
+  ));
+
+  // punchIn must not be after autoPunchOut (guard for edge cases)
+  const effectivePunchIn = new Date(attendance.punchIn);
+  const effectiveEnd = autoPunchOut > effectivePunchIn ? autoPunchOut : effectivePunchIn;
+
+  // Close any active sessions
+  if (Array.isArray(attendance.sessions)) {
+    for (const session of attendance.sessions) {
+      if (session && session.isActive) {
+        const sessionStart = new Date(session.startTime);
+        const sessionEnd = effectiveEnd > sessionStart ? effectiveEnd : sessionStart;
+        session.endTime = sessionEnd;
+        session.durationHours = parseFloat(
+          computeSessionHours(sessionStart, sessionEnd).toFixed(2)
+        );
+        session.isActive = false;
+        session.source = 'AUTO_PUNCH_OUT';
+        session.reason = 'System: Auto punch-out at 11:59:59 PM — no manual punch-out recorded';
+      }
+    }
+  }
+
+  // Recompute totalHours from all closed sessions (or fall back to punchIn→end)
+  const closedSessions = Array.isArray(attendance.sessions)
+    ? attendance.sessions.filter(s => s && !s.isActive && s.endTime)
+    : [];
+
+  let totalHours;
+  if (closedSessions.length > 0) {
+    totalHours = parseFloat(
+      closedSessions.reduce((sum, s) => sum + (s.durationHours || 0), 0).toFixed(2)
+    );
+  } else {
+    totalHours = parseFloat(computeSessionHours(effectivePunchIn, effectiveEnd).toFixed(2));
+  }
+
+  // Cap totalHours at 23.99 — a single day can never have more than ~24h
+  totalHours = Math.min(totalHours, 23.99);
+
+  attendance.punchOut      = effectiveEnd;
+  attendance.totalHours    = totalHours;
+  attendance.overtimeHours = Math.max(0, parseFloat((totalHours - DEFAULT_STANDARD_HOURS).toFixed(2)));
+  attendance.workStatus    = determineWorkStatus(totalHours);
+  attendance.status        = totalHours >= DEFAULT_STANDARD_HOURS ? 'complete' : 'incomplete';
+  attendance.lastAutoPunchOutAt     = effectiveEnd;
+  attendance.lastAutoPunchOutReason = 'System: Auto punch-out at 11:59:59 PM — no manual punch-out recorded';
+
+  return { fixed: true, autoPunchOut: effectiveEnd };
+}
+
 module.exports = {
   DEFAULT_STANDARD_HOURS,
   FULL_DAY_THRESHOLD,
@@ -162,5 +287,7 @@ module.exports = {
   buildAttendanceSnapshot,
   startAttendanceSession,
   closeAttendanceSession,
-  getDayStart
+  autoCloseStaleAttendance,
+  getDayStart,
+  getDayEnd,
 };

@@ -13,8 +13,12 @@ const {
   startAttendanceSession,
   closeAttendanceSession,
   buildAttendanceSnapshot,
+  autoCloseStaleAttendance,
   getDayStart,
+  getDayEnd,
   DEFAULT_STANDARD_HOURS,
+  computeSessionHours,
+  determineWorkStatus,
 } = require('../utils/attendanceService');
 
 // Returns the effective working days for a staff member (own override or admin default)
@@ -26,8 +30,47 @@ const getEffectiveWorkDays = (staff) => {
 // Helper to get start of day in UTC for querying
 const getStartOfDay = (dateString = null) => getDayStart(dateString);
 
+/**
+ * Synchronise the top-level denormalised fields on an attendance document
+ * from its sessions[] array.
+ *
+ * SAFETY: If the record belongs to a PAST day and still has an active session,
+ * we call autoCloseStaleAttendance instead of computing live hours up to
+ * referenceTime. This is the primary defence against the 163h/285h/462h bug.
+ *
+ * For TODAY's active records we compute live hours normally (they are not
+ * persisted — the caller must not save the document just to show a live timer).
+ */
 const syncAttendanceRecord = (attendance, referenceTime = new Date()) => {
   if (!attendance) return null;
+
+  // ── Past-day stale-session guard ────────────────────────────────────────
+  // If this record is from a previous day AND it still has an active session,
+  // auto-close it NOW instead of inflating totalHours to referenceTime.
+  const todayStart = getDayStart(new Date(referenceTime));
+  const recordDate = attendance.date ? getDayStart(new Date(attendance.date)) : null;
+  const isPastDay  = recordDate && recordDate.getTime() < todayStart.getTime();
+
+  const hasActiveSession = Array.isArray(attendance.sessions) &&
+    attendance.sessions.some(s => s && s.isActive);
+
+  if (isPastDay && (hasActiveSession || !attendance.punchOut)) {
+    // Auto-close caps totalHours at 23:59:59 of the record's own date
+    autoCloseStaleAttendance(attendance);
+    // Re-build snapshot from the now-closed sessions
+    const snapshot = buildAttendanceSnapshot(attendance, referenceTime);
+    attendance.sessionCount = snapshot.sessionCount;
+    // Sync tasks from last closed session
+    const latestClosed = Array.isArray(attendance.sessions)
+      ? attendance.sessions.slice().reverse().find(s => s && s.endTime)
+      : null;
+    attendance.tasks = Array.isArray(attendance.sessions) && attendance.sessions.length > 0
+      ? (latestClosed?.tasks || attendance.sessions[attendance.sessions.length - 1]?.tasks || [])
+      : [];
+    return snapshot;
+  }
+
+  // ── Normal path (today or already-closed past records) ──────────────────
   const snapshot = buildAttendanceSnapshot(attendance, referenceTime);
   const latestClosed = Array.isArray(attendance.sessions)
     ? attendance.sessions.slice().reverse().find((session) => session && session.endTime)
@@ -460,6 +503,24 @@ router.post('/punch-in', authStaff, async (req, res) => {
     }
 
     const adminId = (req.staff.user && req.staff.user._id) ? req.staff.user._id : req.staff._id;
+
+    // ── Auto-close any open records from PREVIOUS DAYS before allowing a new punch-in ──
+    const staleRecords = await Attendance.find({
+      staff: req.staff._id,
+      date: { $lt: today },
+      $or: [
+        { punchOut: null },
+        { 'sessions.isActive': true }
+      ]
+    });
+    for (const stale of staleRecords) {
+      const { fixed } = autoCloseStaleAttendance(stale);
+      if (fixed) {
+        stale.notes = (stale.notes ? stale.notes + ' | ' : '') +
+          'System: Auto punch-out at 11:59:59 PM — new punch-in detected on a later day.';
+        await stale.save();
+      }
+    }
 
     let attendance = await Attendance.findOne({ staff: req.staff._id, date: today });
     if (!attendance) {
@@ -901,13 +962,35 @@ router.get('/tasks/admin/team', authAdmin, async (req, res) => {
 router.get('/today', authStaff, async (req, res) => {
   try {
     const today = getStartOfDay();
+    const now   = new Date();
+
+    // ── Step 1: Auto-close any stale open records from PREVIOUS days ──
+    // Do this before fetching today so that a prior day's active session
+    // doesn't bleed live hours into today's record.
+    const staleRecords = await Attendance.find({
+      staff: req.staff._id,
+      date: { $lt: today },
+      $or: [{ punchOut: null }, { 'sessions.isActive': true }]
+    });
+    for (const stale of staleRecords) {
+      const { fixed } = autoCloseStaleAttendance(stale);
+      if (fixed) {
+        stale.notes = (stale.notes ? stale.notes + ' | ' : '') +
+          'System: Auto punch-out at 11:59:59 PM — detected during /today fetch.';
+        await stale.save();
+      }
+    }
+
+    // ── Step 2: Fetch today's record ──
     const attendance = await Attendance.findOne({
       staff: req.staff._id,
       date: today
     });
 
     if (attendance) {
-      syncAttendanceRecord(attendance, new Date());
+      // Only sync (and save) if today has an active session — we never
+      // write inflated hours for past-day records here.
+      syncAttendanceRecord(attendance, now);
       await attendance.save();
     }
 
@@ -921,13 +1004,32 @@ router.get('/today', authStaff, async (req, res) => {
 router.get('/active', authStaff, async (req, res) => {
   try {
     const today = getStartOfDay();
+    const now   = new Date();
+
+    // ── Step 1: Auto-close stale records from PREVIOUS days ──
+    // Prevents a prior-day's active session from appearing as the active shift.
+    const staleRecords = await Attendance.find({
+      staff: req.staff._id,
+      date: { $lt: today },
+      $or: [{ punchOut: null }, { 'sessions.isActive': true }]
+    });
+    for (const stale of staleRecords) {
+      const { fixed } = autoCloseStaleAttendance(stale);
+      if (fixed) {
+        stale.notes = (stale.notes ? stale.notes + ' | ' : '') +
+          'System: Auto punch-out at 11:59:59 PM — detected during /active fetch.';
+        await stale.save();
+      }
+    }
+
+    // ── Step 2: Fetch today's record ──
     let attendance = await Attendance.findOne({
       staff: req.staff._id,
       date: today
     });
 
     if (attendance) {
-      syncAttendanceRecord(attendance, new Date());
+      syncAttendanceRecord(attendance, now);
       await attendance.save();
     }
 
@@ -945,6 +1047,7 @@ router.get('/active', authStaff, async (req, res) => {
 // GET /api/attendance/history (Staff View) — supports ?month=&year= or defaults to last 30 days
 router.get('/history', authStaff, async (req, res) => {
   try {
+    const today = getStartOfDay();
     let filter = { staff: req.staff._id };
 
     const { month, year } = req.query;
@@ -952,7 +1055,7 @@ router.get('/history', authStaff, async (req, res) => {
       const m = parseInt(month);
       const y = parseInt(year);
       const startDate = new Date(Date.UTC(y, m - 1, 1));
-      const endDate = new Date(Date.UTC(y, m, 1)); // First day of next month
+      const endDate = new Date(Date.UTC(y, m, 1));
       filter.date = { $gte: startDate, $lt: endDate };
     } else {
       const limitDate = new Date();
@@ -960,40 +1063,56 @@ router.get('/history', authStaff, async (req, res) => {
       filter.date = { $gte: limitDate };
     }
 
-    // Projection keeps the payload small while still allowing us to compute
-    // aggregate metrics from the stored session list.
+    // ── Step 1: Auto-close any stale open records (past days) before returning history ──
+    // This is the guard that ensures the DB never serves live-inflated hours.
+    const staleFilter = {
+      staff: req.staff._id,
+      date: { $lt: today },
+      $or: [
+        { punchOut: null },
+        { 'sessions.isActive': true }
+      ]
+    };
+    const staleRecords = await Attendance.find(staleFilter);
+    for (const stale of staleRecords) {
+      const { fixed } = autoCloseStaleAttendance(stale);
+      if (fixed) {
+        stale.notes = (stale.notes ? stale.notes + ' | ' : '') +
+          'System: Auto punch-out at 11:59:59 PM — no manual punch-out recorded.';
+        await stale.save();
+      }
+    }
+
+    // ── Step 2: Fetch history (stale records are now fixed in DB) ──
     const history = await Attendance.find(filter)
       .sort({ date: -1 })
       .lean()
       .select('date punchIn punchOut totalHours overtimeHours status workStatus tasks notes sessions sessionCount');
 
-    const nowMs = Date.now();
-    const recordsWithLiveHours = history.map(record => {
-      const activeSession = Array.isArray(record.sessions) ? record.sessions.find(session => session && session.isActive) : null;
-      if (activeSession) {
-        const liveHours = parseFloat(((nowMs - new Date(activeSession.startTime).getTime()) / (1000 * 60 * 60)).toFixed(2));
-        const totalHours = parseFloat(((record.totalHours || 0) + liveHours).toFixed(2));
-        return { ...record, totalHours, workStatus: 'Active', punchOut: null };
+    // ── Step 3: Map history — NEVER recalculate hours from now for past records ──
+    // For today's record that is still active, show workStatus='Active' and punchOut=null.
+    // All past records must have a punchOut (set by the auto-close above) — no live inflation.
+    const mappedHistory = history.map(record => {
+      const recordDate = new Date(record.date);
+      const isToday = recordDate.getTime() === today.getTime();
+      const hasActiveSession = Array.isArray(record.sessions) && record.sessions.some(s => s && s.isActive);
+
+      if (isToday && hasActiveSession) {
+        // Today's live session — show as Active, use stored totalHours (from completed sessions only)
+        return { ...record, workStatus: 'Active', punchOut: null };
       }
+
+      // All other records: return as stored (punchOut is set, totalHours is correct)
       return record;
     });
 
-    const mappedHistory = recordsWithLiveHours.map(record => {
-      if (Array.isArray(record.sessions) && record.sessions.some(session => session && session.isActive)) {
-        return { ...record, workStatus: 'Active' };
-      }
-      return record;
-    });
-
-    // Calculate summary stats for this period. Include any record where the
-    // employee punched in (regardless of whether they punched out) in the
-    // present-day count, so the dashboard doesn't show 0 while a shift is open.
-    const presentDays = recordsWithLiveHours.filter(r => !!r.punchIn).length;
-    const totalHours = recordsWithLiveHours.reduce((sum, r) => sum + (r.totalHours || 0), 0);
-    const totalOT = recordsWithLiveHours.reduce((sum, r) => sum + (r.overtimeHours || 0), 0);
-    const flaggedCount = recordsWithLiveHours.filter(r => r.status === 'flagged').length;
-    const totalTasks = recordsWithLiveHours.reduce((sum, r) => sum + ((Array.isArray(r.tasks) ? r.tasks.length : 0)), 0);
-    const completedTasks = recordsWithLiveHours.reduce((sum, r) => sum + ((Array.isArray(r.tasks) ? r.tasks.filter(t => t.status === 'Completed').length : 0)), 0);
+    // ── Step 4: Summary stats ──
+    const presentDays = mappedHistory.filter(r => !!r.punchIn).length;
+    const totalHours = mappedHistory.reduce((sum, r) => sum + (r.totalHours || 0), 0);
+    const totalOT = mappedHistory.reduce((sum, r) => sum + (r.overtimeHours || 0), 0);
+    const flaggedCount = mappedHistory.filter(r => r.status === 'flagged').length;
+    const totalTasks = mappedHistory.reduce((sum, r) => sum + (Array.isArray(r.tasks) ? r.tasks.length : 0), 0);
+    const completedTasks = mappedHistory.reduce((sum, r) => sum + (Array.isArray(r.tasks) ? r.tasks.filter(t => t.status === 'Completed').length : 0), 0);
     const avgHours = presentDays > 0 ? totalHours / presentDays : 0;
     const taskCompletionRate = totalTasks ? parseFloat(((completedTasks / totalTasks) * 100).toFixed(0)) : 0;
 
@@ -1012,6 +1131,7 @@ router.get('/history', authStaff, async (req, res) => {
       }
     });
   } catch (err) {
+    console.error('History error:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch history' });
   }
 });
@@ -1019,6 +1139,7 @@ router.get('/history', authStaff, async (req, res) => {
 // GET /api/attendance/weekly?date= — Weekly summary for a specific week
 router.get('/weekly', authStaff, async (req, res) => {
   try {
+    const today = getStartOfDay();
     const refDate = req.query.date ? new Date(req.query.date) : new Date();
     const day = refDate.getUTCDay() || 7; // Mon=1...Sun=7
     const monday = new Date(refDate);
@@ -1027,30 +1148,40 @@ router.get('/weekly', authStaff, async (req, res) => {
     const sunday = new Date(monday);
     sunday.setUTCDate(monday.getUTCDate() + 7);
 
+    // Auto-close any stale open records in this week's range (past days only)
+    const staleInWeek = await Attendance.find({
+      staff: req.staff._id,
+      date: { $gte: monday, $lt: today },
+      $or: [
+        { punchOut: null },
+        { 'sessions.isActive': true }
+      ]
+    });
+    for (const stale of staleInWeek) {
+      const { fixed } = autoCloseStaleAttendance(stale);
+      if (fixed) {
+        stale.notes = (stale.notes ? stale.notes + ' | ' : '') +
+          'System: Auto punch-out at 11:59:59 PM — no manual punch-out recorded.';
+        await stale.save();
+      }
+    }
+
     const weekRecords = await Attendance.find({
       staff: req.staff._id,
       date: { $gte: monday, $lt: sunday }
-    });
+    }).lean();
 
-    // Include any record where the employee punched in (regardless of whether
-    // they punched out) so weekly stats don't show 0 for an open shift.
-    const nowMs = Date.now();
-    const weekHoursAdjusted = weekRecords.map(r => {
-      if (r.punchIn && !r.punchOut) {
-        const liveHours = parseFloat(((nowMs - new Date(r.punchIn).getTime()) / (1000 * 60 * 60)).toFixed(2));
-        return { ...r.toObject(), totalHours: liveHours };
-      }
-      return r;
-    });
-
-    const totalHours = weekHoursAdjusted.reduce((sum, r) => sum + (r.totalHours || 0), 0);
-    const totalOT = weekHoursAdjusted.reduce((sum, r) => sum + (r.overtimeHours || 0), 0);
-    const presentDays = weekHoursAdjusted.filter(r => !!r.punchIn).length;
-    const flaggedCount = weekHoursAdjusted.filter(r => r.status === 'flagged').length;
-    const totalTasks = weekHoursAdjusted.reduce((sum, r) => sum + ((Array.isArray(r.tasks) ? r.tasks.length : 0)), 0);
-    const completedTasks = weekHoursAdjusted.reduce((sum, r) => sum + ((Array.isArray(r.tasks) ? r.tasks.filter(t => t.status === 'Completed').length : 0)), 0);
+    // Use stored totalHours only — NEVER recalculate from Date.now() for past records.
+    // Today's active record will show 0h until punch-out (acceptable for weekly summary).
+    const totalHours = weekRecords.reduce((sum, r) => sum + (r.totalHours || 0), 0);
+    const totalOT = weekRecords.reduce((sum, r) => sum + (r.overtimeHours || 0), 0);
+    const presentDays = weekRecords.filter(r => !!r.punchIn).length;
+    const flaggedCount = weekRecords.filter(r => r.status === 'flagged').length;
+    const totalTasks = weekRecords.reduce((sum, r) => sum + (Array.isArray(r.tasks) ? r.tasks.length : 0), 0);
+    const completedTasks = weekRecords.reduce((sum, r) => sum + (Array.isArray(r.tasks) ? r.tasks.filter(t => t.status === 'Completed').length : 0), 0);
     const avgHours = presentDays > 0 ? totalHours / presentDays : 0;
     const taskCompletionRate = totalTasks ? parseFloat(((completedTasks / totalTasks) * 100).toFixed(0)) : 0;
+
 
     res.json({
       success: true,
@@ -1251,6 +1382,154 @@ router.post('/admin/force-punch-out', authAdmin, async (req, res) => {
 
     res.json({ success: true, message: `Closed ${modifiedCount} stale shifts. They are now flagged for review.` });
   } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/attendance/admin/fix-stale-records
+// Migration endpoint: closes ALL open attendance records across
+// ALL staff for this admin, capping at 11:59:59 PM of each
+// record's own date. Fixes existing 163h/285h/462h bad data.
+// ─────────────────────────────────────────────────────────────
+router.post('/admin/fix-stale-records', authAdmin, async (req, res) => {
+  try {
+    const today = getStartOfDay();
+
+    // ── Pass 1: Fix open records (punchOut null OR sessions still active) ──
+    // These are the primary source of the inflated-hours bug.
+    const staleRecords = await Attendance.find({
+      admin: req.user._id,
+      date: { $lt: today },
+      $or: [
+        { punchOut: null },
+        { 'sessions.isActive': true }
+      ]
+    });
+
+    let fixedCount = 0;
+    const details = [];
+
+    for (const record of staleRecords) {
+      const { fixed, autoPunchOut } = autoCloseStaleAttendance(record);
+      if (!fixed) continue;
+
+      record.notes = (record.notes ? record.notes + ' | ' : '') +
+        'System: Migrated — auto punch-out at 11:59:59 PM. Previous data showed inflated hours due to missing punch-out.';
+
+      await record.save();
+      fixedCount++;
+      details.push({
+        id: record._id,
+        date: record.date,
+        staff: record.staff,
+        autoPunchOut,
+        totalHours: record.totalHours,
+        workStatus: record.workStatus
+      });
+    }
+
+    // ── Pass 2: Fix records that have punchOut set but totalHours > 23.99 ──
+    // These are records where syncAttendanceRecord previously wrote a
+    // live-inflated value to the DB (e.g., 163h, 285h, 462h).
+    // We recalculate totalHours from the stored punchIn → punchOut.
+    const inflatedRecords = await Attendance.find({
+      admin: req.user._id,
+      date: { $lt: today },
+      punchOut: { $ne: null },
+      totalHours: { $gt: 23.99 }
+    });
+
+    let inflatedFixed = 0;
+    for (const record of inflatedRecords) {
+      if (!record.punchIn || !record.punchOut) continue;
+
+      // Recompute from stored punchIn → punchOut (both already in DB)
+      // Cap punchOut at 23:59:59 of that record's own date
+      const recordDayEnd = getDayEnd(new Date(record.date));
+      const effectivePunchOut = new Date(record.punchOut) <= recordDayEnd
+        ? new Date(record.punchOut)
+        : recordDayEnd;
+
+      // Recompute session durations too
+      if (Array.isArray(record.sessions)) {
+        for (const session of record.sessions) {
+          if (!session.endTime) {
+            // Close any remaining open sessions at the record's day end
+            session.endTime = recordDayEnd;
+            session.isActive = false;
+            session.source = 'AUTO_PUNCH_OUT';
+            session.reason = 'System: Recalculated during migration fix — session end capped at 11:59:59 PM.';
+          }
+          // Recalculate duration — cap session end at recordDayEnd
+          const sessionEnd = new Date(session.endTime) <= recordDayEnd
+            ? new Date(session.endTime)
+            : recordDayEnd;
+          const sessionStart = new Date(session.startTime);
+          session.durationHours = parseFloat(
+            computeSessionHours(sessionStart, sessionEnd).toFixed(2)
+          );
+        }
+      }
+
+      const closedSessions = Array.isArray(record.sessions)
+        ? record.sessions.filter(s => s && !s.isActive && s.endTime)
+        : [];
+
+      let correctedHours;
+      if (closedSessions.length > 0) {
+        correctedHours = parseFloat(
+          closedSessions.reduce((sum, s) => sum + (s.durationHours || 0), 0).toFixed(2)
+        );
+      } else {
+        correctedHours = parseFloat(
+          computeSessionHours(new Date(record.punchIn), effectivePunchOut).toFixed(2)
+        );
+      }
+
+      // Cap at 23.99h — a single day cannot have more
+      correctedHours = Math.min(correctedHours, 23.99);
+
+      const prevHours = record.totalHours;
+      record.punchOut      = effectivePunchOut;
+      record.totalHours    = correctedHours;
+      record.overtimeHours = Math.max(0, parseFloat((correctedHours - DEFAULT_STANDARD_HOURS).toFixed(2)));
+      record.workStatus    = determineWorkStatus(correctedHours);
+      record.status        = correctedHours >= DEFAULT_STANDARD_HOURS ? 'complete' : 'incomplete';
+      record.notes         = (record.notes ? record.notes + ' | ' : '') +
+        `System: Migrated — corrected inflated totalHours from ${prevHours.toFixed(1)}h to ${correctedHours.toFixed(2)}h. Hours recalculated from stored punchIn → punchOut, capped at 11:59:59 PM.`;
+
+      await record.save();
+      inflatedFixed++;
+      details.push({
+        id: record._id,
+        date: record.date,
+        staff: record.staff,
+        previousHours: prevHours,
+        totalHours: correctedHours,
+        workStatus: record.workStatus,
+        type: 'inflated_recalculated'
+      });
+    }
+
+    const totalFixed = fixedCount + inflatedFixed;
+    if (totalFixed > 0) {
+      await logActivity(req.user._id, 'FORCE_PUNCH_OUT',
+        `Migration: Fixed ${fixedCount} open records + ${inflatedFixed} inflated-hours records.`);
+    }
+
+    console.log(`[fix-stale-records] open=${fixedCount} inflated=${inflatedFixed} total=${totalFixed} for admin ${req.user._id}`);
+
+    res.json({
+      success: true,
+      message: `Successfully fixed ${totalFixed} attendance records (${fixedCount} open, ${inflatedFixed} inflated). All hours are now correctly capped at 11:59:59 PM of each record's date.`,
+      fixedCount: totalFixed,
+      openFixed: fixedCount,
+      inflatedFixed,
+      details
+    });
+  } catch (err) {
+    console.error('Fix stale records error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });

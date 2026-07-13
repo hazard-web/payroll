@@ -1,7 +1,7 @@
 const Attendance    = require('../models/Attendance');
 const Notification  = require('../models/Notification');
 const { sendPunchOutReminderEmail } = require('./emailService');
-const { closeAttendanceSession, getDayStart } = require('./attendanceService');
+const { closeAttendanceSession, autoCloseStaleAttendance, getDayStart } = require('./attendanceService');
 
 const fmt = (start, end = new Date()) => {
   const ms = Math.max(0, new Date(end) - new Date(start));
@@ -14,29 +14,30 @@ const fmt = (start, end = new Date()) => {
 const notPunchedOut = null;
 
 async function autoPunchOutMissedSessions(now = new Date()) {
-  const previousDay = getDayStart(now);
-  previousDay.setUTCDate(previousDay.getUTCDate() - 1);
+  const todayStart = getDayStart(now);
+
+  // Find ALL past open records (any date before today) — not just yesterday
   const missedRecords = await Attendance.find({
-    date: previousDay,
-    'sessions.isActive': true
+    date: { $lt: todayStart },
+    $or: [
+      { punchOut: null },
+      { 'sessions.isActive': true }
+    ]
   }).populate('staff');
 
   let autoClosed = 0;
   for (const record of missedRecords) {
-    const activeSession = Array.isArray(record.sessions) ? record.sessions.find((session) => session && session.isActive) : null;
-    if (!activeSession) continue;
+    // Skip if already fully closed (punchOut set AND no active sessions)
+    const hasActiveSession = Array.isArray(record.sessions) && record.sessions.some(s => s && s.isActive);
+    const isMissingPunchOut = !record.punchOut;
+    if (!hasActiveSession && !isMissingPunchOut) continue;
 
-    const result = closeAttendanceSession(record, {
-      endTime: now,
-      source: 'AUTO_PUNCH_OUT',
-      reason: 'System auto punch out at end of day'
-    });
+    // Use autoCloseStaleAttendance: caps at 11:59:59 PM on the record's own date
+    const { fixed } = autoCloseStaleAttendance(record);
+    if (!fixed) continue;
 
-    if (!result.success) continue;
-
-    record.lastAutoPunchOutAt = now;
-    record.lastAutoPunchOutReason = 'System auto punch out at end of day';
-    record.notes = record.notes ? `${record.notes}\n` : '' + 'System auto punch out at end of day';
+    record.notes = (record.notes ? record.notes + ' | ' : '') +
+      'System: Auto punch-out at 11:59:59 PM — no manual punch-out recorded.';
     await record.save();
     autoClosed++;
 
@@ -47,7 +48,7 @@ async function autoPunchOutMissedSessions(now = new Date()) {
       recipientType: 'staff',
       type: 'ATTENDANCE_ALERT',
       referenceId: record._id,
-      message: 'Your previous day attendance was automatically punched out by the system because no manual punch-out was recorded.'
+      message: `Your attendance on ${new Date(record.date).toLocaleDateString('en-IN')} was automatically closed at 11:59 PM because no punch-out was recorded.`
     }).save();
   }
 
@@ -62,24 +63,25 @@ async function runShiftCheck() {
   const nineHalfAgo     = new Date(now - 9.5  * 60 * 60 * 1000);
   const eightHalfAgo    = new Date(now - 8.5  * 60 * 60 * 1000);
 
-  // ── 1. Auto-close shifts that have been open > 9.5 hours (Full Day + 1h OT cap) ──
+  // ── 1. Auto-close overdue shifts on PREVIOUS days using the canonical logic ──
+  // autoCloseStaleAttendance caps at 23:59:59 of the record's OWN date — the
+  // correct and safe approach.
   const overdueShifts = await Attendance.find({
-    status: 'incomplete',
-    punchOut: notPunchedOut,
-    punchIn: { $lte: nineHalfAgo }
+    date: { $lt: todayStart },
+    $or: [
+      { punchOut: null },
+      { 'sessions.isActive': true }
+    ]
   }).populate('staff');
 
   let autoClosed = 0;
   for (const shift of overdueShifts) {
-    const duration = fmt(shift.punchIn, now);
+    const { fixed } = autoCloseStaleAttendance(shift);
+    if (!fixed) continue;
 
-    shift.punchOut      = new Date(shift.punchIn.getTime() + 9.5 * 60 * 60 * 1000);
-    shift.totalHours    = 9.5;
-    shift.overtimeHours = 1.0;
-    shift.workStatus    = 'Full Day';
-    shift.status        = 'flagged';
-    shift.notes         = (shift.notes ? shift.notes + ' | ' : '') +
-                          'System: Auto-closed after 9.5 hours maximum duration (Full Day + 1h OT).';
+    const duration = fmt(shift.punchIn, shift.punchOut);
+    shift.notes = (shift.notes ? shift.notes + ' | ' : '') +
+      'System: Auto-closed via cron at 11:59:59 PM of the attendance date (no manual punch-out recorded).';
     await shift.save();
     autoClosed++;
 
@@ -92,7 +94,7 @@ async function runShiftCheck() {
       recipientType: 'staff',
       type:          'ATTENDANCE_ALERT',
       referenceId:   shift._id,
-      message:       `Your shift on ${new Date(shift.date).toLocaleDateString()} was automatically closed after 10 hours. Please review your attendance.`
+      message:       `Your attendance on ${new Date(shift.date).toLocaleDateString('en-IN')} was automatically closed at 11:59 PM. Please review your attendance.`
     }).save();
 
     // Email — send to ALL staff who have a portal account and an email address
@@ -101,8 +103,8 @@ async function runShiftCheck() {
         loginTime:  new Date(shift.punchIn).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
         shiftDate:  new Date(shift.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
         duration,
-        workStatus: 'Auto Closed / Flagged',
-        reason:     'Your shift was automatically closed after 10 hours. Contact HR/Admin if a correction is needed.',
+        workStatus: shift.workStatus || 'Auto Closed',
+        reason:     'Your attendance was automatically closed at 11:59:59 PM because no punch-out was recorded. Contact HR/Admin if a correction is needed.',
         autoClosed: true
       }).catch(err => console.error('Auto-close email error:', err.message));
     }
@@ -303,6 +305,23 @@ async function runOfficeClosingAutoClose() {
 
     const { totalHours, workStatus } = computeWorkStatus(shift.punchIn, effectivePunchOut);
     const duration = fmt(shift.punchIn, effectivePunchOut);
+
+    // Close any active sessions at the effective punch-out time
+    if (Array.isArray(shift.sessions)) {
+      for (const session of shift.sessions) {
+        if (session && session.isActive) {
+          const sessionStart = new Date(session.startTime);
+          const sessionEnd = effectivePunchOut > sessionStart ? effectivePunchOut : sessionStart;
+          session.endTime = sessionEnd;
+          session.durationHours = parseFloat(
+            (Math.max(0, sessionEnd - sessionStart) / 3600000).toFixed(2)
+          );
+          session.isActive = false;
+          session.source = 'AUTO_PUNCH_OUT';
+          session.reason = 'System: Office closing auto punch-out at 11:59 PM IST.';
+        }
+      }
+    }
 
     shift.punchOut   = effectivePunchOut;
     shift.totalHours = totalHours;
