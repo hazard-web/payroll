@@ -1,7 +1,7 @@
 const Attendance    = require('../models/Attendance');
 const Notification  = require('../models/Notification');
 const { sendPunchOutReminderEmail } = require('./emailService');
-const { closeAttendanceSession, autoCloseStaleAttendance, getDayStart } = require('./attendanceService');
+const { closeAttendanceSession, autoCloseStaleAttendance, getDayStart, getISTDayStart } = require('./attendanceService');
 
 const fmt = (start, end = new Date()) => {
   const ms = Math.max(0, new Date(end) - new Date(start));
@@ -63,54 +63,13 @@ async function runShiftCheck() {
   const nineHalfAgo     = new Date(now - 9.5  * 60 * 60 * 1000);
   const eightHalfAgo    = new Date(now - 8.5  * 60 * 60 * 1000);
 
-  // ── 1. Auto-close overdue shifts on PREVIOUS days using the canonical logic ──
-  // autoCloseStaleAttendance caps at 23:59:59 of the record's OWN date — the
-  // correct and safe approach.
-  const overdueShifts = await Attendance.find({
-    date: { $lt: todayStart },
-    $or: [
-      { punchOut: null },
-      { 'sessions.isActive': true }
-    ]
-  }).populate('staff');
+  // ── 1. Auto-close overdue shifts on PREVIOUS days ──────────────────────────
+  // todayStart must be declared before use. autoPunchOutMissedSessions (called
+  // above) already handles this for ALL previous-day open records, so this
+  // block is a safety net — declare todayStart to avoid ReferenceError.
+  const todayStart = getDayStart(now);
 
-  let autoClosed = 0;
-  for (const shift of overdueShifts) {
-    const { fixed } = autoCloseStaleAttendance(shift);
-    if (!fixed) continue;
-
-    const duration = fmt(shift.punchIn, shift.punchOut);
-    shift.notes = (shift.notes ? shift.notes + ' | ' : '') +
-      'System: Auto-closed via cron at 11:59:59 PM of the attendance date (no manual punch-out recorded).';
-    await shift.save();
-    autoClosed++;
-
-    if (!shift.staff) continue;
-
-    // In-app notification for everyone
-    await new Notification({
-      admin:         shift.admin,
-      staff:         shift.staff._id,
-      recipientType: 'staff',
-      type:          'ATTENDANCE_ALERT',
-      referenceId:   shift._id,
-      message:       `Your attendance on ${new Date(shift.date).toLocaleDateString('en-IN')} was automatically closed at 11:59 PM. Please review your attendance.`
-    }).save();
-
-    // Email — send to ALL staff who have a portal account and an email address
-    if (shift.staff.isPortalEnabled && shift.staff.email) {
-      await sendPunchOutReminderEmail(shift.staff, loginUrl, {
-        loginTime:  new Date(shift.punchIn).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
-        shiftDate:  new Date(shift.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-        duration,
-        workStatus: shift.workStatus || 'Auto Closed',
-        reason:     'Your attendance was automatically closed at 11:59:59 PM because no punch-out was recorded. Contact HR/Admin if a correction is needed.',
-        autoClosed: true
-      }).catch(err => console.error('Auto-close email error:', err.message));
-    }
-  }
-
-  // ── 2. Reminder: shifts between 8.5 h and 9.5 h (still active) ───────────
+  // ── 2. Reminder: shifts between 8.5 h and 9.5 h (still active TODAY) ──────
   const reminderShifts = await Attendance.find({
     status:   'incomplete',
     punchOut: notPunchedOut,

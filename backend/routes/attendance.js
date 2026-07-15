@@ -16,6 +16,8 @@ const {
   autoCloseStaleAttendance,
   getDayStart,
   getDayEnd,
+  getISTDayEnd,
+  getISTDayOfWeek,
   DEFAULT_STANDARD_HOURS,
   computeSessionHours,
   determineWorkStatus,
@@ -492,7 +494,9 @@ router.post('/punch-in', authStaff, async (req, res) => {
     const { lat, lng, tasks } = req.body;
     const today = getStartOfDay();
     const now = new Date();
-    const dayOfWeek = now.getUTCDay();
+    // Use IST day-of-week so early IST morning punches (e.g. 12:30 AM IST Monday)
+    // are correctly identified as Monday rather than Sunday (UTC).
+    const dayOfWeek = getISTDayOfWeek(now);
 
     const effectiveWorkDays = getEffectiveWorkDays(req.staff);
     if (!effectiveWorkDays.includes(dayOfWeek)) {
@@ -571,7 +575,8 @@ router.post('/punch-out', authStaff, async (req, res) => {
     const { lat, lng, tasks } = req.body;
     const today = getStartOfDay();
     const now = new Date();
-    const dayOfWeek = now.getUTCDay();
+    // Use IST day-of-week for working-day validation
+    const dayOfWeek = getISTDayOfWeek(now);
 
     const effectiveWorkDays = getEffectiveWorkDays(req.staff);
     if (!effectiveWorkDays.includes(dayOfWeek)) {
@@ -1327,7 +1332,7 @@ router.get('/admin/pending', authAdmin, async (req, res) => {
   }
 });
 
-// POST /api/attendance/admin/force-punch-out — Close all "incomplete" shifts from previous days
+// GET /api/attendance/admin/export-csv — Export attendance to CSV
 router.get('/admin/export-csv', authAdmin, async (req, res) => {
   try {
     const records = await Attendance.find({ admin: req.user._id })
@@ -1355,36 +1360,44 @@ router.get('/admin/export-csv', authAdmin, async (req, res) => {
   }
 });
 
-// POST /api/attendance/admin/force-punch-out — Close all "incomplete" shifts from previous days
+// POST /api/attendance/admin/force-punch-out — Close all stale shifts at IST 11:59 PM
 router.post('/admin/force-punch-out', authAdmin, async (req, res) => {
   try {
     const today = getStartOfDay();
-    const staleShifts = await Attendance.find({ admin: req.user._id, status: 'incomplete', date: { $lt: today } });
-    
+    const staleShifts = await Attendance.find({
+      admin: req.user._id,
+      date: { $lt: today },
+      $or: [
+        { punchOut: null },
+        { 'sessions.isActive': true }
+      ]
+    });
+
     let modifiedCount = 0;
     for (const shift of staleShifts) {
-      if (shift.punchIn) {
-        // Set punch out to 9.5 hours after punch in (Full Day + 1h OT cap)
-        shift.punchOut = new Date(shift.punchIn.getTime() + 9.5 * 60 * 60 * 1000);
-        shift.totalHours = 9.5;
-        shift.overtimeHours = 1.0;
-        shift.workStatus = 'Full Day';
-      }
-      shift.status = 'flagged';
-      shift.notes = (shift.notes ? shift.notes + ' | ' : '') + 'System: Force closed stale shift from previous day.';
+      const { fixed } = autoCloseStaleAttendance(shift);
+      if (!fixed) continue;
+      shift.notes = (shift.notes ? shift.notes + ' | ' : '') +
+        'System: Force punch-out at 11:59 PM IST by administrator.';
       await shift.save();
       modifiedCount++;
     }
 
     if (modifiedCount > 0) {
-      await logActivity(req.user._id, 'FORCE_PUNCH_OUT', `Bulk closed ${modifiedCount} stale attendance shifts.`);
+      await logActivity(req.user._id, 'FORCE_PUNCH_OUT',
+        `Bulk closed ${modifiedCount} stale attendance sessions at IST 11:59 PM`);
     }
 
-    res.json({ success: true, message: `Closed ${modifiedCount} stale shifts. They are now flagged for review.` });
+    res.json({
+      success: true,
+      message: `Successfully closed ${modifiedCount} stale attendance sessions at 11:59 PM IST.`,
+      modifiedCount
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/attendance/admin/fix-stale-records
@@ -1444,9 +1457,9 @@ router.post('/admin/fix-stale-records', authAdmin, async (req, res) => {
     for (const record of inflatedRecords) {
       if (!record.punchIn || !record.punchOut) continue;
 
-      // Recompute from stored punchIn → punchOut (both already in DB)
-      // Cap punchOut at 23:59:59 of that record's own date
-      const recordDayEnd = getDayEnd(new Date(record.date));
+      // Cap punchOut at IST 23:59:59 of that record's own IST date
+      // (getISTDayEnd returns UTC 18:29:59 = IST 23:59:59, not UTC 23:59:59 = IST 05:29 AM)
+      const recordDayEnd = getISTDayEnd(new Date(record.date));
       const effectivePunchOut = new Date(record.punchOut) <= recordDayEnd
         ? new Date(record.punchOut)
         : recordDayEnd;

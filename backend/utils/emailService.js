@@ -355,28 +355,31 @@ async function sendPasswordResetEmail(user, token, origin, customLink, kind = 'a
 
   const resetUrl = customLink || `${finalAppUrl}/reset-password?token=${token}`;
 
-  // Determine subject + greeting based on the recipient kind
+  // Determine subject + content based on the recipient kind
   const isStaff = kind === 'staff';
+  const companyName = escapeHtml(user.user?.companyName || user.companyName || 'Your Company');
+  const staffName   = escapeHtml(user.fullName || user.email);
+  const adminEmail  = escapeHtml(user.email);
+
   const subject = isStaff
-    ? 'Set Up Your Staff Portal Password'
+    ? `Password Reset Request – ${companyName} Staff Portal`
     : 'Reset Your PaySlip Pro Password';
+
   const greetingName = isStaff
-    ? (user.fullName || user.email)
+    ? staffName
     : (user.companyName || user.email || 'there');
-  const introLine = isStaff
-    ? 'Welcome to the staff portal. Use the button below to set your portal password and start using your account.'
-    : `We received a request to reset the password for your PaySlip Pro account linked to <strong>${user.email}</strong>.`;
-  const buttonText = isStaff ? 'Set My Portal Password' : 'Reset My Password';
-  const buttonColor = isStaff ? '#58833b' : '#1e3a5f';
-  const headerColor = isStaff ? '#58833b' : '#1e3a5f';
-  const headerSubtitle = isStaff ? 'Staff Portal Access' : 'Professional Payroll Management';
+
+  const buttonColor    = isStaff ? '#4f7c35' : '#1e3a5f';
+  const headerColor    = isStaff ? '#3d6128' : '#1e3a5f';
+  const accentColor    = isStaff ? '#e8f5e0' : '#e8eef8';
+  const headerSubtitle = isStaff ? 'Staff Portal' : 'Payroll Management';
 
   console.log(`✉️ Sending ${isStaff ? 'staff portal ' : ''}password reset email to: ${user.email}`);
 
   const transporter = await createSMTPTransporter();
 
   const mailOptions = {
-    from: buildFromAddress(isStaff ? (user.user?.companyName || 'Your Company') : 'PaySlip Pro'),
+    from: buildFromAddress('PaySlip Pro'),
     to: user.email,
     replyTo: sanitizeEmailValue(process.env.EMAIL_FROM) || sanitizeEmailValue(process.env.EMAIL_USER),
     subject,
@@ -386,48 +389,110 @@ async function sendPasswordResetEmail(user, token, origin, customLink, kind = 'a
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${subject}</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f4f6fa; font-family: 'Segoe UI', Arial, sans-serif;">
-  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f6fa; padding: 40px 10px;">
+<body style="margin:0;padding:0;background-color:#f0f2f5;font-family:'Segoe UI',Arial,sans-serif;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f0f2f5;padding:40px 10px;">
     <tr>
       <td align="center">
-        <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 12px; overflow: hidden;">
-          <tr><td height="6" bgcolor="#FFBE11" style="font-size: 0; line-height: 0;">&nbsp;</td></tr>
+        <table border="0" cellpadding="0" cellspacing="0" width="580" style="background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+          <!-- Top accent bar -->
+          <tr><td height="5" bgcolor="${buttonColor}" style="font-size:0;line-height:0;">&nbsp;</td></tr>
+
+          <!-- Header -->
           <tr>
-            <td bgcolor="${headerColor}" style="padding: 40px 45px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800;">PaySlip Pro</h1>
-              <p style="margin: 8px 0 0 0; color: ${isStaff ? '#d0e8c0' : '#a8c0d6'}; font-size: 14px;">${headerSubtitle}</p>
+            <td bgcolor="${headerColor}" style="padding:36px 48px;text-align:center;">
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-0.3px;">
+                ${isStaff ? companyName : 'PaySlip Pro'}
+              </h1>
+              <p style="margin:6px 0 0 0;color:${isStaff ? '#b8dba0' : '#a8c0d6'};font-size:13px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;">
+                ${headerSubtitle}
+              </p>
             </td>
           </tr>
+
+          <!-- Lock icon -->
           <tr>
-            <td style="padding: 40px 45px;">
-              <p style="margin: 0 0 20px 0; font-size: 18px; font-weight: 700; color: #374151;">Hi ${escapeHtml(greetingName)},</p>
-              <p style="margin: 0 0 10px 0; font-size: 15px; color: #6b7280; line-height: 1.6;">
-                ${isStaff ? `An administrator has set up your staff portal access for <strong>${escapeHtml(user.user?.companyName || 'your company')}</strong>. ` : ''}${introLine}
+            <td align="center" style="padding:32px 48px 0 48px;">
+              <div style="display:inline-block;background:${accentColor};border-radius:50%;width:60px;height:60px;line-height:60px;text-align:center;font-size:28px;">
+                &#128272;
+              </div>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:24px 48px 36px 48px;">
+
+              <p style="margin:0 0 6px 0;font-size:20px;font-weight:700;color:#1f2937;text-align:center;">
+                Password Reset Request
               </p>
-              <p style="margin: 0 0 30px 0; font-size: 15px; color: #6b7280; line-height: 1.6;">
-                Click the button below to ${isStaff ? 'set your portal password' : 'set a new password'}. This link ${isStaff ? 'expires in <strong>15 minutes</strong>' : 'expires in <strong>1 hour</strong>'}.
+              <p style="margin:0 0 28px 0;font-size:13px;color:#9ca3af;text-align:center;">
+                ${isStaff ? companyName + ' Staff Portal' : 'PaySlip Pro Account'}
               </p>
+
+              <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.7;">
+                Hi <strong>${greetingName}</strong>,
+              </p>
+
+              <p style="margin:0 0 16px 0;font-size:15px;color:#4b5563;line-height:1.7;">
+                We received a request to reset the password for your
+                <strong>${isStaff ? companyName + ' Staff Portal' : 'PaySlip Pro'}</strong>
+                account associated with <strong>${adminEmail}</strong>.
+              </p>
+
+              <p style="margin:0 0 28px 0;font-size:15px;color:#4b5563;line-height:1.7;">
+                Click the button below to choose a new password and regain access to your account.
+                This link is valid for <strong>${isStaff ? '15 minutes' : '1 hour'}</strong> and can only be used once.
+              </p>
+
+              <!-- CTA Button -->
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
-                  <td align="center">
-                    <a href="${resetUrl}" style="display: inline-block; background: ${buttonColor}; color: #ffffff; padding: 16px 36px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px;">
-                      ${buttonText}
+                  <td align="center" style="padding-bottom:28px;">
+                    <a href="${resetUrl}"
+                       style="display:inline-block;background:${buttonColor};color:#ffffff;padding:15px 44px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;letter-spacing:0.3px;">
+                      Reset My Password
                     </a>
                   </td>
                 </tr>
               </table>
-              <p style="margin: 30px 0 0 0; font-size: 12px; color: #9ca3af;">
-                Or copy this link: <a href="${resetUrl}" style="color: ${buttonColor};">${resetUrl}</a><br/>
-                ${isStaff ? 'If you did not expect this email, please contact your administrator.' : "If you didn't request a password reset, you can safely ignore this email."}
+
+              <!-- Security notice -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="background:${accentColor};border-radius:10px;padding:16px 20px;">
+                    <p style="margin:0 0 5px 0;font-size:12px;font-weight:700;color:#374151;">Security Notice</p>
+                    <p style="margin:0;font-size:12px;color:#6b7280;line-height:1.6;">
+                      ${isStaff
+                        ? 'If you did not request a password reset, please ignore this email or contact your administrator immediately. Your password will remain unchanged.'
+                        : "If you didn't request this, you can safely ignore this email. Your account remains secure."
+                      }
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Fallback link -->
+              <p style="margin:20px 0 0 0;font-size:11px;color:#9ca3af;text-align:center;line-height:1.7;">
+                Button not working? Copy and paste this link into your browser:<br/>
+                <a href="${resetUrl}" style="color:${buttonColor};word-break:break-all;">${resetUrl}</a>
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td bgcolor="#f9fafb" style="padding:18px 48px;text-align:center;border-top:1px solid #f3f4f6;">
+              <p style="margin:0;color:#9ca3af;font-size:11px;line-height:1.6;">
+                This is an automated email — please do not reply to this message.<br/>
+                &copy; ${new Date().getFullYear()} ${isStaff ? companyName : 'PaySlip Pro'}. All rights reserved.
               </p>
             </td>
           </tr>
-          <tr>
-            <td bgcolor="#f9fafb" style="padding: 20px 45px; text-align: center;">
-              <p style="margin: 0; color: #9ca3af; font-size: 11px;">&copy; 2026 PaySlip Pro. All rights reserved.</p>
-            </td>
-          </tr>
+
         </table>
       </td>
     </tr>
@@ -435,6 +500,7 @@ async function sendPasswordResetEmail(user, token, origin, customLink, kind = 'a
 </body>
 </html>
     `,
+
   };
 
   // Add anti-spam headers + fix From name to match the actual sender domain.
