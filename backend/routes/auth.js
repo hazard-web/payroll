@@ -229,10 +229,22 @@ router.get('/verify-email', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// GET /api/auth/profile — Get company profile
+// GET /api/auth/profile — Get company profile (always fresh from DB)
 // ─────────────────────────────────────────────────────────────
 router.get('/profile', auth, async (req, res) => {
-  res.json({ success: true, user: req.user });
+  try {
+    // Always fetch fresh from DB — never serve stale auth-cache data here.
+    // The auth cache is keyed by token and has a 30 s TTL, which means a
+    // user who just updated their profile could get stale values back.
+    const user = await User.findById(req.user._id)
+      .select('-password -verificationToken -verificationExpires -resetPasswordToken -resetPasswordExpires')
+      .lean();
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    res.json({ success: true, user });
+  } catch (err) {
+    console.error('Get profile error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch profile' });
+  }
 });
 
 // ─────────────────────────────────────────────────────────────

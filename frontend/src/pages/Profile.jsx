@@ -21,20 +21,47 @@ export default function Profile() {
     companyLogo: ''
   })
 
+  // Fetch fresh profile data directly from backend on mount.
+  // This guarantees the form always reflects the latest saved values,
+  // even if the AuthContext user object is stale or was set before the
+  // profile was updated.
   useEffect(() => {
-    if (user) {
-      setForm({
-        companyName:    user.companyName    || '',
-        companyAddress: user.companyAddress || '',
-        companyEmail:   user.companyEmail   || '',
-        companyPhone:   user.companyPhone   || '',
-        companyCIN:     user.companyCIN     || '',
-        companyGST:     user.companyGST     || '',
-        companyWebsite: user.companyWebsite || '',
-        companyLogo:    user.companyLogo    || ''
-      })
+    const loadProfile = async () => {
+      try {
+        const res = await api.get('/auth/profile', { __skipCache: true })
+        const u = res.data.user
+        if (u) {
+          setForm({
+            companyName:    u.companyName    || '',
+            companyAddress: u.companyAddress || '',
+            companyEmail:   u.companyEmail   || '',
+            companyPhone:   u.companyPhone   || '',
+            companyCIN:     u.companyCIN     || '',
+            companyGST:     u.companyGST     || '',
+            companyWebsite: u.companyWebsite || '',
+            companyLogo:    u.companyLogo    || ''
+          })
+        }
+      } catch {
+        // Fallback to context data if fetch fails
+        if (user) {
+          setForm({
+            companyName:    user.companyName    || '',
+            companyAddress: user.companyAddress || '',
+            companyEmail:   user.companyEmail   || '',
+            companyPhone:   user.companyPhone   || '',
+            companyCIN:     user.companyCIN     || '',
+            companyGST:     user.companyGST     || '',
+            companyWebsite: user.companyWebsite || '',
+            companyLogo:    user.companyLogo    || ''
+          })
+        }
+      }
     }
-  }, [user])
+    loadProfile()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
 
   const handleLogoChange = (e) => {
     const file = e.target.files[0]

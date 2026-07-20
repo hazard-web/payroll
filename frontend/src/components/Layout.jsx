@@ -48,7 +48,6 @@ export default function Layout() {
   const [deferredPrompt, setDeferredPrompt] = useState(null)
   const [notifications, setNotifications] = useState([])
   const [notifOpen, setNotifOpen] = useState(false)
-  const [profileOpen, setProfileOpen] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -354,97 +353,26 @@ export default function Layout() {
             )}
           </div>
 
-          {/* Profile Dropdown with Chevron */}
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setProfileOpen(!profileOpen)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '4px 12px 4px 4px',
-                borderRadius: 9999,
-                border: '1px solid var(--border)',
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                outline: 'none'
-              }}
-              className="btn-hover"
-            >
-              {/* User Avatar */}
-              <div style={{
-                width: 28, height: 28, borderRadius: '50%',
-                background: 'var(--primary)', color: 'white',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontWeight: 700, fontSize: 11
-              }}>
-                {(user?.companyName || 'A').charAt(0).toUpperCase()}
-              </div>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{user?.companyName || 'Admin'}</span>
-              <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} />
-            </button>
-
-            {profileOpen && (
-              <>
-                <div style={{ position: 'fixed', inset: 0, zIndex: 190 }} onClick={() => setProfileOpen(false)} />
-                <div style={{
-                  position: 'absolute', top: 42, right: 0, width: 220,
-                  background: 'var(--surface)', borderRadius: 12,
-                  boxShadow: '0 10px 25px rgba(0,0,0,0.1)', border: '1px solid var(--border)',
-                  zIndex: 200, padding: 6, display: 'flex', flexDirection: 'column', gap: 4
-                }}>
-                  {/* Theme toggler inside dropdown */}
-                  <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>THEME</span>
-                    <div style={{ display: 'flex', background: 'var(--bg)', borderRadius: 6, padding: 2, border: '1px solid var(--border)' }}>
-                      {[
-                        { id: 'light', label: 'Light' },
-                        { id: 'dark', label: 'Dark' }
-                      ].map(t => (
-                        <button
-                          key={t.id}
-                          onClick={() => setTheme(t.id)}
-                          style={{
-                            background: theme === t.id ? 'var(--surface)' : 'transparent',
-                            color: theme === t.id ? 'var(--primary)' : 'var(--text-muted)',
-                            border: 'none', borderRadius: 4, padding: '3px 8px',
-                            cursor: 'pointer', fontSize: 11, fontWeight: 700, transition: 'all 0.2s'
-                          }}
-                        >
-                          {t.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => { navigate('/profile'); setProfileOpen(false); }}
-                    style={{
-                      width: '100%', padding: '10px 12px', background: 'none', border: 'none',
-                      textAlign: 'left', fontSize: 13, color: 'var(--text)', cursor: 'pointer',
-                      borderRadius: 8, transition: 'background 0.2s', fontWeight: 600
-                    }}
-                    onMouseEnter={e => e.target.style.background = 'var(--bg)'}
-                    onMouseLeave={e => e.target.style.background = 'none'}
-                  >
-                    Company Profile
-                  </button>
-                  <button
-                    onClick={() => { logout(); setProfileOpen(false); }}
-                    style={{
-                      width: '100%', padding: '10px 12px', background: 'none', border: 'none',
-                      textAlign: 'left', fontSize: 13, color: '#dc2626', cursor: 'pointer',
-                      borderRadius: 8, transition: 'background 0.2s', fontWeight: 700
-                    }}
-                    onMouseEnter={e => e.target.style.background = '#fef2f2'}
-                    onMouseLeave={e => e.target.style.background = 'none'}
-                  >
-                    Sign Out
-                  </button>
-                </div>
-              </>
-            )}
+          {/* Theme toggle icon button (replaces profile dropdown) */}
+          <div style={{ display: 'flex', background: 'var(--bg)', borderRadius: 8, padding: 2, border: '1px solid var(--border)' }}>
+            {[
+              { id: 'light', label: 'L' },
+              { id: 'dark', label: 'D' }
+            ].map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTheme(t.id)}
+                style={{
+                  background: theme === t.id ? 'var(--surface)' : 'transparent',
+                  color: theme === t.id ? 'var(--primary)' : 'var(--text-muted)',
+                  border: 'none', borderRadius: 6, padding: '4px 10px',
+                  cursor: 'pointer', fontSize: 11, fontWeight: 700, transition: 'all 0.2s'
+                }}
+                title={t.id === 'light' ? 'Light Mode' : 'Dark Mode'}
+              >
+                {t.id === 'light' ? <Sun size={14} /> : <Moon size={14} />}
+              </button>
+            ))}
           </div>
         </div>
       </header>
@@ -484,25 +412,43 @@ export default function Layout() {
               borderBottom: '1px solid rgba(255,255,255,0.05)',
               marginBottom: 16
             }}>
-              <span style={{ 
-                fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', 
-                letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap'
-              }}>
-                {sidebarOpen ? 'Technologies' : '•••'}
-              </span>
-              {sidebarOpen && (
-                <button 
-                  onClick={toggleSidebar} 
-                  style={{ 
-                    background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', 
-                    cursor: 'pointer', padding: 4, borderRadius: 4,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'all 0.2s'
+              {sidebarOpen ? (
+                <>
+                  <span style={{ 
+                    fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', 
+                    letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap'
+                  }}>
+                    Technologies
+                  </span>
+                  <button 
+                    onClick={toggleSidebar} 
+                    style={{ 
+                      background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', 
+                      cursor: 'pointer', padding: 4, borderRadius: 4,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'white'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                    title="Collapse sidebar"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={toggleSidebar}
+                  title="Expand sidebar"
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '4px 0', borderRadius: 4, transition: 'all 0.2s',
+                    color: 'rgba(255,255,255,0.4)',
                   }}
                   onMouseEnter={e => e.currentTarget.style.color = 'white'}
                   onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
                 >
-                  <ChevronLeft size={16} />
+                  <ChevronRight size={16} />
                 </button>
               )}
             </div>
@@ -535,24 +481,83 @@ export default function Layout() {
             ))}
           </nav>
 
-          <div style={{ padding: '0 14px 12px' }}>
-            {/* Logout button */}
-            <button
-              onClick={logout}
-              title={!sidebarOpen ? 'Sign Out' : ''}
-              style={{
-                width: '100%', background: 'transparent', color: 'rgba(255,255,255,0.4)',
-                border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8,
-                padding: sidebarOpen ? '8px 12px' : '8px 0', marginTop: 4,
-                cursor: 'pointer', display: 'flex', alignItems: 'center',
-                justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                gap: 8, fontSize: 12, fontWeight: 600, transition: 'all 0.2s'
-              }}
-            >
-              <LogOut size={14} style={{ flexShrink: 0 }} />
-              {sidebarOpen && 'Sign Out'}
-            </button>
+          <div style={{ padding: '0 14px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+            {sidebarOpen ? (
+              /* Company card with Sign Out clearly inside */
+              <div style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 12,
+                overflow: 'hidden',
+              }}>
+                {/* Top row: avatar + company info */}
+                <div
+                  onClick={() => navigate('/profile')}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '11px 12px', cursor: 'pointer', transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  title="Company Profile"
+                >
+                  <div style={{
+                    width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+                    background: 'var(--primary)', color: 'white',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 800, fontSize: 14,
+                  }}>
+                    {(user?.companyName || 'A').charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {user?.companyName || 'Company'}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {user?.email || 'admin'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div style={{ height: '1px', background: 'rgba(255,255,255,0.07)', margin: '0' }} />
+
+                {/* Sign Out row — clearly inside card */}
+                <button
+                  onClick={logout}
+                  style={{
+                    width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '9px 12px', color: 'rgba(255,255,255,0.45)',
+                    fontSize: 12, fontWeight: 600, transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.1)'; e.currentTarget.style.color = '#f87171'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; }}
+                >
+                  <LogOut size={13} style={{ flexShrink: 0 }} />
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              /* Collapsed: just the logout icon centered */
+              <button
+                onClick={logout}
+                title="Sign Out"
+                style={{
+                  width: '100%', background: 'transparent', color: 'rgba(255,255,255,0.4)',
+                  border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8,
+                  padding: '8px 0', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; e.currentTarget.style.borderColor = 'rgba(248,113,113,0.3)'; }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+              >
+                <LogOut size={14} />
+              </button>
+            )}
           </div>
+
         </aside>
 
         {/* Main Framework */}

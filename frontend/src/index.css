@@ -415,6 +415,9 @@ h3 { font-size: 18px; line-height: 1.4; margin-bottom: 0.5rem; }
 .data-table thead {
   background: var(--bg);
   border-bottom: 1.5px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
 
 .data-table th {
@@ -506,10 +509,10 @@ h3 { font-size: 18px; line-height: 1.4; margin-bottom: 0.5rem; }
   --text-xl: 22px;
   --text-2xl: 26px;
 
-  --container-wide: 1320px;
+  --container-wide: 1280px;
   --container-narrow: 840px;
   --page-padding-y: clamp(20px, 3vw, 32px);
-  --page-padding-x: clamp(16px, 3vw, 32px);
+  --page-padding-x: clamp(20px, 3vw, 36px);
 
   --radius-md: 10px;
   --radius-lg: 12px;
@@ -553,6 +556,20 @@ h3 { font-size: 18px; line-height: 1.4; margin-bottom: 0.5rem; }
   gap: var(--space-4);
   margin-bottom: var(--space-6);
   flex-wrap: wrap;
+
+  /* Sticky header — stays visible while page content scrolls */
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--bg);
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-4);
+  margin-top: calc(-1 * var(--space-4));
+  border-bottom: 1px solid var(--border);
+  margin-left: calc(-1 * var(--page-padding-x));
+  margin-right: calc(-1 * var(--page-padding-x));
+  padding-left: var(--page-padding-x);
+  padding-right: var(--page-padding-x);
 }
 
 .page-header__main {
@@ -564,9 +581,10 @@ h3 { font-size: 18px; line-height: 1.4; margin-bottom: 0.5rem; }
 
 .page-header__actions {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-3);
   flex-wrap: wrap;
+  flex: 1;
 }
 
 .page-title {

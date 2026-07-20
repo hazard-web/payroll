@@ -51,6 +51,23 @@ router.post('/', async (req, res) => {
       payslipData.companyLogo = req.user.companyLogo;
     }
 
+    // Always inject/override company profile fields from the authenticated user.
+    // This guarantees the PDF shows the correct company details even if the
+    // frontend payload is missing or stale values from the profile page.
+    const companyProfileFields = [
+      'companyName', 'companyAddress', 'companyEmail',
+      'companyPhone', 'companyCIN', 'companyGST', 'companyWebsite',
+    ];
+    companyProfileFields.forEach(field => {
+      if (req.user[field]) {
+        payslipData[field] = req.user[field];
+      }
+    });
+    // Logo: always prefer the user's saved logo over whatever was in the payload
+    if (req.user.companyLogo) {
+      payslipData.companyLogo = req.user.companyLogo;
+    }
+
     const payslip = new Payslip(payslipData);
     await payslip.save();
 

@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
-  Plus, Briefcase, Loader2, FilePlus, Eye
+  Plus, Briefcase, Loader2, FilePlus, Eye, Users, Search
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api'
-import PageShell, { PageHeader, PageLoading } from '../components/PageShell'
+import PageShell, { PageLoading } from '../components/PageShell'
 import {
   InputField, SegmentedControl, Modal, Avatar, EmptyState, SearchInput
 } from '../components/UI'
@@ -170,32 +170,115 @@ export default function StaffList() {
 
   return (
     <PageShell wide>
-      <PageHeader
-        title="Team Management"
-        subtitle="Manage your regular employees and interns."
-        actions={
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+
+      {/* ── Professional Sticky Header ── */}
+      <div style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 50,
+        background: 'var(--bg)',
+        borderBottom: '1px solid var(--border)',
+        margin: 'calc(-1 * var(--page-padding-y)) calc(-1 * var(--page-padding-x)) 0',
+        padding: '0 var(--page-padding-x)',
+        backdropFilter: 'blur(12px)',
+      }}>
+        {/* Row 1: Title + Controls */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+          paddingTop: 20,
+          paddingBottom: 14,
+          flexWrap: 'wrap',
+        }}>
+          {/* Left: Title block */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 12,
+              background: 'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, #000))',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, boxShadow: '0 4px 12px color-mix(in srgb, var(--primary) 30%, transparent)'
+            }}>
+              <Users size={22} color="white" strokeWidth={2} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <h1 style={{
+                  margin: 0,
+                  fontSize: 22, fontWeight: 800,
+                  color: 'var(--text)',
+                  letterSpacing: '-0.03em',
+                  lineHeight: 1.2
+                }}>Team Management</h1>
+                <span style={{
+                  background: 'var(--primary-tint, rgba(88,131,59,0.12))',
+                  color: 'var(--primary)',
+                  border: '1px solid color-mix(in srgb, var(--primary) 25%, transparent)',
+                  borderRadius: 99, padding: '2px 10px',
+                  fontSize: 12, fontWeight: 700
+                }}>
+                  {staff.length} members
+                </span>
+              </div>
+              <p style={{ margin: '3px 0 0', fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>
+                Manage your regular employees and interns.
+              </p>
+            </div>
+          </div>
+
+          {/* Right: Filter tabs + Add button */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
             <SegmentedControl
               options={FILTER_OPTIONS}
               value={filterType}
               onChange={setFilterType}
-              style={{ width: 320, height: 48 }}
+              style={{ height: 40, minWidth: 220 }}
             />
-            <button onClick={() => setShowModal(true)} className="btn-primary" style={{ height: 48, padding: '0 24px' }}>
-              <Plus size={20} strokeWidth={2.5} /> Add new team member
+            <button
+              onClick={() => setShowModal(true)}
+              className="btn-primary"
+              style={{ height: 40, padding: '0 18px', whiteSpace: 'nowrap', borderRadius: 10, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}
+            >
+              <Plus size={18} strokeWidth={2.5} /> Add member
             </button>
           </div>
-        }
-      />
+        </div>
 
-      <div style={{ marginBottom: 'var(--space-6)', maxWidth: 480 }}>
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="Search team members..."
-        />
+        {/* Row 2: Full-width Search */}
+        <div style={{ paddingBottom: 14 }}>
+          <div style={{ position: 'relative', maxWidth: '100%' }}>
+            <Search
+              size={16}
+              style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-light)', pointerEvents: 'none' }}
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name, email, or designation…"
+              style={{
+                width: '100%',
+                height: 42,
+                paddingLeft: 42, paddingRight: 16,
+                border: '1.5px solid var(--border)',
+                borderRadius: 10,
+                background: 'var(--bg)',
+                color: 'var(--text)',
+                fontSize: 14, fontWeight: 500,
+                outline: 'none',
+                transition: 'border-color 0.2s, box-shadow 0.2s',
+                boxSizing: 'border-box',
+              }}
+              onFocus={e => { e.target.style.borderColor = 'var(--primary)'; e.target.style.boxShadow = '0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent)'; }}
+              onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; }}
+            />
+          </div>
+        </div>
       </div>
 
+      {/* ── Content ── */}
+      <div style={{ marginTop: 24 }}>
       {filteredStaff.length === 0 ? (
         <EmptyState
           icon={Briefcase}
@@ -208,9 +291,17 @@ export default function StaffList() {
           }
         />
       ) : (
-        <div className="table-card" style={{ overflowX: 'auto' }}>
-          <table className="data-table">
-            <thead>
+        <div className="table-card" style={{ overflowX: 'auto', width: '100%' }}>
+          <table className="data-table" style={{ width: '100%', tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '28%' }} />
+              <col style={{ width: '18%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '13%' }} />
+              <col style={{ width: '16%' }} />
+              <col style={{ width: '15%' }} />
+            </colgroup>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
               <tr>
                 <th>Employee</th>
                 <th>Role</th>
@@ -300,6 +391,7 @@ export default function StaffList() {
           </table>
         </div>
       )}
+      </div>{/* ── end content ── */}
 
 
       <Modal

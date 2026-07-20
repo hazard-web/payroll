@@ -164,7 +164,28 @@ export default function GeneratePayslip() {
     return initialValues;
   })
 
+  // Sync company profile into form whenever user context loads/updates.
+  // This handles the case where user is null at mount (async auth) and
+  // becomes available later, or when the admin updates their profile.
+  useEffect(() => {
+    if (!user) return;
+    setForm(f => ({
+      ...f,
+      companyName:    user.companyName    || f.companyName    || '',
+      companyAddress: user.companyAddress || f.companyAddress || '',
+      companyEmail:   user.companyEmail   || f.companyEmail   || '',
+      companyPhone:   user.companyPhone   || f.companyPhone   || '',
+      companyCIN:     user.companyCIN     || f.companyCIN     || '',
+      companyGST:     user.companyGST     || f.companyGST     || '',
+      companyWebsite: user.companyWebsite || f.companyWebsite || '',
+      companyLogo:    user.companyLogo    || f.companyLogo    || '',
+    }));
+    // Auto-skip to step 1 once company data is confirmed
+    if (user.companyName) setStep(s => (s === 0 ? 1 : s));
+  }, [user]);
+
   const [submitting, setSubmitting] = useState(false)
+
 
   // ── Payroll calculation: fetch full breakdown when staff + month + year changes ──
   useEffect(() => {
