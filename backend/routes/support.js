@@ -11,9 +11,14 @@ const { auth: authAdmin } = require('./auth');
 
 // Helper: start of today UTC
 const getStartOfDay = (dateString = null) => {
-  const date = dateString ? new Date(dateString) : new Date();
-  date.setUTCHours(0, 0, 0, 0);
-  return date;
+  if (dateString) {
+    const d = new Date(dateString);
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
+  }
+  const now = new Date();
+  const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+  return new Date(Date.UTC(istTime.getUTCFullYear(), istTime.getUTCMonth(), istTime.getUTCDate(), 0, 0, 0, 0));
 };
 
 // ─────────────────────────────────────────────────────────────

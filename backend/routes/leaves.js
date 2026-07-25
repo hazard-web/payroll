@@ -59,6 +59,27 @@ router.get('/my-requests', authStaff, async (req, res) => {
   }
 });
 
+// GET /api/leaves/policy — Staff fetches their company's leave policy
+router.get('/policy', authStaff, async (req, res) => {
+  try {
+    const LeavePolicy = require('../models/LeavePolicy');
+    const policy = await LeavePolicy.findOne({ user: req.staff.user }).lean();
+    if (!policy) {
+      return res.json({
+        success: true,
+        data: {
+          casualLeave: { daysPerYear: 12 },
+          sickLeave: { daysPerYear: 12 },
+        }
+      });
+    }
+    res.json({ success: true, data: policy });
+  } catch (err) {
+    console.error('Fetch staff leave policy error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch leave policy' });
+  }
+});
+
 // GET /api/leaves/notifications — Staff views their notifications
 router.get('/notifications', authStaff, async (req, res) => {
   try {

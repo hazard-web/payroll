@@ -20,6 +20,7 @@ const SLOW_ENDPOINT_PATTERNS = [
   /\/staff\/[^/]+\/provision-portal/,    // SMTP onboarding email
   /\/staff\/[^/]+\/documents/,           // base64 document upload
   /\/portal\/me\/documents\//,           // base64 document upload
+  /\/portal\/login/,                     // bcrypt + Atlas cold-start can be slow
 ]
 
 const api = axios.create({
@@ -32,6 +33,7 @@ api.interceptors.request.use((config) => {
   const url = config.url || ''
   const isStaffRoute =
     url.startsWith('/portal/') ||
+    url.startsWith('/assigned-tasks/staff') ||
     (url.startsWith('/attendance/') && !url.startsWith('/attendance/admin/')) ||
     (url.startsWith('/leaves/') && !url.startsWith('/leaves/admin/'))
 

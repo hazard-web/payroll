@@ -8,7 +8,7 @@ import {
 import toast from 'react-hot-toast'
 import api from '../api'
 import PageShell, { PageHeader, PageLoading } from '../components/PageShell'
-import { InputField, SelectField, Modal, Badge, ActionBtn, EmptyState, Toggle } from '../components/UI'
+import { InputField, SelectField, Modal, Badge, ActionBtn, EmptyState, Toggle, StatCard } from '../components/UI'
 
 const PRIORITY_OPTIONS = [
   { value: 'Normal', label: 'Normal' },
@@ -31,7 +31,7 @@ const emptyForm = () => ({
   isActive: true,
 })
 
-export default function Announcements() {
+export default function Announcements({ isSettings }) {
   const [announcements, setAnnouncements] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -141,39 +141,35 @@ export default function Announcements() {
 
   if (loading) return <PageLoading label="Loading announcements…" />
 
-  return (
-    <PageShell>
-      <PageHeader
-        title="Announcements"
-        subtitle="Create and manage company-wide announcements."
-        actions={
-          <button onClick={openCreate} className="btn-primary" style={{ height: 48, padding: '0 24px' }}>
-            <Plus size={20} strokeWidth={2.5} /> New Announcement
-          </button>
-        }
-      />
-
-      {/* Stats bar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
-        {[
-          { label: 'Total', value: announcements.length, icon: Radio, accent: '#58833b' },
-          { label: 'Active', value: announcements.filter(a => a.isActive).length, icon: Eye, accent: '#1d4ed8' },
-          { label: 'Inactive', value: announcements.filter(a => !a.isActive).length, icon: X, accent: '#6b7280' },
-          { label: 'Urgent', value: announcements.filter(a => a.priority === 'Urgent').length, icon: Zap, accent: '#dc2626' },
-        ].map(stat => (
-          <div key={stat.label} style={{
-            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
-            padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14,
-          }}>
-            <div className="stat-icon" style={{ background: `${stat.accent}15`, color: stat.accent, width: 40, height: 40 }}>
-              <stat.icon size={18} />
-            </div>
-            <div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', lineHeight: 1.1 }}>{stat.value}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.06 }}>{stat.label}</div>
-            </div>
+  const content = (
+    <>
+      {isSettings ? (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', margin: 0 }}>Announcements Management</h2>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 0 0', fontWeight: 500 }}>Create and manage company-wide announcements.</p>
           </div>
-        ))}
+          <button onClick={openCreate} className="btn-primary" style={{ height: 38, padding: '0 16px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Plus size={16} strokeWidth={2.5} /> New Announcement
+          </button>
+        </div>
+      ) : (
+        <PageHeader
+          title="Announcements"
+          subtitle="Create and manage company-wide announcements."
+          actions={
+            <button onClick={openCreate} className="btn-primary" style={{ height: 48, padding: '0 24px' }}>
+              <Plus size={20} strokeWidth={2.5} /> New Announcement
+            </button>
+          }
+        />
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
+        <StatCard icon={Radio} label="TOTAL" value={announcements.length} color="#58833b" />
+        <StatCard icon={Eye} label="ACTIVE" value={announcements.filter(a => a.isActive).length} color="#1d4ed8" />
+        <StatCard icon={X} label="INACTIVE" value={announcements.filter(a => !a.isActive).length} color="#6b7280" />
+        <StatCard icon={Zap} label="URGENT" value={announcements.filter(a => a.priority === 'Urgent').length} color="#dc2626" />
       </div>
 
       {/* Announcement list */}
@@ -376,6 +372,8 @@ export default function Announcements() {
           </p>
         </form>
       </Modal>
-    </PageShell>
+    </>
   )
+
+  return isSettings ? content : <PageShell>{content}</PageShell>
 }

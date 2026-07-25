@@ -271,19 +271,22 @@ function drawPayslip(doc, payslip) {
 
   // CIN and GST on one line
   const cinGstParts = [];
-  if (payslip.companyCIN) cinGstParts.push(`CIN: ${payslip.companyCIN}`);
-  if (payslip.companyGST) cinGstParts.push(`GST No: ${payslip.companyGST}`);
+  const companyCIN = payslip.companyCIN || 'U74999UP2017PTC096671';
+  const companyGST = payslip.companyGST || '09AAHCB4248F1ZO';
+  if (companyCIN) cinGstParts.push(`CIN: ${companyCIN}`);
+  if (companyGST) cinGstParts.push(`GST No: ${companyGST}`);
   if (cinGstParts.length) {
     doc.font(fR).fontSize(6.2).fillColor(C.textMuted)
        .text(cinGstParts.join('   '), compX, logoY + 19, { width: compW });
   }
 
   // Address with location pin icon
-  if (payslip.companyAddress) {
+  const companyAddress = payslip.companyAddress || 'Flat No. 207, Plot No. 31A, Unione Residency, Akbarpur, Behrampur, Ghaziabad, Uttar Pradesh, India, 201009';
+  if (companyAddress) {
     const addrY = logoY + 31;
     drawLocationPin(doc, compX + 1, addrY + 4, 6);
     doc.font(fR).fontSize(6).fillColor(C.textMid)
-       .text(payslip.companyAddress, compX + 10, addrY, { width: compW - 10 });
+       .text(companyAddress, compX + 10, addrY, { width: compW - 10 });
   }
 
   // Right side: Email and Website (positioned to not overlap)
@@ -291,16 +294,18 @@ function drawPayslip(doc, payslip) {
   const ctW = CW * 0.28;
   let ctY = logoY + 4;
 
-  if (payslip.companyEmail) {
+  const companyEmail = payslip.companyEmail || 'hr@bdatechnologies.com';
+  if (companyEmail) {
     drawEmailIcon(doc, ctX, ctY + 5, 7);
     doc.font(fR).fontSize(6.2).fillColor(C.textMid)
-       .text(payslip.companyEmail, ctX + 9, ctY, { width: ctW - 9 });
+       .text(companyEmail, ctX + 9, ctY, { width: ctW - 9 });
     ctY += 13;
   }
-  if (payslip.companyWebsite) {
+  const companyWebsite = payslip.companyWebsite || 'www.bdatechnologies.com';
+  if (companyWebsite) {
     drawWebIcon(doc, ctX, ctY + 5, 7);
     doc.font(fR).fontSize(6.2).fillColor(C.textMid)
-       .text(payslip.companyWebsite, ctX + 9, ctY, { width: ctW - 9 });
+       .text(companyWebsite, ctX + 9, ctY, { width: ctW - 9 });
   }
 
   // Thin grey separator under header — positioned below the tallest element

@@ -4,7 +4,7 @@ import {
   ChevronLeft, ChevronRight, CalendarDays,
   Circle, AlertCircle, Briefcase, TrendingUp,
   Calendar, Play, Square, RotateCcw, Timer,
-  X, AlertTriangle, Zap
+  X, AlertTriangle, Zap, Search, Filter, Plus, Lightbulb
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import api from '../../api'
@@ -26,8 +26,23 @@ const STYLES = `
   .pt-tab:hover { background:var(--bg);color:var(--text); }
   .pt-tab.active { background:var(--primary);color:#fff;box-shadow:0 4px 12px rgba(88,131,59,.25); }
 
-  .pt-stat { background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;transition:box-shadow .2s; }
-  .pt-stat:hover { box-shadow:0 4px 16px rgba(0,0,0,.06); }
+  .pt-stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease-in-out;
+  }
+  .pt-stat:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+    border-color: var(--primary-light, var(--border));
+  }
 
   .pt-task-card {
     background:var(--surface);border:1px solid var(--border);border-radius:14px;
@@ -292,6 +307,92 @@ function ManualDurationModal({ task, onSave, onCancel, saving }) {
   )
 }
 
+// ── Add Task Modal ────────────────────────────────────────────────────────────
+function AddTaskModal({ onSave, onCancel, saving }) {
+  const [project, setProject] = useState('General')
+  const [description, setDescription] = useState('')
+  const [notes, setNotes] = useState('')
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!description.trim()) {
+      toast.error('Please enter a task description')
+      return
+    }
+    onSave({ project: project.trim(), description: description.trim(), notes: notes.trim() })
+  }
+
+  return (
+    <div className="pt-modal-overlay" onClick={onCancel}>
+      <motion.div
+        className="pt-modal"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        onClick={e => e.stopPropagation()}
+        style={{ maxWidth: 450 }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(59,130,246,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Plus size={18} color="#3b82f6" />
+            </div>
+            <h3 style={{ margin: 0 }}>Add New Task</h3>
+          </div>
+          <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.05em' }}>Project Name</label>
+            <input
+              type="text"
+              required
+              className="pt-input"
+              value={project}
+              onChange={e => setProject(e.target.value)}
+              placeholder="e.g. General, Frontend, Design"
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.05em' }}>Task Description</label>
+            <input
+              type="text"
+              required
+              className="pt-input"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="What are you working on?"
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.05em' }}>Additional Notes (Optional)</label>
+            <textarea
+              className="pt-input"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Enter additional task details..."
+              rows={3}
+              style={{ resize: 'vertical', minHeight: 60 }}
+            />
+          </div>
+
+          <div className="pt-modal-btns" style={{ marginTop: 10 }}>
+            <button type="button" className="pt-action-btn pending" onClick={onCancel} disabled={saving}>Cancel</button>
+            <button type="submit" className="pt-action-btn start" style={{ background: '#2563eb' }} disabled={saving}>
+              {saving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+              {saving ? 'Adding…' : 'Add Task'}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  )
+}
+
 // ── Task Card ─────────────────────────────────────────────────────────────────
 function TaskCard({ task, onAction, actionLoading }) {
   const isRunning = !!task.isRunning
@@ -434,7 +535,6 @@ function TaskCard({ task, onAction, actionLoading }) {
   )
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function PortalTasks() {
   const now = new Date()
   const [view, setView] = useState('today')
@@ -443,12 +543,52 @@ export default function PortalTasks() {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState('All')
+  const [activeTab, setActiveTab] = useState('daily')
+  const [assignedTasks, setAssignedTasks] = useState([])
+  const [assignedLoading, setAssignedLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(null) // taskId being acted upon
+
+  const fetchAssignedTasks = async () => {
+    setAssignedLoading(true)
+    try {
+      const res = await api.get('/assigned-tasks/staff')
+      setAssignedTasks(res.data.tasks || [])
+    } catch {
+      toast.error('Failed to load assigned tasks')
+    } finally {
+      setAssignedLoading(false)
+    }
+  }
+
+  const handleUpdateAssignedStatus = async (taskId, newStatus) => {
+    setActionLoading(taskId)
+    try {
+      const res = await api.patch(`/assigned-tasks/staff/${taskId}/status`, { status: newStatus })
+      if (res.data.success) {
+        toast.success(`Task marked as ${newStatus}`)
+        setAssignedTasks(prev => prev.map(t => t._id === taskId ? res.data.task : t))
+      }
+    } catch {
+      toast.error('Failed to update task status')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  useEffect(() => {
+    fetchAssignedTasks()
+  }, [])
+
+  // Search & sorting
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState('Date') // 'Date' | 'Project' | 'Status'
 
   // Modals
   const [conflictModal, setConflictModal] = useState(null)   // { task, pendingAction }
   const [manualModal, setManualModal] = useState(null)       // { task, attendanceId }
   const [manualSaving, setManualSaving] = useState(false)
+  const [addTaskModalOpen, setAddTaskModalOpen] = useState(false)
+  const [addTaskSaving, setAddTaskSaving] = useState(false)
 
   // ── Inject CSS ──
   useEffect(() => {
@@ -492,12 +632,43 @@ export default function PortalTasks() {
     return tasks
   }, [tasks, view])
 
+  // ── Search Filtering ──
+  const searchedTasks = useMemo(() => {
+    if (!searchQuery.trim()) return filteredByView
+    const q = searchQuery.toLowerCase()
+    return filteredByView.filter(t => 
+      (t.project && t.project.toLowerCase().includes(q)) || 
+      (t.description && t.description.toLowerCase().includes(q)) ||
+      (t.notes && t.notes.toLowerCase().includes(q))
+    )
+  }, [filteredByView, searchQuery])
+
   // ── Filter by status ──
-  const visibleTasks = useMemo(() => {
-    if (filterStatus === 'All') return filteredByView
-    if (filterStatus === 'Running') return filteredByView.filter(t => t.isRunning)
-    return filteredByView.filter(t => t.status === filterStatus)
-  }, [filteredByView, filterStatus])
+  const statusFiltered = useMemo(() => {
+    if (filterStatus === 'All') return searchedTasks
+    if (filterStatus === 'Running') return searchedTasks.filter(t => t.isRunning)
+    return searchedTasks.filter(t => t.status === filterStatus)
+  }, [searchedTasks, filterStatus])
+
+  // ── Sort Tasks ──
+  const sortedTasks = useMemo(() => {
+    const list = [...statusFiltered]
+    if (sortBy === 'Project') {
+      return list.sort((a, b) => (a.project || '').localeCompare(b.project || ''))
+    }
+    if (sortBy === 'Status') {
+      return list.sort((a, b) => (a.status || '').localeCompare(b.status || ''))
+    }
+    // Default / Date: newest date first, then newer startedAt first
+    return list.sort((a, b) => {
+      const d1 = new Date(a.taskDate || 0).getTime()
+      const d2 = new Date(b.taskDate || 0).getTime()
+      if (d1 !== d2) return d2 - d1
+      const t1 = a.startedAt ? new Date(a.startedAt).getTime() : 0
+      const t2 = b.startedAt ? new Date(b.startedAt).getTime() : 0
+      return t2 - t1
+    })
+  }, [statusFiltered, sortBy])
 
   // ── Counts ──
   const counts = useMemo(() => ({
@@ -513,13 +684,13 @@ export default function PortalTasks() {
   // ── Group by date ──
   const groupedByDate = useMemo(() => {
     const map = {}
-    visibleTasks.forEach(task => {
+    sortedTasks.forEach(task => {
       const key = new Date(task.taskDate).toDateString()
       if (!map[key]) map[key] = { dateStr: task.taskDate, tasks: [] }
       map[key].tasks.push(task)
     })
     return Object.values(map).sort((a, b) => new Date(b.dateStr) - new Date(a.dateStr))
-  }, [visibleTasks])
+  }, [sortedTasks])
 
   // ── Check for running task in current view ──
   const runningTask = useMemo(() => filteredByView.find(t => t.isRunning), [filteredByView])
@@ -543,17 +714,14 @@ export default function PortalTasks() {
       )
 
       if (res.data.needsManualDuration) {
-        // Show manual duration modal
         setManualModal({ task, attendanceId: task.attendanceId })
         return
       }
 
-      // Update the task in local state for instant feedback
       setTasks(prev => prev.map(t => {
         if (t._id === task._id) {
           return { ...t, ...res.data.task }
         }
-        // If there was a stopped previous task, update it too
         if (res.data.stoppedPreviousTask && t._id === res.data.stoppedPreviousTask.taskId?.toString()) {
           return { ...t, isRunning: false, durationMinutes: res.data.stoppedPreviousTask.durationMinutes }
         }
@@ -595,9 +763,26 @@ export default function PortalTasks() {
     }
   }
 
+  // ── Dynamic Task Create ──
+  const handleAddTask = async (taskData) => {
+    setAddTaskSaving(true)
+    try {
+      const res = await api.post('/attendance/tasks/add', taskData)
+      if (res.data.success) {
+        setTasks(prev => [res.data.task, ...prev])
+        toast.success('Task added successfully')
+        setAddTaskModalOpen(false)
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add task. Make sure you have punched in today!')
+    } finally {
+      setAddTaskSaving(false)
+    }
+  }
+
   return (
-    <PageShell>
-      {/* ── Conflict Modal ── */}
+    <PageShell style={{ maxWidth: 'none' }}>
+      {/* Modals */}
       <AnimatePresence>
         {conflictModal && (
           <ConflictModal
@@ -614,17 +799,229 @@ export default function PortalTasks() {
             saving={manualSaving}
           />
         )}
+        {addTaskModalOpen && (
+          <AddTaskModal
+            onSave={handleAddTask}
+            onCancel={() => setAddTaskModalOpen(false)}
+            saving={addTaskSaving}
+          />
+        )}
       </AnimatePresence>
 
       {/* ── Header ── */}
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: 'var(--text)' }}>
-          My Tasks
-        </h1>
-        <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>
-          Manage task status and track time independently of your punch schedule.
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 24 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: 'var(--primary)', letterSpacing: '-0.02em' }}>My Tasks</h1>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>Manage and track your assigned tasks</p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Search bar */}
+          <div style={{ position: 'relative' }}>
+            <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-light)' }} />
+            <input
+              type="text"
+              placeholder="Search tasks..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{
+                padding: '8px 12px 8px 32px',
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                background: 'var(--surface)',
+                color: 'var(--text)',
+                fontSize: 13,
+                width: 180,
+                outline: 'none',
+                transition: 'border-color 0.15s'
+              }}
+            />
+          </div>
+
+          {/* Filter button */}
+          <button
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 14px',
+              borderRadius: 8,
+              border: '1px solid var(--border)',
+              background: 'var(--surface)',
+              color: 'var(--text)',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            <Filter size={13} color="var(--text-muted)" />
+            Filter
+          </button>
+
+          {/* Sort dropdown */}
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value)}
+            style={{
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: '1px solid var(--border)',
+              background: 'var(--surface)',
+              color: 'var(--text)',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              outline: 'none'
+            }}
+          >
+            <option value="Date">Sort by: Date</option>
+            <option value="Project">Sort by: Project</option>
+            <option value="Status">Sort by: Status</option>
+          </select>
+
+          {/* Add Task button */}
+          <button
+            onClick={() => setAddTaskModalOpen(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 16px',
+              borderRadius: 8,
+              border: 'none',
+              background: '#2563eb',
+              color: 'white',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 2px 6px rgba(37,99,235,0.2)'
+            }}
+          >
+            <Plus size={14} color="white" />
+            Add Task
+          </button>
+        </div>
       </div>
+
+      {/* ── Sub-tabs ── */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
+        <button 
+          onClick={() => setActiveTab('daily')} 
+          style={{
+            padding: '8px 16px',
+            borderRadius: 8,
+            border: 'none',
+            background: activeTab === 'daily' ? 'var(--primary)' : 'transparent',
+            color: activeTab === 'daily' ? 'white' : 'var(--text-muted)',
+            fontWeight: 700,
+            fontSize: 13,
+            cursor: 'pointer',
+            transition: 'background 0.2s, color 0.2s'
+          }}
+        >
+          My Daily Tasks
+        </button>
+        <button 
+          onClick={() => setActiveTab('assigned')} 
+          style={{
+            padding: '8px 16px',
+            borderRadius: 8,
+            border: 'none',
+            background: activeTab === 'assigned' ? 'var(--primary)' : 'transparent',
+            color: activeTab === 'assigned' ? 'white' : 'var(--text-muted)',
+            fontWeight: 700,
+            fontSize: 13,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            transition: 'background 0.2s, color 0.2s'
+          }}
+        >
+          Admin Assigned
+          {assignedTasks.filter(t => t.status === 'Pending').length > 0 && (
+            <span style={{ background: '#dc2626', color: 'white', fontSize: 10, padding: '2px 6px', borderRadius: 10, fontWeight: 700 }}>
+              {assignedTasks.filter(t => t.status === 'Pending').length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'daily' ? (
+        <>
+
+      {/* ── Stat Cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px,1fr))', gap: 16, marginBottom: 20 }}>
+        {[
+          {
+            label: 'Total Tasks',
+            value: counts.total,
+            icon: ListChecks,
+            bg: 'rgba(59,130,246,0.08)',
+            color: '#3b82f6',
+            subText: view === 'today' ? 'Logged today' : view === 'week' ? 'This week' : 'This month',
+            rightElement: (
+              <svg width="55" height="22" viewBox="0 0 55 22" style={{ overflow: 'visible', flexShrink: 0 }}>
+                <path d="M0 10 Q 13.75 18, 27.5 10 T 55 12" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            )
+          },
+          {
+            label: 'Completed',
+            value: counts.completed,
+            icon: CheckCircle2,
+            bg: 'rgba(34,197,94,0.08)',
+            color: '#22c55e',
+            subText: `${completionRate}% of total`,
+            rightElement: <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2.5px solid var(--border)', flexShrink: 0 }} />
+          },
+          {
+            label: 'In Progress',
+            value: counts.inProgress,
+            icon: Clock,
+            bg: 'rgba(59,130,246,0.08)',
+            color: '#3b82f6',
+            subText: counts.inProgress === 1 ? '1 task active' : `${counts.inProgress} tasks active`,
+            rightElement: <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2.5px solid var(--border)', flexShrink: 0 }} />
+          },
+          {
+            label: 'Pending',
+            value: counts.pending,
+            icon: AlertCircle,
+            bg: 'rgba(249,115,22,0.08)',
+            color: '#f97316',
+            subText: 'Awaiting action',
+            rightElement: <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2.5px solid var(--border)', flexShrink: 0 }} />
+          },
+        ].map(({ label, value, icon: Icon, bg, color, subText, rightElement }) => (
+          <div key={label} className="pt-stat">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon size={18} color={color} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>{value}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontWeight: 600 }}>{subText}</div>
+              </div>
+            </div>
+            {rightElement}
+          </div>
+        ))}
+      </div>
+
+      {/* ── Progress bar ── */}
+      {counts.total > 0 && (
+        <div style={{ marginBottom: 20, padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>Completion Rate</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--primary)' }}>{completionRate}%</span>
+          </div>
+          <div className="pt-progress">
+            <div className="pt-progress-fill" style={{ width: `${completionRate}%` }} />
+          </div>
+        </div>
+      )}
 
       {/* ── Running task banner ── */}
       <AnimatePresence>
@@ -636,7 +1033,7 @@ export default function PortalTasks() {
             style={{
               background: 'linear-gradient(135deg, rgba(245,158,11,.12), rgba(245,158,11,.06))',
               border: '1px solid rgba(245,158,11,.35)',
-              borderRadius: 12, padding: '12px 16px', marginBottom: 16,
+              borderRadius: 12, padding: '12px 16px', marginBottom: 20,
               display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
             }}
           >
@@ -662,6 +1059,12 @@ export default function PortalTasks() {
               key={id}
               className={`pt-tab${view === id ? ' active' : ''}`}
               onClick={() => setView(id)}
+              style={{
+                background: view === id ? '#eff6ff' : 'transparent',
+                color: view === id ? '#1e40af' : 'var(--text-muted)',
+                borderRadius: 8,
+                boxShadow: 'none'
+              }}
             >
               <Icon size={14} />
               {label}
@@ -684,57 +1087,27 @@ export default function PortalTasks() {
         )}
       </div>
 
-      {/* ── Stat Cards ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px,1fr))', gap: 10, marginBottom: 16 }}>
-        {[
-          { label: 'Total',       value: counts.total,      icon: ListChecks,   bg: '#f1f5f9', color: '#475569' },
-          { label: 'Completed',   value: counts.completed,  icon: CheckCircle2, bg: '#e5f0d8', color: '#58833b' },
-          { label: 'In Progress', value: counts.inProgress, icon: Clock,        bg: '#eff6ff', color: '#2563eb' },
-          { label: 'Pending',     value: counts.pending,    icon: AlertCircle,  bg: '#fef2f2', color: '#991b1b' },
-        ].map(({ label, value, icon: Icon, bg, color }) => (
-          <div key={label} className="pt-stat">
-            <div style={{ width: 34, height: 34, borderRadius: 9, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Icon size={16} color={color} />
-            </div>
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{label}</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: 1 }}>{value}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Progress bar ── */}
-      {counts.total > 0 && (
-        <div style={{ marginBottom: 16, padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>Completion Rate</span>
-            <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--primary)' }}>{completionRate}%</span>
-          </div>
-          <div className="pt-progress">
-            <div className="pt-progress-fill" style={{ width: `${completionRate}%` }} />
-          </div>
-        </div>
-      )}
-
       {/* ── Status Filter Chips ── */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 12, borderBottom: '1px solid var(--border)', paddingBottom: 12, marginBottom: 18 }}>
         {[
           { id: 'All',         label: `All (${counts.total})` },
           { id: 'In Progress', label: `In Progress (${counts.inProgress})` },
           { id: 'Pending',     label: `Pending (${counts.pending})` },
           { id: 'Completed',   label: `Completed (${counts.completed})` },
-          ...(counts.running > 0 ? [{ id: 'Running', label: `🟡 Running (${counts.running})` }] : []),
+          ...(counts.running > 0 ? [{ id: 'Running', label: `Running (${counts.running})` }] : []),
         ].map(({ id, label }) => (
           <button
             key={id}
             onClick={() => setFilterStatus(id)}
             style={{
-              padding: '5px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              background: filterStatus === id ? 'var(--primary)' : 'var(--bg)',
-              color: filterStatus === id ? '#fff' : 'var(--text-muted)',
-              border: filterStatus === id ? '1px solid transparent' : '1px solid var(--border)',
+              padding: '6px 4px', fontSize: 13, fontWeight: filterStatus === id ? 700 : 500, cursor: 'pointer',
+              background: 'transparent',
+              color: filterStatus === id ? 'var(--text)' : 'var(--text-muted)',
+              border: 'none',
+              borderBottom: filterStatus === id ? '2.5px solid #2563eb' : '2.5px solid transparent',
+              borderRadius: 0,
               transition: 'all .15s',
+              marginRight: 12
             }}
           >
             {label}
@@ -748,12 +1121,43 @@ export default function PortalTasks() {
           <Loader2 size={28} className="animate-spin" style={{ color: 'var(--primary)' }} />
         </div>
       ) : groupedByDate.length === 0 ? (
-        <div style={{ padding: 52, textAlign: 'center', background: 'var(--surface)', borderRadius: 14, border: '1px dashed var(--border)' }}>
-          <ListChecks size={36} color="var(--text-light)" style={{ marginBottom: 10 }} />
-          <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>No tasks found</div>
-          <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-            {view === 'today' ? 'No tasks logged today. Tasks are created when you punch in.' : view === 'week' ? 'No tasks this week.' : `No tasks for ${MONTHS[month - 1]} ${year}.`}
-          </div>
+        <div style={{
+          padding: '64px 32px',
+          textAlign: 'center',
+          background: 'var(--surface)',
+          borderRadius: 14,
+          border: '1px solid var(--border)',
+          marginBottom: 20
+        }}>
+          <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', margin: '0 0 8px 0' }}>
+            No Tasks for {view === 'today' ? 'Today' : view === 'week' ? 'This Week' : 'This Month'}
+          </h3>
+          <p style={{ margin: '0 0 4px 0', fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>
+            You're all caught up.
+          </p>
+          <p style={{ margin: '0 0 24px 0', fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>
+            New tasks will appear automatically after Punch In.
+          </p>
+          <button
+            onClick={fetchTasks}
+            style={{
+              padding: '8px 24px',
+              borderRadius: 8,
+              border: '1px solid var(--border)',
+              background: 'var(--surface)',
+              color: '#2563eb',
+              fontWeight: 700,
+              fontSize: 13,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6
+            }}
+            className="btn-hover"
+          >
+            <RotateCcw size={14} />
+            Refresh
+          </button>
         </div>
       ) : (
         <AnimatePresence>
@@ -787,6 +1191,221 @@ export default function PortalTasks() {
             </div>
           ))}
         </AnimatePresence>
+      )}
+
+      {/* ── Tip Alert Banner ── */}
+      <div style={{
+        background: '#eff6ff',
+        border: '1px solid #bfdbfe',
+        borderRadius: 12,
+        padding: '12px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        marginTop: 24,
+        marginBottom: 24
+      }}>
+        <Lightbulb size={16} color="#1e40af" style={{ flexShrink: 0 }} />
+        <span style={{ fontSize: 12, color: '#1e3a8a', fontWeight: 600 }}>
+          Tip: Your assigned tasks will automatically appear after Punch In or when your manager assigns a task.
+        </span>
+      </div>
+      </>
+      ) : (
+        assignedLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
+            <Loader2 size={28} className="animate-spin" style={{ color: 'var(--primary)' }} />
+          </div>
+        ) : assignedTasks.length === 0 ? (
+          <div style={{
+            padding: '64px 32px',
+            textAlign: 'center',
+            background: 'var(--surface)',
+            borderRadius: 14,
+            border: '1px solid var(--border)',
+            marginBottom: 20
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>📁</div>
+            <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', margin: '0 0 8px 0' }}>
+              No Projects Assigned
+            </h3>
+            <p style={{ margin: '0 0 20px 0', fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>
+              Projects assigned to you by the Admin will appear here.
+            </p>
+            <button
+              onClick={fetchAssignedTasks}
+              style={{
+                padding: '8px 20px', borderRadius: 8, border: '1px solid var(--border)',
+                background: 'var(--surface)', color: '#2563eb', fontWeight: 700,
+                fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6
+              }}
+            >
+              <RotateCcw size={14} /> Refresh
+            </button>
+          </div>
+        ) : (
+          <div>
+            {/* Section header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div>
+                <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--text)' }}>Assigned Projects</span>
+                <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: '#dbeafe', color: '#1e40af' }}>
+                  {assignedTasks.length}
+                </span>
+              </div>
+              <button onClick={fetchAssignedTasks}
+                style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <RotateCcw size={12} /> Refresh
+              </button>
+            </div>
+
+            {/* Column headers */}
+            <div className="panel" style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', overflow: 'hidden' }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', padding: '10px 20px',
+                fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px',
+                background: 'var(--bg)', borderBottom: '1px solid var(--border)'
+              }}>
+                <div style={{ flex: 1 }}>Project</div>
+                <div style={{ width: 100, textAlign: 'center' }}>Priority</div>
+                <div style={{ width: 110, textAlign: 'center' }}>Status</div>
+                <div style={{ width: 130, textAlign: 'center' }}>Due Date</div>
+                <div style={{ width: 180, textAlign: 'right', paddingRight: 10 }}>Action</div>
+              </div>
+
+              {/* Rows */}
+              {assignedTasks.map((task, idx) => {
+                const isLast = idx === assignedTasks.length - 1
+                const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'Completed'
+                const priorityColor = task.priority === 'Urgent' ? '#dc2626'
+                  : task.priority === 'High' ? '#ea580c'
+                  : task.priority === 'Medium' ? '#2563eb' : '#64748b'
+                const priorityBg = task.priority === 'Urgent' ? '#fee2e2'
+                  : task.priority === 'High' ? '#ffedd5'
+                  : task.priority === 'Medium' ? '#dbeafe' : '#f1f5f9'
+                const statusColor = task.status === 'Completed' ? '#16a34a'
+                  : task.status === 'In Progress' ? '#d97706'
+                  : task.status === 'Accepted' ? '#2563eb' : '#64748b'
+                const statusBg = task.status === 'Completed' ? '#dcfce7'
+                  : task.status === 'In Progress' ? '#fef3c7'
+                  : task.status === 'Accepted' ? '#dbeafe' : '#f1f5f9'
+
+                return (
+                  <div key={task._id} style={{
+                    display: 'flex', alignItems: 'center',
+                    background: 'var(--surface)', borderBottom: isLast ? 'none' : '1px solid var(--border)',
+                    transition: 'background .15s',
+                    padding: '10px 20px',
+                  }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)' }}
+                  >
+                    {/* Col 1 — Project name */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                        <span style={{ fontSize: 13 }}>📁</span>
+                        <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {task.title}
+                        </span>
+                      </div>
+                      {task.description && (
+                        <div style={{ fontSize: 11, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 }}>
+                          {task.description}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Col 2 — Priority */}
+                    <div style={{ width: 100, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+                      <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: '700', background: priorityBg, color: priorityColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {task.priority}
+                      </span>
+                    </div>
+
+                    {/* Col 3 — Status */}
+                    <div style={{ width: 110, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+                      <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: '700', background: statusBg, color: statusColor, whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {task.status === 'Completed' ? '✓ ' : ''}{task.status}
+                      </span>
+                    </div>
+
+                    {/* Col 4 — Due date */}
+                    <div style={{ width: 130, flexShrink: 0 }}>
+                      {task.dueDate ? (
+                        <div style={{ fontSize: 11, color: isOverdue ? '#dc2626' : '#64748b', fontWeight: isOverdue ? 700 : 500, textAlign: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
+                            <Calendar size={12} />
+                            {new Date(task.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </div>
+                          {isOverdue && <div style={{ fontSize: 9, color: '#dc2626', fontWeight: 700, marginTop: 1 }}>Overdue</div>}
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: 11, color: '#cbd5e1', display: 'block', textAlign: 'center' }}>–</span>
+                      )}
+                    </div>
+
+                    {/* Col 5 — Action */}
+                    <div style={{ width: 180, flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
+                      {task.status === 'Pending' && (
+                        <button
+                          onClick={() => handleUpdateAssignedStatus(task._id, 'Accepted')}
+                          disabled={actionLoading === task._id}
+                          style={{
+                            padding: '5px 12px', borderRadius: 6, border: 'none',
+                            background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
+                            color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {actionLoading === task._id ? <Loader2 size={11} className="animate-spin" /> : '✓'} Accept
+                        </button>
+                      )}
+                      {task.status === 'Accepted' && (
+                        <button
+                          onClick={() => handleUpdateAssignedStatus(task._id, 'In Progress')}
+                          disabled={actionLoading === task._id}
+                          style={{
+                            padding: '5px 12px', borderRadius: 6, border: '1.5px solid #d97706',
+                            background: '#fef3c7', color: '#92400e', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {actionLoading === task._id ? <Loader2 size={11} className="animate-spin" /> : '▶'} Start
+                        </button>
+                      )}
+                      {task.status === 'In Progress' && (
+                        <button
+                          onClick={() => handleUpdateAssignedStatus(task._id, 'Completed')}
+                          disabled={actionLoading === task._id}
+                          style={{
+                            padding: '5px 12px', borderRadius: 6, border: '1.5px solid #16a34a',
+                            background: '#dcfce7', color: '#15803d', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {actionLoading === task._id ? <Loader2 size={11} className="animate-spin" /> : '✓'} Mark Done
+                        </button>
+                      )}
+                      {task.status === 'Completed' && (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', padding: '5px 12px', background: '#dcfce7', borderRadius: 6 }}>
+                          ✓ Completed
+                        </span>
+                      )}
+                      {(task.status === 'Accepted' || task.status === 'In Progress') && (
+                        <button
+                          onClick={() => handleUpdateAssignedStatus(task._id, 'Pending')}
+                          disabled={actionLoading === task._id}
+                          title="Reset to Pending"
+                          style={{ padding: '5px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: 11, cursor: 'pointer' }}
+                        >↺</button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
       )}
     </PageShell>
   )

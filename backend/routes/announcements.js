@@ -9,6 +9,16 @@ const { logActivity } = require('../utils/logger');
 // ─────────────────────────────────────────────────────────────
 router.get('/', auth, async (req, res) => {
   try {
+    const now = new Date();
+
+    // Auto-delete any announcements whose endDate has already passed.
+    // This runs silently on every list fetch so the admin view stays clean
+    // without needing a separate cron job.
+    await Announcement.deleteMany({
+      user: req.user._id,
+      endDate: { $lt: now, $ne: null },
+    });
+
     const announcements = await Announcement.find({ user: req.user._id })
       .sort({ createdAt: -1 });
     res.json({ success: true, data: announcements });

@@ -98,7 +98,7 @@ export default function Login() {
           </motion.div>
         </div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>
-          Professional Statutory Artifacts &copy; {new Date().getFullYear()} PaySlip Pro Enterprise
+          Professional Statutory Artifacts &copy; {new Date().getFullYear()} Payroll
         </div>
       </motion.div>
 

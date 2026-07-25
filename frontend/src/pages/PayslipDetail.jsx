@@ -244,13 +244,13 @@ export default function PayslipDetail() {
                 />
               </div>
             )}
-            <InfoRow label="Company Name" value={p.companyName} />
-            <InfoRow label="Address" value={p.companyAddress} />
-            <InfoRow label="Email" value={p.companyEmail} />
-            <InfoRow label="Phone" value={p.companyPhone} />
-            <InfoRow label="Website" value={p.companyWebsite} />
-            <InfoRow label="CIN" value={p.companyCIN} />
-            <InfoRow label="GST No." value={p.companyGST} />
+            <InfoRow label="Company Name" value={p.companyName || 'BDA Technologies Private Limited'} />
+            <InfoRow label="Address" value={p.companyAddress || 'Flat No. 207, Plot No. 31A, Unione Residency, Akbarpur, Behrampur, Ghaziabad, Uttar Pradesh, India, 201009'} />
+            <InfoRow label="Email" value={p.companyEmail || 'hr@bdatechnologies.com'} />
+            <InfoRow label="Phone" value={p.companyPhone || '—'} />
+            <InfoRow label="Website" value={p.companyWebsite || 'www.bdatechnologies.com'} />
+            <InfoRow label="CIN" value={p.companyCIN || 'U74999UP2017PTC096671'} />
+            <InfoRow label="GST No." value={p.companyGST || '09AAHCB4248F1ZO'} />
           </div>
         </div>
 

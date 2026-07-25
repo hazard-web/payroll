@@ -4,6 +4,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 mongoose.set('bufferCommands', false);
+mongoose.set('autoIndex', false);
 
 const payslipRoutes = require('./routes/payslip');
 const { router: authRoutes } = require('./routes/auth');
@@ -16,6 +17,7 @@ const leavePolicyRoutes = require('./routes/leave-policy');
 const notificationsRoutes = require('./routes/notifications');
 const supportRoutes = require('./routes/support');
 const announcementsRoutes = require('./routes/announcements');
+const assignedTasksRoutes = require('./routes/assignedTasks');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -24,6 +26,27 @@ const PORT = process.env.PORT || 5001;
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// ── Global Request Logger ──────────────────────────────────────
+// Logs every incoming HTTP request and its final response code
+// so you can see the entire request lifecycle in the terminal.
+app.use((req, res, next) => {
+  const start = Date.now();
+  const ts = new Date().toISOString();
+  console.log(`\n📥 [${ts}] ${req.method} ${req.originalUrl}`);
+  if (req.body && Object.keys(req.body).length > 0) {
+    // Mask the password field before logging
+    const safeBody = { ...req.body };
+    if (safeBody.password) safeBody.password = '****';
+    console.log('   📦 Body:', JSON.stringify(safeBody));
+  }
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const icon = res.statusCode >= 500 ? '🔴' : res.statusCode >= 400 ? '🟡' : '🟢';
+    console.log(`${icon} [${ts}] ${req.method} ${req.originalUrl} → ${res.statusCode} (${duration}ms)`);
+  });
+  next();
+});
 
 // Health check stays DB-independent so local debugging is instant.
 app.get('/api/health', (req, res) => {
@@ -35,7 +58,20 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-const DB_READY_TIMEOUT_MS = 2000;
+app.get('/api/test-query', async (req, res) => {
+  try {
+    const Staff = require('./models/Staff');
+    console.log('⚡ [test-query] Querying Staff...');
+    const s = await Staff.findOne({ email: 'vg810200@gmail.com' }).lean();
+    console.log('⚡ [test-query] Query completed! Found:', !!s);
+    res.json({ success: true, found: !!s, staff: s });
+  } catch (err) {
+    console.error('⚡ [test-query] Query failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const DB_READY_TIMEOUT_MS = 15000;
 
 // Ensure API data routes do not sit on Mongoose's long query buffering when
 // Atlas is blocked/slow. Return a clear 503 quickly instead.
@@ -72,6 +108,7 @@ app.use('/api/leave-policy', leavePolicyRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/announcements', announcementsRoutes);
+app.use('/api/assigned-tasks', assignedTasksRoutes);
 
 const path = require('path');
 
@@ -97,7 +134,12 @@ if (!process.env.VERCEL) {
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('Server Error:', err);
+  console.error('\n🔴 ═══════════════════════════════════════════');
+  console.error(`🔴 UNHANDLED SERVER ERROR — ${req.method} ${req.originalUrl}`);
+  console.error('🔴 Name   :', err.name);
+  console.error('🔴 Message:', err.message);
+  if (err.stack) console.error('🔴 Stack  :\n', err.stack);
+  console.error('🔴 ═══════════════════════════════════════════\n');
 
   // Detect MongoDB connection problems and surface a clear, actionable message
   const msg = (err?.message || '').toLowerCase();
@@ -139,8 +181,8 @@ let mongooseConnectionPromise = null;
 function ensureMongoConnection() {
   if (mongooseConnectionPromise) return mongooseConnectionPromise;
   mongooseConnectionPromise = mongoose.connect(MONGO_URI, {
-    serverSelectionTimeoutMS: 2000,
-    connectTimeoutMS: 2000,
+    serverSelectionTimeoutMS: 15000,
+    connectTimeoutMS: 15000,
     maxPoolSize: 10,
   });
   // Reset the cache on hard failure so a future request can retry
@@ -205,7 +247,11 @@ if (!process.env.VERCEL) {
 // Eagerly establish the Mongo connection on cold start so the first
 // request doesn't pay the connection cost. Safe to call repeatedly.
 ensureMongoConnection()
-  .then(() => console.log('✅ Connected to MongoDB'))
+  .then(() => {
+    console.log('✅ Connected to MongoDB');
+    console.log('🌐 DB HOST:', mongoose.connection.host);
+    console.log('📂 DB NAME:', mongoose.connection.name);
+  })
   .catch((err) => {
     console.error('❌ MongoDB connection error (server is still up — requests will return DB_UNREACHABLE until DB is reachable):');
     console.error(err.message);

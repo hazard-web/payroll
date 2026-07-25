@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Calendar, CheckCircle2, Clock, ListChecks, Loader2, MoreHorizontal, Timer, Play, Square } from 'lucide-react'
 import PageShell, { PageLoading } from '../components/PageShell'
-import { Avatar } from '../components/UI'
+import { Avatar, StatCard } from '../components/UI'
 import api from '../api'
 
 const FILTER_OPTIONS = [
@@ -52,17 +52,6 @@ function PulseDot() {
   )
 }
 
-const StatCard = ({ icon: Icon, label, value, color }) => (
-  <div style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)' }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-      <div style={{ width: 32, height: 32, borderRadius: 10, background: `${color}18`, color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Icon size={15} />
-      </div>
-      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>{label}</span>
-    </div>
-    <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>{value}</div>
-  </div>
-)
 
 const TaskRow = ({ task }) => {
   const isRunning = !!task.isRunning
@@ -70,13 +59,18 @@ const TaskRow = ({ task }) => {
   const duration = fmtDuration(task.durationMinutes)
 
   return (
-    <div style={{
-      padding: 14, borderRadius: 10, marginBottom: 10,
-      border: `1px solid ${isRunning ? 'rgba(245,158,11,.4)' : 'var(--border)'}`,
-      background: isRunning ? 'rgba(254,243,199,.4)' : 'var(--bg)',
-      boxShadow: isRunning ? '0 0 0 3px rgba(245,158,11,.08)' : 'none',
-      transition: 'all .2s',
-    }}>
+    <div 
+      className="panel"
+      style={{
+        padding: '14px 20px',
+        borderRadius: 12,
+        marginBottom: 10,
+        border: `1px solid ${isRunning ? '#ea580c' : 'var(--border)'}`,
+        background: isRunning ? 'rgba(254, 243, 199, 0.4)' : 'var(--surface)',
+        transition: 'all .2s',
+        fontFamily: 'var(--font-display), sans-serif'
+      }}
+    >
       <style>{`@keyframes spd-pulse{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.6)}50%{box-shadow:0 0 0 5px rgba(245,158,11,0)}}`}</style>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 8 }}>
@@ -191,25 +185,24 @@ export default function StaffPerformanceDetail() {
       <button
         type="button"
         onClick={() => navigate('/performance')}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 20, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontWeight: 600, cursor: 'pointer' }}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 20, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-display), sans-serif' }}
       >
-        <ArrowLeft size={16} /> Back to Team
+        <ArrowLeft size={14} /> Back to Team
       </button>
 
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8 }}>
-          <Avatar name={staff.fullName} style={{ width: 56, height: 56, borderRadius: 16, fontSize: 18 }} />
-          <div>
-            <h1 style={{ margin: 0, color: 'var(--primary)', fontSize: 22, marginBottom: 4 }}>{staff.fullName}</h1>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-              {staff.designation || 'Team Member'} {staff.department ? `· ${staff.department}` : ''}
-            </div>
+      {/* Profile Header Box */}
+      <div className="panel" style={{ padding: '16px 20px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontFamily: 'var(--font-display), sans-serif' }}>
+        <Avatar name={staff.fullName} style={{ width: 48, height: 48, borderRadius: 12, fontSize: 16 }} />
+        <div>
+          <h2 style={{ margin: 0, color: 'var(--text)', fontSize: 17, fontWeight: 800 }}>{staff.fullName}</h2>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginTop: 4 }}>
+            {staff.designation || 'Team Member'} {staff.department ? `· ${staff.department}` : ''}
           </div>
         </div>
       </div>
 
-      <div style={{ marginBottom: 24 }}>
-        <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Task Summary</h3>
+      <div style={{ marginBottom: 24, fontFamily: 'var(--font-display), sans-serif' }}>
+        <h3 style={{ margin: '0 0 12px', fontSize: 12, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Task Summary</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
           <StatCard icon={ListChecks} label="Total Tasks" value={summary.totalTasks} color="#1d4ed8" />
           <StatCard icon={MoreHorizontal} label="Pending" value={summary.pending} color="#475569" />
@@ -218,16 +211,16 @@ export default function StaffPerformanceDetail() {
         </div>
       </div>
 
-      <div>
+      <div style={{ fontFamily: 'var(--font-display), sans-serif' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-          <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Task History</h3>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: 12, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Task History</h3>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
             {FILTER_OPTIONS.map(opt => (
               <button
                 key={opt.value}
                 onClick={() => handleFilterChange(opt.value)}
                 className={filter === opt.value ? 'btn-primary' : 'btn-ghost'}
-                style={{ padding: '6px 12px', fontSize: 12, borderRadius: 8, fontWeight: 600 }}
+                style={{ padding: '5px 10px', fontSize: 11, borderRadius: 6, fontWeight: 700 }}
               >
                 {opt.label}
               </button>
@@ -238,13 +231,13 @@ export default function StaffPerformanceDetail() {
         {filter === 'custom' && (
           <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Calendar size={16} style={{ color: 'var(--text-muted)' }} />
+              <Calendar size={14} style={{ color: 'var(--text-muted)' }} />
               <input
                 type="date"
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
                 className="input-field"
-                style={{ padding: '6px 10px', fontSize: 12, width: 140 }}
+                style={{ padding: '5px 10px', fontSize: 12, width: 130, borderRadius: 6 }}
               />
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>to</span>
               <input
@@ -252,7 +245,7 @@ export default function StaffPerformanceDetail() {
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
                 className="input-field"
-                style={{ padding: '6px 10px', fontSize: 12, width: 140 }}
+                style={{ padding: '5px 10px', fontSize: 12, width: 130, borderRadius: 6 }}
               />
             </div>
           </div>
@@ -262,7 +255,7 @@ export default function StaffPerformanceDetail() {
           <div style={{
             padding: 48,
             textAlign: 'center',
-            background: 'var(--bg)',
+            background: 'var(--surface)',
             borderRadius: 12,
             color: 'var(--text-muted)',
             border: '1px dashed var(--border)'

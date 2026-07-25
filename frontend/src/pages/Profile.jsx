@@ -7,7 +7,7 @@ import PageShell, { PageHeader } from '../components/PageShell'
 
 const BDA_LOGO_BASE64 = `data:image/png;base64,iVBORw0KGgoAAAANSSuQmCC`;
 
-export default function Profile() {
+export default function Profile({ isSettings }) {
   const { user, updateProfile } = useAuth()
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
@@ -91,31 +91,33 @@ export default function Profile() {
     }
   }
 
-  return (
-    <PageShell narrow>
-      <PageHeader
-        title="Company Profile"
-        subtitle="Manage your statutory company branding and workspace configurations in a unified, professional screen."
-        actions={
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '8px 16px',
-            background: 'var(--primary-tint, #e5ebdd)',
-            color: 'var(--primary, #58833b)',
-            borderRadius: 99,
-            fontSize: 13,
-            fontWeight: 700,
-            border: '1px solid var(--border)'
-          }}>
-            <ShieldCheck size={16} />
-            Verified Profile
-          </div>
-        }
-      />
+  const content = (
+    <>
+      {!isSettings && (
+        <PageHeader
+          title="Company Profile"
+          subtitle="Manage your statutory company branding and workspace configurations in a unified, professional screen."
+          actions={
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 16px',
+              background: 'var(--primary-tint, #e5ebdd)',
+              color: 'var(--primary, #58833b)',
+              borderRadius: 99,
+              fontSize: 13,
+              fontWeight: 700,
+              border: '1px solid var(--border)'
+            }}>
+              <ShieldCheck size={16} />
+              Verified Profile
+            </div>
+          }
+        />
+      )}
 
-      <div className="fade-in glass profile-card-container" style={{ marginTop: 24 }}>
+      <div className="fade-in glass profile-card-container" style={{ marginTop: isSettings ? 0 : 24 }}>
         <form onSubmit={handleSubmit}>
           
           {/* Top Section: Profile Header & Logo */}
@@ -417,6 +419,8 @@ export default function Profile() {
           }
         }
       `}</style>
-    </PageShell>
+    </>
   )
+
+  return isSettings ? content : <PageShell narrow>{content}</PageShell>
 }

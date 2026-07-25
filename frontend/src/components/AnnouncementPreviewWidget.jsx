@@ -37,10 +37,10 @@ export default function AnnouncementPreviewWidget({
       style={{
         background: 'var(--surface)',
         border: '1px solid var(--border)',
-        borderRadius: 14,
+        borderRadius: 'var(--radius-lg)',
         overflow: 'hidden',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-        marginBottom: 'var(--space-6, 24px)',
+        boxShadow: 'var(--shadow-card)',
+        marginBottom: 'var(--space-6)',
       }}
     >
       {/* Header */}

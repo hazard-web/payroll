@@ -70,7 +70,7 @@ const RecentRow = React.memo(({ log, navigate }) => {
   )
 });
 
-export default function AuditLogs() {
+export default function AuditLogs({ isSettings }) {
   const navigate = useNavigate()
   const [recent, setRecent] = useState([])
   const [loading, setLoading] = useState(true)
@@ -89,12 +89,14 @@ export default function AuditLogs() {
     fetchActivities()
   }, [])
 
-  return (
-    <PageShell>
-      <PageHeader
-        title="Activity Logs"
-        subtitle="Recent workspace activities and generated slips."
-      />
+  const content = (
+    <>
+      {!isSettings && (
+        <PageHeader
+          title="Activity Logs"
+          subtitle="Recent workspace activities and generated slips."
+        />
+      )}
 
       <div className="fade-in glass" style={{ animationDelay: '100ms', overflow: 'hidden' }}>
         <div style={{
@@ -135,6 +137,8 @@ export default function AuditLogs() {
           )}
         </div>
       </div>
-    </PageShell>
+    </>
   )
+
+  return isSettings ? content : <PageShell>{content}</PageShell>
 }

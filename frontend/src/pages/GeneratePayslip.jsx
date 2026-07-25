@@ -82,8 +82,8 @@ export default function GeneratePayslip() {
     const endD = new Date(end);
     endD.setHours(23, 59, 59, 999);
     while (cur <= endD) {
-      const dow = cur.getDay(); // 0=Sun, 6=Sat
-      if (dow !== 0 && dow !== 6) count++;
+      const dow = cur.getDay(); // 0=Sun
+      if (dow !== 0) count++;
       cur.setDate(cur.getDate() + 1);
     }
     return count;

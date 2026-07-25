@@ -54,7 +54,7 @@ export default function PortalPayslips() {
   }
 
   return (
-    <PageShell>
+    <PageShell style={{ maxWidth: 'none' }}>
       <PageHeader
         title="My Payslips"
         subtitle="Access and download your digital payslip archive."

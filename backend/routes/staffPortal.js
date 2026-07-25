@@ -1,9 +1,41 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const mongoose = require('mongoose');
+const { ObjectId } = require('mongodb');
 const Staff = require('../models/Staff');
 const User = require('../models/User'); // Required to get company details if needed
+
+// ── Raw DB helpers ────────────────────────────────────────────
+// The staffs collection has a problematic email index on Atlas M0 that causes
+// queries filtered by email to hang indefinitely. We bypass Mongoose model
+// queries entirely and use the raw MongoDB driver via mongoose.connection.db.
+// All filtering is done in Node.js memory after fetching with no filter.
+async function rawFindStaffByEmail(email) {
+  const db = mongoose.connection.db;
+  const normalized = email.toLowerCase().trim();
+  // Fetch without any filter (avoids the broken index)
+  const all = await db.collection('staffs').find({}).toArray();
+  return all.find(s => s.email && s.email.toLowerCase().trim() === normalized) || null;
+}
+async function rawFindStaffById(id) {
+  const db = mongoose.connection.db;
+  const oid = typeof id === 'string' ? new ObjectId(id) : id;
+  return db.collection('staffs').findOne({ _id: oid });
+}
+async function rawFindUserById(id) {
+  if (!id) return null;
+  const db = mongoose.connection.db;
+  const oid = typeof id === 'string' ? new ObjectId(id) : id;
+  return db.collection('users').findOne({ _id: oid });
+}
+async function rawUpdateStaff(id, update) {
+  const db = mongoose.connection.db;
+  const oid = typeof id === 'string' ? new ObjectId(id) : id;
+  return db.collection('staffs').updateOne({ _id: oid }, { $set: update });
+}
 const Payslip = require('../models/Payslip');
 const Attendance = require('../models/Attendance');
 const Notification = require('../models/Notification');
@@ -11,7 +43,7 @@ const { sendPasswordResetEmail } = require('../utils/emailService');
 const { closeAttendanceSession, getDayStart } = require('../utils/attendanceService');
 
 // PAN validator
-const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+const PAN_REGEX = /^[A-Z0-9]{5,15}$/i;
 const isValidPAN = (pan) => typeof pan === 'string' && PAN_REGEX.test(pan);
 
 // Required fields for the employee self-service profile-completion form
@@ -51,17 +83,48 @@ const isProfileComplete = (staff) =>
 const authStaff = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
-    if (!token) throw new Error('No token');
+    if (!token) {
+      console.warn('⚠️  [authStaff] No token provided in Authorization header');
+      throw new Error('No token');
+    }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-    
-    // Ensure the token has the correct audience for staff
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+    } catch (jwtErr) {
+      console.warn('⚠️  [authStaff] JWT verification failed:', jwtErr.message);
+      throw jwtErr;
+    }
+
     if (decoded.aud !== 'staff') {
+      console.warn('⚠️  [authStaff] Invalid token audience:', decoded.aud);
       throw new Error('Invalid token audience');
     }
 
-    const staff = await Staff.findById(decoded.id).populate('user', 'companyName companyLogo defaultWorkDays');
-    if (!staff || !staff.isPortalEnabled) throw new Error('Access denied');
+    console.log('🔐 [authStaff] Verifying staff ID:', decoded.id);
+    const staff = await rawFindStaffById(decoded.id);
+    if (!staff || !staff.isPortalEnabled) {
+      console.warn('⚠️  [authStaff] Staff not found or portal disabled for ID:', decoded.id);
+      throw new Error('Access denied');
+    }
+    
+    const user = await rawFindUserById(staff.user);
+    staff.user = user;
+    
+    // Custom save function for raw driver object compatibility
+    staff.save = async function() {
+      const db = mongoose.connection.db;
+      const userBackup = this.user;
+      this.user = userBackup && userBackup._id ? userBackup._id : userBackup;
+      
+      const docToSave = { ...this };
+      delete docToSave.save;
+      
+      await db.collection('staffs').replaceOne({ _id: this._id }, docToSave);
+      this.user = userBackup;
+    };
+    
+    console.log('✅ [authStaff] Authenticated staff:', staff.email);
 
     req.staff = staff;
     req.token = token;
@@ -78,75 +141,128 @@ router.post('/login', async (req, res, next) => {
   try {
     const { email, password } = req.body;
     
-    const staff = await Staff.findOne({ email: email.toLowerCase().trim() }).populate('user', 'companyName companyLogo');
+    if (!email || !password) {
+      console.warn('⚠️  [portal/login] Missing email or password in request body');
+      return res.status(400).json({ success: false, message: 'Email and password are required.' });
+    }
+
+    console.log('🔑 [portal/login] ─── LOGIN ATTEMPT ─────────────────────────');
+    console.log('🔑 [portal/login] Email:', email);
+    console.log('🔑 [portal/login] Step 1: Fetching all staff docs (raw driver, in-memory email match)...');
     
-    if (!staff || !staff.isPortalEnabled) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials or portal disabled' });
+    const staff = await rawFindStaffByEmail(email);
+    console.log('🔑 [portal/login] Step 1 done. Found staff:', !!staff);
+    
+    if (!staff) {
+      console.warn('⚠️  [portal/login] No staff found for email:', email);
+      return res.status(401).json({ success: false, message: 'No account found with that email address.' });
+    }
+
+    console.log('🔑 [portal/login] Step 2: Fetching parent User document (raw driver)...');
+    const user = await rawFindUserById(staff.user);
+    console.log('🔑 [portal/login] Step 2 done. Found user:', !!user);
+    staff.user = user;
+
+    if (!staff.isPortalEnabled) {
+      console.warn('⚠️  [portal/login] Portal not enabled for:', email);
+      return res.status(401).json({ success: false, message: 'Your portal access has not been activated yet. Please check your email for a setup link or contact your administrator.' });
     }
 
     // Check lock state
-    if (staff.lockUntil && staff.lockUntil > Date.now()) {
-      const waitMinutes = Math.ceil((staff.lockUntil - Date.now()) / 60000);
+    if (staff.lockUntil && new Date(staff.lockUntil) > new Date()) {
+      const waitMinutes = Math.ceil((new Date(staff.lockUntil) - Date.now()) / 60000);
+      console.warn('⚠️  [portal/login] Account locked for:', email, '| Unlocks in', waitMinutes, 'min');
       return res.status(423).json({ success: false, message: `Account locked. Try again in ${waitMinutes} minutes.` });
     }
 
-    const isMatch = await staff.comparePassword(password);
+    // Staff was invited but never completed the account setup via the email link.
+    if (!staff.portalPassword) {
+      console.warn('⚠️  [portal/login] No portal password set for:', email, '(account setup incomplete)');
+      return res.status(401).json({
+        success: false,
+        message: 'Your account setup is not complete. Please check your email for the setup link and set your password first.'
+      });
+    }
+
+    console.log('🔑 [portal/login] Step 3: Comparing password hash...');
+    const isMatch = await bcrypt.compare(password, staff.portalPassword);
+    console.log('🔑 [portal/login] Step 3 done. Password match:', isMatch);
     
     if (!isMatch) {
-      staff.loginAttempts += 1;
-      if (staff.loginAttempts >= 5) {
-        staff.lockUntil = Date.now() + 15 * 60000; // Lock for 15 mins
+      const newAttempts = (staff.loginAttempts || 0) + 1;
+      const updateData = { loginAttempts: newAttempts };
+      if (newAttempts >= 5) {
+        updateData.lockUntil = new Date(Date.now() + 15 * 60000);
       }
-      await staff.save();
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      await rawUpdateStaff(staff._id, updateData);
+      
+      const attemptsLeft = Math.max(0, 5 - newAttempts);
+      const lockMsg = attemptsLeft === 0
+        ? 'Too many failed attempts. Account locked for 15 minutes.'
+        : `Incorrect password. ${attemptsLeft} attempt${attemptsLeft === 1 ? '' : 's'} remaining before lockout.`;
+      console.warn('⚠️  [portal/login] Wrong password for:', email, '| Attempts:', newAttempts, '| Left:', attemptsLeft);
+      return res.status(401).json({ success: false, message: lockMsg });
     }
 
-    // Successful login, reset attempts
-    staff.loginAttempts = 0;
-    staff.lockUntil = undefined;
-    staff.lastLogin = Date.now();
-    await staff.save();
+    console.log('🔑 [portal/login] Step 4: Updating last login timestamp (raw driver)...');
+    await rawUpdateStaff(staff._id, {
+      loginAttempts: 0,
+      lockUntil: null,
+      lastLogin: new Date()
+    });
+    console.log('🔑 [portal/login] Step 4 done.');
 
-    const previousDay = getDayStart(new Date());
-    previousDay.setUTCDate(previousDay.getUTCDate() - 1);
-    const previousDayAttendance = await Attendance.findOne({
-      staff: staff._id,
-      date: previousDay,
+    // Run previous-day attendance auto punch-out in the background so it
+    // does NOT block the login response. The JWT is returned immediately
+    // after bcrypt succeeds; the cleanup still runs asynchronously.
+    setImmediate(async () => {
+      try {
+        const previousDay = getDayStart(new Date());
+        previousDay.setUTCDate(previousDay.getUTCDate() - 1);
+        const previousDayAttendance = await Attendance.findOne({
+          staff: staff._id,
+          date: previousDay,
+        });
+
+        if (previousDayAttendance) {
+          const activeSession = Array.isArray(previousDayAttendance.sessions)
+            ? previousDayAttendance.sessions.find((session) => session && session.isActive)
+            : null;
+          if (activeSession) {
+            const closeResult = closeAttendanceSession(previousDayAttendance, {
+              endTime: new Date(previousDay.getTime() + 23 * 60 * 60 * 1000 + 59 * 60 * 1000 + 59 * 1000 + 999),
+              source: 'AUTO_PUNCH_OUT',
+              reason: 'System auto punch out at end of day'
+            });
+            if (closeResult.success) {
+              previousDayAttendance.lastAutoPunchOutAt = new Date();
+              previousDayAttendance.lastAutoPunchOutReason = 'System auto punch out at end of day';
+              previousDayAttendance.notes = previousDayAttendance.notes ? `${previousDayAttendance.notes}\n` : '' + 'System auto punch out at end of day';
+              await previousDayAttendance.save();
+              await new Notification({
+                admin: staff.user,
+                staff: staff._id,
+                recipientType: 'staff',
+                type: 'ATTENDANCE_ALERT',
+                referenceId: previousDayAttendance._id,
+                message: 'Your previous day attendance was automatically punched out by the system because no manual punch-out was recorded.'
+              }).save();
+            }
+          }
+        }
+      } catch (bgErr) {
+        console.error('[portal/login] Background attendance cleanup failed:', bgErr.message);
+      }
     });
 
-    if (previousDayAttendance) {
-      const activeSession = Array.isArray(previousDayAttendance.sessions)
-        ? previousDayAttendance.sessions.find((session) => session && session.isActive)
-        : null;
-      if (activeSession) {
-        const closeResult = closeAttendanceSession(previousDayAttendance, {
-          endTime: new Date(previousDay.getTime() + 23 * 60 * 60 * 1000 + 59 * 60 * 1000 + 59 * 1000 + 999),
-          source: 'AUTO_PUNCH_OUT',
-          reason: 'System auto punch out at end of day'
-        });
-        if (closeResult.success) {
-          previousDayAttendance.lastAutoPunchOutAt = new Date();
-          previousDayAttendance.lastAutoPunchOutReason = 'System auto punch out at end of day';
-          previousDayAttendance.notes = previousDayAttendance.notes ? `${previousDayAttendance.notes}\n` : '' + 'System auto punch out at end of day';
-          await previousDayAttendance.save();
-          await new Notification({
-            admin: staff.user,
-            staff: staff._id,
-            recipientType: 'staff',
-            type: 'ATTENDANCE_ALERT',
-            referenceId: previousDayAttendance._id,
-            message: 'Your previous day attendance was automatically punched out by the system because no manual punch-out was recorded.'
-          }).save();
-        }
-      }
-    }
-
     // Sign JWT with audience 'staff'
+    console.log('🔑 [portal/login] Step 5: Signing JWT token...');
     const token = jwt.sign(
       { id: staff._id, aud: 'staff' }, 
       process.env.JWT_SECRET || 'fallback_secret', 
       { expiresIn: '1d' }
     );
+    console.log('✅ [portal/login] LOGIN SUCCESS for:', email, '| Staff:', staff.fullName);
 
     res.json({
       success: true,
@@ -177,7 +293,12 @@ router.post('/login', async (req, res, next) => {
     });
 
   } catch (err) {
-    console.error('Staff login error:', err);
+    console.error('\n🔴 [portal/login] ═════════════════════════════════');
+    console.error('🔴 [portal/login] UNHANDLED ERROR IN LOGIN ROUTE');
+    console.error('🔴 [portal/login] Name   :', err.name);
+    console.error('🔴 [portal/login] Message:', err.message);
+    if (err.stack) console.error('🔴 [portal/login] Stack  :\n', err.stack);
+    console.error('🔴 [portal/login] ═════════════════════════════════\n');
     return next(err);
   }
 });
@@ -230,25 +351,31 @@ router.post('/forgot-password', async (req, res, next) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
 
-    const staff = await Staff.findOne({ email: email.toLowerCase().trim() });
+    console.log('🔑 [forgot-password] Request for:', email);
+
+    // Use raw driver to bypass collection lock
+    const staff = await rawFindStaffByEmail(email);
     
-    // Same security logic as admin auth to prevent enum
+    // Security: always return success to prevent email enumeration
     if (!staff || !staff.isPortalEnabled) {
+      console.warn('⚠️  [forgot-password] Staff not found or portal disabled for:', email);
       return res.json({ success: true, message: 'If that email exists and has portal access, a reset link has been sent.' });
     }
 
     const resetToken = crypto.randomBytes(32).toString('hex');
-    staff.passwordResetToken = resetToken;
-    staff.passwordResetExpires = Date.now() + 15 * 60000; // 15 minutes expiry
-    await staff.save();
+    
+    // Save token via raw driver (no Mongoose save needed)
+    await rawUpdateStaff(staff._id, {
+      passwordResetToken: resetToken,
+      passwordResetExpires: new Date(Date.now() + 15 * 60000),
+    });
+    console.log('🔑 [forgot-password] Reset token saved for:', email);
 
     try {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       const origin = req.get('origin') || frontendUrl;
       const resetLink = `${(origin || frontendUrl).replace(/\/$/, '')}/portal/reset-password?token=${resetToken}`;
 
-      // Dev-mode: print the reset link to the terminal so devs can recover
-      // accounts even when SMTP is not configured.
       if (process.env.NODE_ENV !== 'production') {
         console.log('\n────────────────────────────────────────────────────');
         console.log('🔑 DEV MODE — Portal Password Reset Link');
@@ -260,28 +387,27 @@ router.post('/forgot-password', async (req, res, next) => {
 
       const previewUrl = await sendPasswordResetEmail(staff, resetToken, origin, resetLink, 'staff');
       if (previewUrl && process.env.NODE_ENV !== 'production') {
-        console.log(`📭 Ethereal preview URL: ${previewUrl}`);
+        console.log(`💭 Ethereal preview URL: ${previewUrl}`);
       }
       res.json({
         success: true,
         message: 'If that email exists and has portal access, a reset link has been sent.',
-        ...(process.env.NODE_ENV !== 'production' && {
-          devResetLink: resetLink,
-        }),
+        ...(process.env.NODE_ENV !== 'production' && { devResetLink: resetLink }),
         ...(previewUrl && process.env.NODE_ENV !== 'production' && { devEmailPreview: previewUrl }),
       });
     } catch (emailErr) {
-      console.error('Password reset email failed:', emailErr.message);
+      console.error('🔴 [forgot-password] Email send failed:', emailErr.message);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const origin = req.get('origin') || frontendUrl;
+      const resetLink = `${(origin || frontendUrl).replace(/\/$/, '')}/portal/reset-password?token=${resetToken}`;
       res.json({
         success: true,
         message: 'If that email exists and has portal access, a reset link has been sent.',
-        ...(process.env.NODE_ENV !== 'production' && {
-          devResetLink: `${(req.get('origin') || process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '')}/portal/reset-password?token=${resetToken}`,
-        }),
+        ...(process.env.NODE_ENV !== 'production' && { devResetLink: resetLink }),
       });
     }
   } catch (err) {
-    console.error('Forgot password error:', err);
+    console.error('🔴 [forgot-password] Error:', err.message, err.stack);
     return next(err);
   }
 });
@@ -292,6 +418,7 @@ router.post('/forgot-password', async (req, res, next) => {
 router.post('/reset-password', async (req, res, next) => {
   try {
     const { token, password } = req.body;
+    console.log('🔑 [reset-password] Token received:', token ? token.substring(0, 10) + '...' : 'MISSING');
 
     if (!token) {
       return res.status(400).json({ success: false, message: 'Reset token is required' });
@@ -305,28 +432,37 @@ router.post('/reset-password', async (req, res, next) => {
       });
     }
 
-    const staff = await Staff.findOne({
-      passwordResetToken: token,
-      passwordResetExpires: { $gt: Date.now() },
-    });
+    // Use raw driver — fetch all staff and filter by token in memory
+    console.log('🔑 [reset-password] Looking up staff by reset token (raw driver)...');
+    const db = mongoose.connection.db;
+    const all = await db.collection('staffs').find({}).toArray();
+    const staff = all.find(s =>
+      s.passwordResetToken === token &&
+      s.passwordResetExpires &&
+      new Date(s.passwordResetExpires) > new Date()
+    );
+    console.log('🔑 [reset-password] Staff found:', !!staff);
 
     if (!staff) {
       return res.status(400).json({ success: false, message: 'Token invalid or expired' });
     }
 
-    staff.portalPassword = password;
-    staff.passwordResetToken = undefined;
-    staff.passwordResetExpires = undefined;
-    staff.mustChangePassword = false;
-    if (typeof staff.markModified === 'function') {
-      staff.markModified('portalPassword');
-    }
-    await staff.save();
+    // Hash the new password directly (bypasses Mongoose pre-save hook)
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-    res.json({ success: true, message: 'Password reset successful' });
+    await rawUpdateStaff(staff._id, {
+      portalPassword: hashedPassword,
+      passwordResetToken: null,
+      passwordResetExpires: null,
+      mustChangePassword: false,
+    });
+    console.log('✅ [reset-password] Password updated for:', staff.email);
+
+    res.json({ success: true, message: 'Password reset successful. You can now log in with your new password.' });
   } catch (err) {
-    console.error('Reset password error:', err);
-    res.status(500).json({ success: false, message: 'Failed to reset password' });
+    console.error('🔴 [reset-password] Error:', err.message, err.stack);
+    res.status(500).json({ success: false, message: 'Failed to reset password. Please try again.' });
   }
 });
 
@@ -340,6 +476,7 @@ router.post('/reset-password', async (req, res, next) => {
 router.post('/setup-password', async (req, res, next) => {
   try {
     const { token, password } = req.body;
+    console.log('🔑 [setup-password] Token received:', token ? token.substring(0, 10) + '...' : 'MISSING');
 
     if (!token) {
       return res.status(400).json({ success: false, message: 'Setup token is required' });
@@ -353,10 +490,16 @@ router.post('/setup-password', async (req, res, next) => {
       });
     }
 
-    const staff = await Staff.findOne({
-      passwordResetToken: token,
-      passwordResetExpires: { $gt: Date.now() },
-    });
+    // Use raw driver — fetch all staff and filter by token in memory
+    console.log('🔑 [setup-password] Looking up staff by setup token (raw driver)...');
+    const db = mongoose.connection.db;
+    const all = await db.collection('staffs').find({}).toArray();
+    const staff = all.find(s =>
+      s.passwordResetToken === token &&
+      s.passwordResetExpires &&
+      new Date(s.passwordResetExpires) > new Date()
+    );
+    console.log('🔑 [setup-password] Staff found:', !!staff);
 
     if (!staff) {
       return res.status(400).json({ success: false, message: 'Setup link is invalid or has expired. Please ask your administrator to resend a new invitation.' });
@@ -366,18 +509,18 @@ router.post('/setup-password', async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'This account is not active. Please contact your administrator.' });
     }
 
-    // Activate the account
-    staff.portalPassword = password;
-    staff.passwordResetToken = undefined;
-    staff.passwordResetExpires = undefined;
-    staff.mustChangePassword = false;
-    staff.lastLogin = undefined; // reset so the next login is recorded cleanly
-    if (typeof staff.markModified === 'function') {
-      staff.markModified('portalPassword');
-    }
-    await staff.save();
+    // Hash password directly (bypasses Mongoose pre-save hook)
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-    console.log(`✅ Team member account activated: ${staff.email} (${staff.fullName})`);
+    await rawUpdateStaff(staff._id, {
+      portalPassword: hashedPassword,
+      passwordResetToken: null,
+      passwordResetExpires: null,
+      mustChangePassword: false,
+      lastLogin: null,
+    });
+    console.log(`✅ [setup-password] Account activated: ${staff.email} (${staff.fullName})`);
 
     res.json({
       success: true,
@@ -388,7 +531,7 @@ router.post('/setup-password', async (req, res, next) => {
       },
     });
   } catch (err) {
-    console.error('Setup password error:', err);
+    console.error('🔴 [setup-password] Error:', err.message, err.stack);
     res.status(500).json({ success: false, message: 'Failed to set password. Please try again.' });
   }
 });
@@ -442,13 +585,9 @@ router.get('/me', authStaff, async (req, res) => {
 // rejected here to keep this a self-service endpoint.
 // ─────────────────────────────────────────────────────────────
 const ADMIN_ONLY_FIELDS = [
-  'employeeId',
-  'type',
-  'designation',
-  'department',
+  'role',
+  'company',
   'pfNumber',
-  'joiningDate',
-  'salaryDetails',
   'leaveBalance',
   'overtimeEligible',
   'workingDays',
@@ -499,6 +638,19 @@ router.put('/me', authStaff, async (req, res) => {
       }
     }
 
+    // joiningDate validation
+    if (req.body.joiningDate !== undefined) {
+      if (req.body.joiningDate === '' || req.body.joiningDate === null) {
+        req.body.joiningDate = undefined;
+      } else {
+        const jd = new Date(req.body.joiningDate);
+        if (Number.isNaN(jd.getTime())) {
+          return res.status(400).json({ success: false, message: 'Invalid date of joining.' });
+        }
+        req.body.joiningDate = jd;
+      }
+    }
+
     // Gender validation
     if (req.body.gender !== undefined) {
       const allowed = ['Male', 'Female', 'Other', ''];
@@ -519,18 +671,20 @@ router.put('/me', authStaff, async (req, res) => {
 
     // Apply remaining fields (partial update — only fields present in body are touched)
     const ALLOWED = [
-      'phone', 'panNumber', 'dob', 'gender',
+      'employeeId', 'type', 'designation', 'department', 'joiningDate', 'salaryDetails',
+      'workLocation', 'email', 'phone', 'panNumber', 'dob', 'gender',
       'address', 'emergencyContact', 'bankDetails',
     ];
     ALLOWED.forEach((field) => {
       if (req.body[field] !== undefined) {
-        // For nested objects (address, emergencyContact, bankDetails), merge
+        // For nested objects (address, emergencyContact, bankDetails, salaryDetails), merge
         // the new keys into the existing object so previously-saved fields
         // are preserved when the client sends an incomplete payload.
         if (
           field === 'address' ||
           field === 'emergencyContact' ||
-          field === 'bankDetails'
+          field === 'bankDetails' ||
+          field === 'salaryDetails'
         ) {
           req.staff[field] = {
             ...(req.staff[field] ? req.staff[field].toObject ? req.staff[field].toObject() : req.staff[field] : {}),

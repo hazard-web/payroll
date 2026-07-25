@@ -1,12 +1,28 @@
 import { memo, useState, useEffect, useCallback } from 'react'
 import {
   Calendar as CalendarIcon, Clock, AlertCircle, Loader2,
-  ChevronLeft, ChevronRight, CheckCircle2, ListChecks, Wrench
+  ChevronLeft, ChevronRight, CheckCircle2, ListChecks, Wrench, Download
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import api from '../../api'
 import { motion } from 'framer-motion'
 import PageShell from '../../components/PageShell'
+import { useStaffPortal } from '../../context/StaffPortalContext'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+
+const getWorkingDaysInMonth = (y, m) => {
+  // m is 1-indexed (1 = Jan, 12 = Dec)
+  const daysInMonth = new Date(y, m, 0).getDate()
+  let count = 0
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dayOfWeek = new Date(y, m - 1, d).getDay()
+    if (dayOfWeek !== 0) { // Mon-Sat (excluding only Sundays)
+      count++
+    }
+  }
+  return count
+}
 
 // ── styles ────────────────────────────────────────────────────────────────────
 const styles = `
@@ -19,10 +35,12 @@ const styles = `
   .pa-pill-slate  { background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
   .pa-pill-purple { background:#faf5ff; color:#6b21a8; border:1px solid #e9d5ff; }
   .pa-stat { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; display:flex; align-items:center; gap:14px; }
-  .pa-table-head { display:grid; padding:10px 20px; background:var(--bg); border-bottom:1px solid var(--border); gap:12px; }
-  .pa-table-row  { display:grid; padding:14px 20px; border-bottom:1px solid var(--border); align-items:center; transition:background .12s; gap:12px; }
-  .pa-table-row:last-child { border-bottom:none; }
-  .pa-table-row:hover { background:rgba(0,0,0,.018); }
+  .pa-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+  .pa-table th { padding: 16px; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border); background: var(--bg); }
+  .pa-table td { padding: 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .pa-table tr { transition: background 0.12s; }
+  .pa-table tr:hover { background: rgba(0,0,0,.018); }
+  .pa-table tr:last-child td { border-bottom: none; }
   .pa-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
   .pa-fix-btn {
     display:inline-flex; align-items:center; gap:6px;
@@ -76,6 +94,7 @@ const WorkStatusPill = memo(function WorkStatusPill({ status }) {
 })
 
 export default function PortalAttendance() {
+  const { staffUser } = useStaffPortal()
   const now = new Date()
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear]   = useState(now.getFullYear())
@@ -146,12 +165,113 @@ export default function PortalAttendance() {
     }
   }, [fetchHistory])
 
+  const handleDownloadPDF = () => {
+    try {
+      const doc = new jsPDF()
+      doc.setProperties({
+        title: `Attendance_Report_${MONTHS[month - 1]}_${year}`
+      })
+
+      const primaryColor = [88, 131, 59] // #58833b
+      doc.setFillColor(...primaryColor)
+      doc.rect(0, 0, 210, 40, 'F')
+
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(22)
+      doc.text('MONTHLY ATTENDANCE REPORT', 15, 25)
+
+      doc.setTextColor(50, 50, 50)
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'normal')
+
+      let yPos = 55
+      doc.setFont('helvetica', 'bold')
+      doc.text('EMPLOYEE DETAILS', 15, yPos)
+      yPos += 7
+
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Name: ${staffUser?.fullName || 'N/A'}`, 15, yPos)
+      doc.text(`Employee ID: ${staffUser?.employeeId || 'N/A'}`, 110, yPos)
+      yPos += 6
+
+      doc.text(`Email: ${staffUser?.email || 'N/A'}`, 15, yPos)
+      doc.text(`Period: ${MONTHS[month - 1]} ${year}`, 110, yPos)
+      yPos += 12
+
+      doc.setDrawColor(220, 220, 220)
+      doc.line(15, yPos, 195, yPos)
+      yPos += 10
+
+      doc.setFont('helvetica', 'bold')
+      doc.text('SUMMARY STATISTICS', 15, yPos)
+      yPos += 7
+
+      const workingDaysCount = getWorkingDaysInMonth(year, month)
+      const presentDaysCount = summary?.presentDays || 0
+      const attendancePercentage = workingDaysCount > 0 ? Math.min(100, Math.round((presentDaysCount / workingDaysCount) * 100)) : 0
+
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Attendance Percentage: ${attendancePercentage}%`, 15, yPos)
+      doc.text(`Present Days: ${presentDaysCount} / ${workingDaysCount} working days`, 110, yPos)
+      yPos += 6
+
+      doc.text(`Total Hours: ${(summary?.totalHours || 0).toFixed(1)} hrs`, 15, yPos)
+      doc.text(`Avg Daily Shift: ${(summary?.avgHours || 0).toFixed(1)} hrs`, 110, yPos)
+      yPos += 15
+
+      doc.setFont('helvetica', 'bold')
+      doc.text('ATTENDANCE DETAILS', 15, yPos)
+      yPos += 5
+
+      const tableRows = history.map(row => {
+        const isRecordPastDay = isPastDay(row.date)
+        const displayStatus = resolveWorkStatus(row)
+        const rawHours = row.totalHours || 0
+        const dispHours = Math.min(rawHours, 23.99)
+        
+        return [
+          fmtDate(row.date),
+          row.punchIn ? fmtTime(row.punchIn) : '—',
+          row.punchOut ? fmtTime(row.punchOut) : (isRecordPastDay ? 'Auto 11:59 PM' : 'Active'),
+          `${dispHours.toFixed(2)}h`,
+          displayStatus || '—'
+        ]
+      })
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Date', 'Punch In', 'Punch Out', 'Hours Logged', 'Status']],
+        body: tableRows,
+        theme: 'striped',
+        headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 9, cellPadding: 3 },
+        margin: { left: 15, right: 15 }
+      })
+
+      doc.save(`Attendance_Report_${MONTHS[month - 1]}_${year}.pdf`)
+      toast.success('PDF report downloaded successfully!')
+    } catch (err) {
+      console.error('PDF export error:', err)
+      toast.error('Failed to generate PDF report')
+    }
+  }
+
+
+  const workingDaysCount = getWorkingDaysInMonth(year, month)
+  const presentDaysCount = summary?.presentDays || 0
+  const attendancePercentage = workingDaysCount > 0 ? Math.min(100, Math.round((presentDaysCount / workingDaysCount) * 100)) : 0
+
+  const radius = 38
+  const circumference = 2 * Math.PI * radius
+  const strokeDashoffset = circumference - (attendancePercentage / 100) * circumference
+
   return (
-    <PageShell>
+    <PageShell style={{ maxWidth: 'none' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: 'var(--text)' }}>Attendance History</h1>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: 'var(--primary)' }}>Attendance History</h1>
           <p style={{ margin: '3px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>Your monthly work logs</p>
         </div>
 
@@ -185,25 +305,119 @@ export default function PortalAttendance() {
         </div>
       </div>
 
-      {/* Summary stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px,1fr))', gap: 12, marginBottom: 18 }}>
-        {[
-          { label: 'Present',   value: summary?.presentDays ?? 0,               icon: CalendarIcon, bg: '#e5ebdd', color: '#58833b' },
-          { label: 'Avg Hours', value: `${(summary?.avgHours || 0).toFixed(1)}h`, icon: Clock,        bg: '#eff6ff', color: '#1d4ed8' },
-          { label: 'Tasks',     value: summary?.totalTasks ?? 0,                 icon: ListChecks,   bg: '#f7f6ff', color: '#4338ca' },
-          { label: 'Completed', value: summary?.completedTasks ?? 0,             icon: CheckCircle2, bg: '#e5ebdd', color: '#58833b' },
-          { label: 'Flagged',   value: summary?.flaggedCount ?? 0,               icon: AlertCircle,  bg: '#fef2f2', color: '#991b1b' },
-        ].map(({ label, value, icon: Icon, bg, color }) => (
-          <div key={label} className="pa-stat">
-            <div style={{ width: 36, height: 36, borderRadius: 9, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Icon size={17} color={color} />
-            </div>
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{label}</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', lineHeight: 1.2, marginTop: 1 }}>{value}</div>
-            </div>
+      {/* Premium Hero Analytics Panel */}
+      <div style={{
+        background: 'linear-gradient(135deg, var(--primary) 0%, #3e5f29 100%)',
+        borderRadius: 16,
+        padding: '20px 24px',
+        color: 'white',
+        boxShadow: '0 8px 22px -6px rgba(88,131,59,0.3)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 20,
+        marginBottom: 20
+      }}>
+        {/* Left Side: Circular Progress */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <div style={{ position: 'relative', width: 84, height: 84, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg style={{ transform: 'rotate(-90deg)', width: 84, height: 84 }}>
+              <circle
+                cx="42"
+                cy="42"
+                r={radius}
+                fill="transparent"
+                stroke="rgba(255, 255, 255, 0.12)"
+                strokeWidth="7"
+              />
+              <circle
+                cx="42"
+                cy="42"
+                r={radius}
+                fill="transparent"
+                stroke="white"
+                strokeWidth="7"
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+                strokeLinecap="round"
+                style={{ transition: 'stroke-dashoffset 0.5s ease' }}
+              />
+            </svg>
+            <span style={{ position: 'absolute', fontSize: 16, fontWeight: 900, color: 'white' }}>{attendancePercentage}%</span>
           </div>
-        ))}
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255, 255, 255, 0.75)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Month Attendance</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: 'white', marginTop: 2 }}>{presentDaysCount} / {workingDaysCount} Days</div>
+            <div style={{ fontSize: 11, color: 'rgba(255, 255, 255, 0.65)', marginTop: 2 }}>Working days present</div>
+          </div>
+        </div>
+
+        {/* Middle Stats List */}
+        <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', flex: 1, justifyContent: 'center' }}>
+          <div style={{ minWidth: 100 }}>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Hours</div>
+            <div style={{ fontSize: 20, fontWeight: 850, color: 'white', marginTop: 3 }}>
+              {(summary?.totalHours || 0).toFixed(1)}<span style={{ fontSize: 12, fontWeight: 500, opacity: 0.8 }}>h</span>
+            </div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>Logged this month</div>
+          </div>
+
+          <div style={{ minWidth: 100 }}>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Average Daily</div>
+            <div style={{ fontSize: 20, fontWeight: 850, color: 'white', marginTop: 3 }}>
+              {(summary?.avgHours || 0).toFixed(1)}<span style={{ fontSize: 12, fontWeight: 500, opacity: 0.8 }}>h</span>
+            </div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>Shift duration</div>
+          </div>
+
+          <div style={{ minWidth: 100 }}>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tasks Track</div>
+            <div style={{ fontSize: 20, fontWeight: 850, color: 'white', marginTop: 3 }}>
+              {summary?.completedTasks || 0}<span style={{ fontSize: 12, fontWeight: 500, opacity: 0.8 }}> / {summary?.totalTasks || 0}</span>
+            </div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>Tasks completed</div>
+          </div>
+
+          {summary?.flaggedCount > 0 && (
+            <div style={{ minWidth: 80 }}>
+              <div style={{ fontSize: 9, color: '#fca5a5', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Flagged</div>
+              <div style={{ fontSize: 20, fontWeight: 850, color: '#fca5a5', marginTop: 3 }}>{summary.flaggedCount}</div>
+              <div style={{ fontSize: 10, color: '#fecaca', marginTop: 2 }}>Needs review</div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Side: PDF Download Action */}
+        <button
+          onClick={handleDownloadPDF}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '10px 16px',
+            borderRadius: 8,
+            border: 'none',
+            background: 'white',
+            color: 'var(--primary)',
+            fontWeight: 700,
+            fontSize: 12,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            boxShadow: '0 4px 10px rgba(0,0,0,0.06)'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = 'translateY(-1px)'
+            e.currentTarget.style.boxShadow = '0 6px 14px rgba(0,0,0,0.1)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = 'none'
+            e.currentTarget.style.boxShadow = '0 4px 10px rgba(0,0,0,0.06)'
+          }}
+        >
+          <Download size={14} />
+          Download PDF
+        </button>
       </div>
 
       {/* Table */}
@@ -218,49 +432,57 @@ export default function PortalAttendance() {
           <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No attendance data for {MONTHS[month - 1]} {year}.</div>
         </div>
       ) : (
-        <div className="pa-card">
-          <div className="pa-table-head" style={{ gridTemplateColumns: '1.8fr 1.2fr 1.2fr 0.9fr 1fr 1.1fr' }}>
-            {['Date', 'Punch In', 'Punch Out', 'Hours', 'Tasks', 'Status'].map(h => (
-              <div key={h} style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
-            ))}
-          </div>
-          <div style={{ maxHeight: 480, overflowY: 'auto' }}>
-            {history.map((row, i) => {
-              const taskCount = Array.isArray(row.tasks) ? row.tasks.length : 0
-              const completed = Array.isArray(row.tasks) ? row.tasks.filter(t => t.status === 'Completed').length : 0
-              const isRecordPastDay = isPastDay(row.date)
-              const displayStatus   = resolveWorkStatus(row)
+        <div className="pa-card" style={{ overflowX: 'auto' }}>
+          <table className="pa-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Punch In</th>
+                <th>Punch Out</th>
+                <th>Hours</th>
+                <th>Tasks</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map((row, i) => {
+                const taskCount = Array.isArray(row.tasks) ? row.tasks.length : 0
+                const completed = Array.isArray(row.tasks) ? row.tasks.filter(t => t.status === 'Completed').length : 0
+                const isRecordPastDay = isPastDay(row.date)
+                const displayStatus   = resolveWorkStatus(row)
 
-              // Hard-cap displayed hours at 23.99 — impossible values should never appear,
-              // but this is a last-resort visual guard in case the backend migration hasn't
-              // run yet.
-              const rawHours  = row.totalHours || 0
-              const dispHours = Math.min(rawHours, 23.99)
-              const hoursWarn = rawHours > 23.99 // still show a warning indicator
+                const rawHours  = row.totalHours || 0
+                const dispHours = Math.min(rawHours, 23.99)
+                const hoursWarn = rawHours > 23.99
 
-              // Punch-out display: past-day records with no punchOut are auto-closed at 11:59 PM
-              const punchOutDisplay = row.punchOut
-                ? fmtTime(row.punchOut)
-                : isRecordPastDay
-                  ? <span className="pa-pill pa-pill-orange" style={{ fontSize: 10 }}>Auto 11:59 PM</span>
-                  : <span className="pa-pill pa-pill-blue" style={{ fontSize: 10 }}>Active</span>
+                const punchOutDisplay = row.punchOut
+                  ? fmtTime(row.punchOut)
+                  : isRecordPastDay
+                    ? <span className="pa-pill pa-pill-orange" style={{ fontSize: 10 }}>Auto 11:59 PM</span>
+                    : <span className="pa-pill pa-pill-blue" style={{ fontSize: 10 }}>Active</span>
 
-              return (
-                <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className="pa-table-row" style={{ gridTemplateColumns: '1.8fr 1.2fr 1.2fr 0.9fr 1fr 1.1fr' }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)' }}>{fmtDate(row.date)}</div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{fmtTime(row.punchIn)}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{punchOutDisplay}</div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: hoursWarn ? '#c2410c' : 'var(--text)' }}>
-                    {dispHours ? `${dispHours.toFixed(1)}h` : '—'}
-                    {hoursWarn && <span title="Data needs fixing — click 'Fix Attendance Data'" style={{ marginLeft: 4, color: '#c2410c' }}>⚠</span>}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 700 }}>{taskCount ? `${completed}/${taskCount}` : '—'}</div>
-                  <WorkStatusPill status={displayStatus} />
-                </motion.div>
-              )
-            })}
-          </div>
+                return (
+                  <motion.tr
+                    key={i}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  >
+                    <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{fmtDate(row.date)}</td>
+                    <td style={{ fontWeight: 600, color: 'var(--text)' }}>{fmtTime(row.punchIn)}</td>
+                    <td style={{ color: 'var(--text-muted)' }}>{punchOutDisplay}</td>
+                    <td style={{ fontWeight: 600, color: hoursWarn ? '#c2410c' : 'var(--text)' }}>
+                      {dispHours ? `${dispHours.toFixed(1)}h` : '—'}
+                      {hoursWarn && <span title="Data needs fixing — click 'Fix Attendance Data'" style={{ marginLeft: 4, color: '#c2410c' }}>⚠</span>}
+                    </td>
+                    <td style={{ color: 'var(--text)', fontWeight: 700 }}>{taskCount ? `${completed}/${taskCount}` : '—'}</td>
+                    <td>
+                      <WorkStatusPill status={displayStatus} />
+                    </td>
+                  </motion.tr>
+                )
+              })}
+            </tbody>
+          </table>
           {history.length > 0 && (
             <div style={{ padding: '10px 18px', borderTop: '1px solid var(--border)', display: 'flex', gap: 18, flexWrap: 'wrap', fontSize: 12, color: 'var(--text-muted)' }}>
               <span>Total: <strong style={{ color: 'var(--text)' }}>{history.length} days</strong></span>

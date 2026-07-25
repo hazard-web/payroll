@@ -9,6 +9,17 @@ import App from './App.jsx'
 import ErrorBoundary from './components/ErrorBoundary'
 import './index.css'
 
+// Automatically unregister any active service worker from previous PWA installations.
+// This prevents old cached service workers from intercepting new portal routes.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((regs) => {
+    regs.forEach((r) => r.unregister())
+  })
+}
+if ('caches' in window) {
+  caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)))
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>

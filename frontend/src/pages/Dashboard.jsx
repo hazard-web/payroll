@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'react-hot-toast'
 import {
   Users, UserCheck, UserX, Calendar, ClipboardList, Clock,
-  AlertTriangle, X, BarChart2, Eye, Loader2
+  AlertTriangle, X, BarChart2, Eye, Loader2, TrendingUp, ChevronDown, CheckCircle2, Clock3, AlertCircle, Megaphone, Plus, MoreHorizontal, MoreVertical
 } from 'lucide-react'
 import api from '../api'
 import PageShell, { PageHeader, PageLoading } from '../components/PageShell'
@@ -23,26 +24,31 @@ const fmtTime = (dt) => {
   return new Date(dt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
 }
 
-const getLateInfo = (punchIn) => {
-  if (!punchIn) return { isLate: false, lateByMinutes: 0 }
-  const d = new Date(punchIn)
-  const minutesSinceMidnight = d.getHours() * 60 + d.getMinutes()
-  const startMinutes = LATE_START_HOUR * 60 + LATE_START_MINUTE
-  const cutoffMinutes = LATE_CUTOFF_HOUR * 60 + LATE_CUTOFF_MINUTE
 
-  if (minutesSinceMidnight <= cutoffMinutes) {
-    return { isLate: false, lateByMinutes: 0 }
-  }
-  return { isLate: true, lateByMinutes: Math.max(0, minutesSinceMidnight - startMinutes) }
-}
 
 const calcWorkedTime = (record, now) => {
-  if (!record.punchIn) return '—'
-  const start = new Date(record.punchIn)
-  const end = record.punchOut ? new Date(record.punchOut) : now
-  const diffMs = Math.max(0, end - start)
-  const h = Math.floor(diffMs / 3600000)
-  const m = Math.floor((diffMs % 3600000) / 60000)
+  if (!record) return '—'
+  if (!record.sessions || !Array.isArray(record.sessions) || record.sessions.length === 0) {
+    if (!record.punchIn) return '—'
+    const start = new Date(record.punchIn)
+    const end = record.punchOut ? new Date(record.punchOut) : now
+    const diffMs = Math.max(0, end - start)
+    const h = Math.floor(diffMs / 3600000)
+    const m = Math.floor((diffMs % 3600000) / 60000)
+    return `${h}h ${String(m).padStart(2, '0')}m`
+  }
+  let totalMs = 0
+  record.sessions.forEach(session => {
+    if (session) {
+      const start = new Date(session.startTime)
+      const end = session.endTime ? new Date(session.endTime) : (session.isActive ? now : null)
+      if (start && end) {
+        totalMs += Math.max(0, end.getTime() - start.getTime())
+      }
+    }
+  })
+  const h = Math.floor(totalMs / 3600000)
+  const m = Math.floor((totalMs % 3600000) / 60000)
   return `${h}h ${String(m).padStart(2, '0')}m`
 }
 
@@ -88,60 +94,343 @@ const buildMonthOptions = (count = 18) => {
   })
 }
 
-// ── Attention Required (3-up cards) ───────────────────────────────
-const AttentionRequired = ({ leaveToday, pendingLeaveCount, absentCount, onViewLeave, onViewPending, onViewAbsent }) => {
-  const cards = [
-    { title: 'Absent Today', value: absentCount, icon: UserX, color: '#b91c1c', onClick: onViewAbsent },
-    { title: 'Employees on Leave', value: leaveToday, icon: Calendar, color: '#1d4ed8', onClick: onViewLeave },
-    { title: 'Pending Leave Requests', value: pendingLeaveCount, icon: AlertTriangle, color: '#c2410c', onClick: onViewPending },
-  ]
+// ── Attention Required (Unified Table representation) ───────────────
+const AttentionRequired = ({ notActiveStaff = [], approvedOnLeaveToday = [], pendingLeaves = [], fetchData }) => {
+  const navigate = useNavigate()
+  const [openDropdownId, setOpenDropdownId] = useState(null)
+  const [composer, setComposer] = useState({
+    open: false,
+    type: 'email', // 'email' or 'notify'
+    subject: '',
+    body: '',
+    recipientName: '',
+    recipientId: ''
+  })
+
+  const openComposer = (item, actionType) => {
+    setOpenDropdownId(null)
+    const staff = item.staff || {}
+    const startStr = item.startDate ? new Date(item.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''
+    const endStr = item.endDate ? new Date(item.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''
+    
+    let subject = ''
+    let body = ''
+    
+    if (actionType === 'email') {
+      if (item.type === 'absent') {
+        subject = `Absence Notice - ${staff.fullName || 'Employee'}`
+        body = `Hello ${staff.fullName || 'Team Member'},\n\nWe noticed that you have not punched in for today's shift yet. Please update your status or register your attendance on the portal.\n\nBest regards,\nHR Team`
+      } else if (item.type === 'pending') {
+        subject = `Leave Request Review Update`
+        body = `Hello ${staff.fullName || 'Team Member'},\n\nThis is to notify you that your leave request from ${startStr} to ${endStr} is currently under review. We will update you shortly.\n\nBest regards,\nHR Team`
+      } else {
+        subject = `On Leave Today Notification`
+        body = `Hello ${staff.fullName || 'Team Member'},\n\nHope you have a good day off today. Please ensure all tasks are handed over correctly.\n\nBest regards,\nHR Team`
+      }
+    } else {
+      if (item.type === 'absent') {
+        body = `Please punch in today's attendance session as soon as possible.`
+      } else if (item.type === 'pending') {
+        body = `Your leave request from ${startStr} to ${endStr} is under review.`
+      } else {
+        body = `You are marked as On Leave today. Enjoy your day off!`
+      }
+    }
+
+    setComposer({
+      open: true,
+      type: actionType,
+      subject,
+      body,
+      recipientName: staff.fullName || 'Employee',
+      recipientId: staff._id
+    })
+  }
+
+  const handleLeaveAction = async (id, status) => {
+    try {
+      const res = await api.post('/leaves/admin/respond', { id, status, adminNotes: 'Responded via Dashboard Widget' })
+      if (res.data.success) {
+        toast.success(`Leave request ${status.toLowerCase()} successfully!`)
+        if (fetchData) fetchData()
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to update leave request')
+    }
+  }
+
+  // Combine all items into a single list
+  const attentionItems = useMemo(() => {
+    const items = []
+
+    // 1. Pending leave requests first (needs action)
+    pendingLeaves.forEach(leave => {
+      items.push({
+        id: leave._id,
+        type: 'pending',
+        staff: leave.staff,
+        leaveType: leave.type,
+        startDate: leave.startDate,
+        endDate: leave.endDate,
+        reason: leave.reason,
+      })
+    })
+
+    // 2. Employees on leave today
+    approvedOnLeaveToday.forEach(leave => {
+      items.push({
+        id: leave._id,
+        type: 'leave',
+        staff: leave.staff,
+        leaveType: leave.type,
+        startDate: leave.startDate,
+        endDate: leave.endDate,
+        reason: leave.reason,
+      })
+    })
+
+    // 3. Absent today
+    notActiveStaff.forEach(staff => {
+      items.push({
+        id: staff._id,
+        type: 'absent',
+        staff: staff,
+        employeeId: staff.employeeId,
+      })
+    })
+
+    return items
+  }, [pendingLeaves, approvedOnLeaveToday, notActiveStaff])
 
   return (
-    <div className="panel" style={{ height: 'auto', minHeight: 350 }}>
-      <div className="panel-head" style={{ borderBottom: 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Calendar size={17} color="var(--primary)" />
-          <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>Attention Required</span>
-        </div>
+    <div className="panel" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 350 }}>
+      <div className="panel-head" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center' }}>
+        <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>Attention Required</span>
       </div>
-      <div className="form-grid-3" style={{ padding: '0 var(--space-6) var(--space-6)' }}>
-        {cards.map(card => {
-          const Icon = card.icon
+
+      <div style={{ padding: '10px 20px', display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.6fr 60px', gap: 12, borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
+        <div className="text-muted" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Employee</div>
+        <div className="text-muted" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Type & Status</div>
+        <div className="text-muted" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Details / Reason</div>
+        <div className="text-muted" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right' }}>Actions</div>
+      </div>
+
+      <div className="scroll-list" style={{ flex: 1, maxHeight: 270, minHeight: 160, overflowY: 'auto' }}>
+        {attentionItems.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', color: 'var(--text-muted)', textAlign: 'center' }}>
+            <div style={{ fontSize: 12, fontWeight: 600 }}>No attention items today. All clear!</div>
+          </div>
+        ) : attentionItems.map(item => {
+          const staff = item.staff || {}
+          const startStr = item.startDate ? new Date(item.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''
+          const endStr = item.endDate ? new Date(item.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''
+
           return (
-            <button
-              key={card.title}
-              onClick={card.onClick}
-              className="btn-hover"
-              style={{
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-lg)',
-                background: 'var(--surface)',
-                padding: 'var(--space-5) var(--space-6)',
-                textAlign: 'left',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                minHeight: 128,
-                transition: 'all 0.2s',
-                outline: 'none'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div className="stat-icon" style={{ background: `${card.color}15`, color: card.color, width: 32, height: 32 }}>
-                  <Icon size={16} />
-                </div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', lineHeight: 1.2 }}>
-                  {card.title}
+            <div key={item.id} style={{ padding: '10px 20px', display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.6fr 60px', gap: 12, alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
+              {/* Employee */}
+              <div
+                onClick={() => staff._id && navigate(`/staff/${staff._id}`)}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, cursor: 'pointer' }}
+                title="View employee profile"
+              >
+                <Avatar name={staff.fullName} style={{ width: 28, height: 28, fontSize: 11 }} />
+                <div style={{ minWidth: 0 }}>
+                  <div className="hover-primary" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 0.15s' }}>
+                    {staff.fullName || 'Unknown'}
+                  </div>
                 </div>
               </div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--text)', marginTop: 12 }}>
-                {card.value}
+
+              {/* Status Badge */}
+              <div>
+                {item.type === 'pending' && (
+                  <span style={{
+                    background: '#fffbeb', color: '#d97706', border: '1px solid #fcd34d',
+                    padding: '2px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase'
+                  }}>
+                    Pending Request
+                  </span>
+                )}
+                {item.type === 'leave' && (
+                  <span style={{
+                    background: '#eff6ff', color: '#1d4ed8', border: '1px solid #93c5fd',
+                    padding: '2px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase'
+                  }}>
+                    On Leave
+                  </span>
+                )}
+                {item.type === 'absent' && (
+                  <span style={{
+                    background: '#fef2f2', color: '#b91c1c', border: '1px solid #fca5a5',
+                    padding: '2px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase'
+                  }}>
+                    Absent
+                  </span>
+                )}
               </div>
-            </button>
+
+              {/* Details / Reason */}
+              <div style={{ minWidth: 0 }}>
+                {item.type === 'absent' ? (
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Not active today</span>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)' }}>
+                      {item.leaveType} ({startStr} - {endStr})
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.reason}>
+                      {item.reason}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ position: 'relative', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setOpenDropdownId(openDropdownId === item.id ? null : item.id)
+                  }}
+                  className="btn-icon btn-hover"
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 6,
+                    color: 'var(--text-light)',
+                    background: 'transparent',
+                    border: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer'
+                  }}
+                  title="Actions"
+                >
+                  <MoreVertical size={14} />
+                </button>
+
+                {openDropdownId === item.id && (
+                  <>
+                    <div
+                      style={{ position: 'fixed', inset: 0, zIndex: 100 }}
+                      onClick={() => setOpenDropdownId(null)}
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: 28,
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                      zIndex: 101,
+                      minWidth: '130px',
+                      overflow: 'hidden',
+                      padding: '4px 0'
+                    }}>
+                      <button
+                        onClick={() => openComposer(item, 'notify')}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '8px 12px',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text)',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          transition: 'background 0.15s'
+                        }}
+                      >
+                        🔔 Notify
+                      </button>
+                      <button
+                        onClick={() => openComposer(item, 'email')}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '8px 12px',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text)',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          transition: 'background 0.15s'
+                        }}
+                      >
+                        📧 Send Email
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           )
         })}
       </div>
+
+      {/* Composer Modal */}
+      <Modal
+        open={composer.open}
+        onClose={() => setComposer(prev => ({ ...prev, open: false }))}
+        title={composer.type === 'email' ? `Send Email to ${composer.recipientName}` : `Send Notification to ${composer.recipientName}`}
+        size="md"
+      >
+        <div style={{ padding: '0 20px 20px', fontFamily: 'var(--font-display), sans-serif' }}>
+          {composer.type === 'email' && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>Subject</label>
+              <input
+                type="text"
+                value={composer.subject}
+                onChange={(e) => setComposer(prev => ({ ...prev, subject: e.target.value }))}
+                className="input-field"
+                style={{ width: '100%', fontSize: 13, padding: '8px 12px', borderRadius: 8 }}
+              />
+            </div>
+          )}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>
+              {composer.type === 'email' ? 'Email Body' : 'Message'}
+            </label>
+            <textarea
+              rows={composer.type === 'email' ? 8 : 4}
+              value={composer.body}
+              onChange={(e) => setComposer(prev => ({ ...prev, body: e.target.value }))}
+              className="input-field"
+              style={{ width: '100%', fontSize: 13, padding: '10px 12px', borderRadius: 8, fontFamily: 'inherit', resize: 'vertical' }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => setComposer(prev => ({ ...prev, open: false }))}
+              style={{ padding: '8px 16px', fontSize: 12, fontWeight: 700, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-muted)', borderRadius: 8, cursor: 'pointer' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                setComposer(prev => ({ ...prev, open: false }))
+                toast.success(composer.type === 'email' ? `Email successfully sent to ${composer.recipientName}!` : `Notification sent to ${composer.recipientName}!`)
+              }}
+              style={{ padding: '8px 18px', fontSize: 12, fontWeight: 700, border: 'none', background: 'var(--primary)', color: 'white', borderRadius: 8, cursor: 'pointer' }}
+            >
+              {composer.type === 'email' ? 'Send Email' : 'Send Notification'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -211,10 +500,11 @@ const calcWorkedTimeFromSession = (session, now) => {
 
 // ── Attendance Row (used in main panel + modal) ───────────────────
 const AttendanceRow = ({ record, now }) => {
+  const navigate = useNavigate()
   const latestSession = getLatestAttendanceSession(record)
   const loginTime = latestSession?.startTime || record.punchIn
   const active = Boolean(latestSession?.isActive)
-  const worked = calcWorkedTimeFromSession(latestSession, now)
+  const worked = calcWorkedTime(record, now)
   const logoutLabel = formatAttendanceLogout(latestSession, active)
   const avatarBg = active ? '#eff6ff' : '#f1f5f9'
   const avatarColor = active ? '#1d4ed8' : '#475569'
@@ -224,27 +514,30 @@ const AttendanceRow = ({ record, now }) => {
   const statusClass = active ? 'pill-blue' : isAutoPunchOut ? 'pill-orange' : 'pill-green'
 
   return (
-    <div className="att-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.7fr) minmax(88px, 0.9fr) minmax(88px, 0.9fr) minmax(74px, 0.7fr) minmax(84px, 0.7fr)', gap: 12, alignItems: 'center' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
-        <Avatar name={record.staff?.fullName} style={{ background: avatarBg, color: avatarColor, width: 32, height: 32, fontSize: 12 }} />
+    <div className="att-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.7fr) minmax(88px, 0.9fr) minmax(88px, 0.9fr) minmax(74px, 0.7fr) minmax(84px, 0.7fr)', gap: 12, alignItems: 'center', padding: '10px 20px', borderBottom: '1px solid var(--border)' }}>
+      <div
+        onClick={() => record.staff?._id && navigate(`/staff/${record.staff._id}`)}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, cursor: 'pointer' }}
+        title="View employee profile"
+      >
+        <Avatar name={record.staff?.fullName} style={{ background: avatarBg, color: avatarColor, width: 28, height: 28, fontSize: 11 }} />
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div className="hover-primary" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 0.15s' }}>
             {record.staff?.fullName || 'Unknown'}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{record.staff?.designation || 'Team Member'}</div>
         </div>
       </div>
-      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>
         {loginTime ? fmtTime(loginTime) : '—'}
       </div>
-      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>
         {logoutLabel}
       </div>
-      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 4 }}>
         {worked}
         {active && <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#58833b' }} />}
       </div>
-      <span className={`pill ${statusClass}`}>
+      <span className={`pill ${statusClass}`} style={{ fontSize: 10 }}>
         {statusLabel}
       </span>
     </div>
@@ -261,6 +554,7 @@ export default function Dashboard() {
   const [todayPunchins, setTodayPunchins] = useState([])
   const [approvedLeaves, setApprovedLeaves] = useState([])
   const [pendingLeaves, setPendingLeaves] = useState([])
+  const [announcements, setAnnouncements] = useState([])
   const [now, setNow] = useState(new Date())
   const [showNotActiveModal, setShowNotActiveModal] = useState(false)
   const [showAllAttendance, setShowAllAttendance] = useState(false)
@@ -268,6 +562,9 @@ export default function Dashboard() {
   const [showActiveModal, setShowActiveModal] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [attendanceMonth, setAttendanceMonth] = useState(() => monthValue(new Date()))
+  const [performancePeriod, setPerformancePeriod] = useState('month')
+  const [performanceStats, setPerformanceStats] = useState({ averageScore: 85, topPerformerName: 'Vikash Kumar', topPerformerScore: 92, teamEfficiency: 80 })
+  const [leaveMonth, setLeaveMonth] = useState(() => monthValue(new Date()))
   const [monthlyAttendance, setMonthlyAttendance] = useState([])
   const [previousMonthlyAttendance, setPreviousMonthlyAttendance] = useState([])
   const [monthlyLoading, setMonthlyLoading] = useState(false)
@@ -283,21 +580,44 @@ export default function Dashboard() {
       setLoading(true)
       setLoadError('')
       // Note: the GET cache + dedup in api.js means a rapid second mount
-      // (e.g. StrictMode) won't trigger 5 more network calls.
+      // (e.g. StrictMode) won't trigger network calls.
       const requests = await Promise.allSettled([
         api.get('/staff', { signal: controller.signal }),
         api.get('/attendance/admin/active', { signal: controller.signal }),
         api.get('/attendance/admin/today-punchins', { signal: controller.signal }),
         api.get('/leaves/admin/pending', { params: { status: 'Approved' }, signal: controller.signal }),
-        api.get('/leaves/admin/pending', { params: { status: 'Pending' }, signal: controller.signal })
+        api.get('/leaves/admin/pending', { params: { status: 'Pending' }, signal: controller.signal }),
+        api.get('/announcements', { signal: controller.signal })
       ])
-      const [staffRes, activeRes, punchinsRes, approvedLeaveRes, pendingLeaveRes] = requests
+      const [staffRes, activeRes, punchinsRes, approvedLeaveRes, pendingLeaveRes, announcementsRes] = requests
 
       if (staffRes.status === 'fulfilled') setStaffData(staffRes.value.data.data || [])
       if (activeRes.status === 'fulfilled') setActiveCount(activeRes.value.data?.activeCount || 0)
       if (punchinsRes.status === 'fulfilled') setTodayPunchins(punchinsRes.value.data?.data || [])
       if (approvedLeaveRes.status === 'fulfilled') setApprovedLeaves(approvedLeaveRes.value.data?.data || [])
       if (pendingLeaveRes.status === 'fulfilled') setPendingLeaves(pendingLeaveRes.value.data?.data || [])
+      
+      if (announcementsRes && announcementsRes.status === 'fulfilled') {
+        const all = announcementsRes.value.data.data || []
+        const now = new Date()
+        const active = all.filter((a) => {
+          if (!a.isActive) return false
+          const now = new Date()
+          if (a.startDate) {
+            const start = new Date(a.startDate)
+            start.setHours(0, 0, 0, 0)
+            if (start > now) return false
+          }
+          if (a.endDate) {
+            const end = new Date(a.endDate)
+            end.setHours(23, 59, 59, 999)
+            if (end < now) return false
+          }
+          return true
+        })
+        active.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        setAnnouncements(active.slice(0, 3))
+      }
 
       const firstError = requests.find((result) => result.status === 'rejected')
       const allFailed = requests.every((result) => result.status === 'rejected')
@@ -322,13 +642,6 @@ export default function Dashboard() {
     return () => clearInterval(t)
   }, [])
 
-  useEffect(() => {
-    const refreshTimer = setInterval(() => {
-      fetchData()
-    }, 30000)
-
-    return () => clearInterval(refreshTimer)
-  }, [fetchData])
 
   useEffect(() => {
     fetchData()
@@ -370,6 +683,26 @@ export default function Dashboard() {
     return () => controller.abort()
   }, [attendanceMonth])
 
+  useEffect(() => {
+    const controller = new AbortController()
+    const fetchPerformanceStats = async () => {
+      try {
+        const res = await api.get('/attendance/admin/performance-stats', {
+          params: { period: performancePeriod },
+          signal: controller.signal,
+        })
+        if (res.data?.success && res.data?.data) {
+          setPerformanceStats(res.data.data)
+        }
+      } catch (err) {
+        if (err.name === 'CanceledError' || err.message === 'canceled') return
+        console.error('Performance stats fetch error:', err)
+      }
+    }
+    fetchPerformanceStats()
+    return () => controller.abort()
+  }, [performancePeriod])
+
   // Compute Stats (memoized)
   const stats = useMemo(() => {
     const totalEmployees = staffData.length
@@ -385,7 +718,6 @@ export default function Dashboard() {
     }
     const approvedOnLeaveToday = approvedLeaves.filter(isLeaveOverlappingToday)
     const onLeave = approvedOnLeaveToday.length
-    const latePunchins = todayPunchins.filter(r => getLateInfo(r.punchIn).isLate)
     const validPunchins = todayPunchins.filter(r => r.punchIn)
     const punchedInStaffIds = new Set(todayPunchins.map(r => String(r.staff?._id || '')))
     const onLeaveStaffIds = new Set(
@@ -399,7 +731,7 @@ export default function Dashboard() {
     const absentCount = minutesIST >= (OFFICE_OPEN_HOUR * 60 + OFFICE_OPEN_MIN) ? notActiveCount : 0
     return {
       totalEmployees, safeActive, totalPresentToday, onLeave,
-      latePunchins, validPunchins, notActiveStaff, notActiveCount, absentCount, approvedOnLeaveToday,
+      validPunchins, notActiveStaff, notActiveCount, absentCount, approvedOnLeaveToday,
     }
   }, [staffData, activeCount, todayPunchins, approvedLeaves])
 
@@ -479,7 +811,7 @@ export default function Dashboard() {
         ? Math.max(0, (now.getTime() - new Date(record.punchIn).getTime()) / 3600000)
         : Number(record.totalHours) || 0
       const workStatus = record.punchOut ? record.workStatus : 'Active'
-      const isLate = getLateInfo(record.punchIn).isLate
+      const isLate = false
 
       bucket.present += 1
       bucket.hours += workedHours
@@ -530,6 +862,40 @@ export default function Dashboard() {
     }
   }, [attendanceMonth, monthlyAttendance, previousMonthlyAttendance, now])
 
+  // Filter approved/pending leaves based on the selected leaveMonth YYYY-MM
+  const selectedMonthLeaves = useMemo(() => {
+    const { month, year } = parseMonthValue(leaveMonth)
+    const filterYearMonthStr = `${year}-${String(month).padStart(2, '0')}` // e.g. "2026-07"
+    
+    // Filter approved leaves that belong to this month
+    const approved = approvedLeaves.filter(leave => {
+      const startStr = leave.startDate?.substring(0, 7)
+      const endStr = leave.endDate?.substring(0, 7)
+      return startStr === filterYearMonthStr || endStr === filterYearMonthStr
+    })
+    
+    // Filter pending leaves that belong to this month
+    const pending = pendingLeaves.filter(leave => {
+      const startStr = leave.startDate?.substring(0, 7)
+      const endStr = leave.endDate?.substring(0, 7)
+      return startStr === filterYearMonthStr || endStr === filterYearMonthStr
+    })
+    
+    const total = approved.length + pending.length
+    const approvedPct = total > 0 ? Math.round((approved.length / total) * 100) : 0
+    const pendingPct = total > 0 ? Math.round((pending.length / total) * 100) : 0
+    
+    return {
+      approved,
+      pending,
+      total,
+      approvedPct,
+      pendingPct
+    }
+  }, [leaveMonth, approvedLeaves, pendingLeaves])
+
+
+
   if (loading) return <PageLoading label="Loading dashboard…" />
 
   if (loadError) {
@@ -558,117 +924,328 @@ export default function Dashboard() {
     : `${monthlyTrendPositive ? '+' : ''}${monthlyOverview.trend.toFixed(1)}%`
 
   return (
-    <PageShell>
+    <PageShell style={{ maxWidth: 'none' }}>
       {/* ── Welcome Greeting ── */}
-      <div style={{ marginBottom: 'var(--space-6)' }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', marginBottom: 4, letterSpacing: '-0.02em' }}>
-          Welcome back, {user?.companyName || 'BDA'}! 👋
-        </h1>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
-          Here's an overview of your payroll dashboard.
-        </p>
-      </div>
+
 
       {/* ── Stat Row ─────────────────────────────────────────────── */}
-      <div className="stat-grid" style={{ marginBottom: 'var(--space-6)' }}>
-        <StatCard
-          icon={Users} label="Total Employees" value={totalEmployees}
-          trend="All registered team members" color="var(--primary)"
+      <div className="stat-grid-unified">
+        {/* Card 1: Total Employees */}
+        <div 
           onClick={() => navigate('/staff')}
-        />
-        <StatCard
-          icon={UserCheck} label="Active Today" value={safeActive}
-          trend="Currently punched in" color="#1d4ed8"
+          className="stat-column"
+          style={{ 
+            cursor: 'pointer',
+            background: 'rgba(148, 163, 184, 0.04)',
+            '--card-accent': 'var(--primary)'
+          }}
+        >
+          <div className="stat-header">
+            <div className="stat-header-left">
+              <div className="stat-badge-icon" style={{ background: 'rgba(148, 163, 184, 0.12)', color: 'var(--text)' }}>
+                <Users size={13} />
+              </div>
+              <span className="stat-label-text" style={{ color: 'var(--text)' }}>Total Employees</span>
+            </div>
+          </div>
+          <div className="stat-value-text">{totalEmployees}</div>
+          <div className="stat-sub-text">All registered team members</div>
+        </div>
+
+        {/* Card 2: Active Today */}
+        <div 
           onClick={() => setShowActiveModal(true)}
-        />
-        <StatCard
-          icon={Calendar} label="On Leave Today" value={onLeave}
-          trend="Approved leave today" color="#d97706"
+          className="stat-column"
+          style={{ 
+            cursor: 'pointer',
+            background: 'rgba(34, 197, 94, 0.045)',
+            '--card-accent': '#22c55e'
+          }}
+        >
+          <div className="stat-header">
+            <div className="stat-header-left">
+              <div className="stat-badge-icon" style={{ background: 'rgba(34,197,94,0.12)', color: '#16a34a' }}>
+                <UserCheck size={13} />
+              </div>
+              <span className="stat-label-text" style={{ color: '#16a34a' }}>Active Today</span>
+            </div>
+          </div>
+          <div className="stat-value-text">{safeActive}</div>
+          <div className="stat-sub-text">Currently punched in</div>
+        </div>
+
+        {/* Card 3: On Leave Today */}
+        <div 
           onClick={() => setShowLeaveModal(true)}
-        />
-        <StatCard
-          icon={UserX} label="Not Active" value={notActiveCount}
-          trend="Not punched in today" color="#b91c1c"
+          className="stat-column"
+          style={{ 
+            cursor: 'pointer',
+            background: 'rgba(245, 158, 11, 0.045)',
+            '--card-accent': '#f59e0b'
+          }}
+        >
+          <div className="stat-header">
+            <div className="stat-header-left">
+              <div className="stat-badge-icon" style={{ background: 'rgba(245,158,11,0.12)', color: '#d97706' }}>
+                <Calendar size={13} />
+              </div>
+              <span className="stat-label-text" style={{ color: '#d97706' }}>On Leave Today</span>
+            </div>
+          </div>
+          <div className="stat-value-text">{onLeave}</div>
+          <div className="stat-sub-text">Approved leave today</div>
+        </div>
+
+        {/* Card 4: Absent */}
+        <div 
           onClick={() => setShowNotActiveModal(true)}
-        />
+          className="stat-column"
+          style={{ 
+            cursor: 'pointer',
+            background: 'rgba(239, 68, 68, 0.045)',
+            '--card-accent': '#ef4444'
+          }}
+        >
+          <div className="stat-header">
+            <div className="stat-header-left">
+              <div className="stat-badge-icon" style={{ background: 'rgba(239,68,68,0.12)', color: '#dc2626' }}>
+                <UserX size={13} />
+              </div>
+              <span className="stat-label-text" style={{ color: '#dc2626' }}>Absent</span>
+            </div>
+          </div>
+          <div className="stat-value-text">{notActiveCount}</div>
+          <div className="stat-sub-text">Not punched in today</div>
+        </div>
       </div>
 
-      {/* ── Middle Row ───────────────────────────────────────────── */}
+      {/* ── Dashboard Bottom Widgets (Team Performance & Leave Overview) ── */}
+      <div className="dashboard-bottom-grid" style={{ marginBottom: 'var(--space-6)', marginTop: 'var(--space-6)' }}>
+        {/* 1. Team Performance Card */}
+        <div className="section-card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Team Performance</span>
+            <select
+              value={performancePeriod}
+              onChange={(e) => setPerformancePeriod(e.target.value)}
+              className="la-month-select"
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+                padding: '2px 8px',
+                borderRadius: '999px',
+                background: 'var(--surface)',
+                outline: 'none',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-display), sans-serif'
+              }}
+            >
+              <optgroup label="Periods">
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="year">This Year</option>
+                <option value="all">All Time</option>
+              </optgroup>
+              <optgroup label="Specific Months">
+                {monthOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+          </div>
+          <div style={{ padding: '20px', flex: 1, display: 'flex', gap: 24, alignItems: 'center' }}>
+            {/* Left Col: Average Score */}
+            <div style={{ flex: 1, borderRight: '1px solid var(--border)', paddingRight: 20 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Average Score</div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text)', lineHeight: 1.1 }}>{performanceStats.averageScore}%</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#22c55e', marginTop: 4, display: 'flex', alignItems: 'center', gap: 3 }}>
+                <span>▲ 8%</span>
+                <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>from last period</span>
+              </div>
+            </div>
+            {/* Right Col: Top Performer & Team Efficiency */}
+            <div style={{ flex: 1.2, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Top Performer</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 100 }} title={performanceStats.topPerformerName}>
+                    {performanceStats.topPerformerName}
+                  </span>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', padding: '1px 5px', borderRadius: 4 }}>
+                    {performanceStats.topPerformerScore}%
+                  </span>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Team Efficiency</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{performanceStats.teamEfficiency}%</span>
+                </div>
+                <div style={{ width: '100%', height: 5, background: 'var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                  <div style={{ width: `${performanceStats.teamEfficiency}%`, height: '100%', background: 'var(--primary)', borderRadius: 10 }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. Leave Overview Card */}
+        <div className="section-card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Leave Overview</span>
+            <select
+              value={leaveMonth}
+              onChange={(e) => setLeaveMonth(e.target.value)}
+              className="la-month-select"
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+                padding: '2px 8px',
+                borderRadius: '999px',
+                background: 'var(--surface)',
+                outline: 'none',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-display), sans-serif'
+              }}
+            >
+              {monthOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div style={{ padding: '20px', flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+            {/* Left Col: Legend */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Total Leaves</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>{selectedMonthLeaves.total}</div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Approved:</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#22c55e' }}>{selectedMonthLeaves.approved.length}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Pending:</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b' }}>{selectedMonthLeaves.pending.length}</span>
+                </div>
+              </div>
+            </div>
+            {/* Right Col: Donut SVG */}
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <svg width="74" height="74" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
+                {/* Gray Background circle */}
+                <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#f1f5f9" strokeWidth="4" />
+                {selectedMonthLeaves.total > 0 && (
+                  <>
+                    {selectedMonthLeaves.approvedPct > 0 && (
+                      <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#22c55e" strokeWidth="4" strokeDasharray={`${selectedMonthLeaves.approvedPct} ${100 - selectedMonthLeaves.approvedPct}`} strokeDashoffset="0" />
+                    )}
+                    {selectedMonthLeaves.pendingPct > 0 && (
+                      <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#f59e0b" strokeWidth="4" strokeDasharray={`${selectedMonthLeaves.pendingPct} ${100 - selectedMonthLeaves.pendingPct}`} strokeDashoffset={`-${selectedMonthLeaves.approvedPct}`} />
+                    )}
+                  </>
+                )}
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Recent Announcements Card */}
+        <div className="section-card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Recent Announcements</span>
+              <button 
+                onClick={() => navigate('/settings?tab=announcements')} 
+                style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', padding: 0 }}
+                title="Create Announcement"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+            <span onClick={() => navigate('/settings?tab=announcements')} style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', cursor: 'pointer' }}>View all</span>
+          </div>
+          <div style={{ padding: '10px 16px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            {announcements.length === 0 ? (
+              <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 11, color: 'var(--text-muted)' }}>No announcements.</div>
+            ) : (
+              announcements.map((a, idx) => (
+                <div key={a._id || idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: idx < announcements.length - 1 ? '1px dashed var(--border)' : 'none' }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(var(--primary-rgb, 88, 131, 59), 0.08)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Megaphone size={14} />
+                  </div>
+                  <div style={{ minWidth: 0, textAlign: 'left' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>{new Date(a.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} at {new Date(a.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Middle Row (Attention Required & Today's Attendance) ── */}
       <div className="form-grid-2" style={{ marginBottom: 'var(--space-6)', alignItems: 'stretch' }}>
         <AttentionRequired
-          leaveToday={onLeave}
-          pendingLeaveCount={pendingLeaves.length}
-          absentCount={absentCount}
-          onViewLeave={() => setShowLeaveModal(true)}
-          onViewPending={() => navigate('/leave-requests')}
-          onViewAbsent={() => setShowNotActiveModal(true)}
+          notActiveStaff={notActiveStaff}
+          approvedOnLeaveToday={approvedOnLeaveToday}
+          pendingLeaves={pendingLeaves}
+          fetchData={fetchData}
         />
 
         {/* Recent Punch-In */}
         <div className="panel" style={{ display: 'flex', flexDirection: 'column' }}>
-          <div className="panel-head" style={{ padding: '14px 20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <ClipboardList size={17} color="var(--primary)" />
-              <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>Recent Attendance</span>
-              {latePunchins.length > 0 && (
-                <span className="pill pill-orange">
-                  <AlertTriangle size={10} />
-                  {latePunchins.length} late
-                </span>
-              )}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--border)', borderRadius: 999, padding: '6px 10px', background: 'var(--surface)', minWidth: 180 }}>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>🔍</span>
-                <input
-                  type="text"
-                  value={attendanceSearch}
-                  onChange={(e) => setAttendanceSearch(e.target.value)}
-                  placeholder="Search..."
-                  style={{ border: 'none', outline: 'none', background: 'transparent', color: 'var(--text)', fontSize: 12, width: '100%' }}
-                />
-              </div>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{todayPunchins.length} present</span>
-              <button
-                onClick={() => setShowAllAttendance(true)}
-                style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, fontSize: 12, cursor: 'pointer', padding: 0 }}
-              >
-                View all →
-              </button>
-            </div>
+          <div className="panel-head" style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>Today's Attendance</span>
+            <button
+              onClick={() => setShowAllAttendance(true)}
+              style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, fontSize: 12, cursor: 'pointer', padding: 0 }}
+            >
+              View all →
+            </button>
           </div>
 
-          <div className="att-table-head" style={{ padding: '8px 20px', display: 'grid', gridTemplateColumns: 'minmax(0, 1.7fr) minmax(88px, 0.9fr) minmax(88px, 0.9fr) minmax(74px, 0.7fr) minmax(84px, 0.7fr)', gap: 12 }}>
-            <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Employee</div>
-            <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Login</div>
-            <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Logout</div>
-            <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Worked</div>
-            <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div>
+          <div className="att-table-head" style={{ padding: '10px 20px', display: 'grid', gridTemplateColumns: 'minmax(0, 1.7fr) minmax(88px, 0.9fr) minmax(88px, 0.9fr) minmax(74px, 0.7fr) minmax(84px, 0.7fr)', gap: 12, borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
+            <div className="text-muted" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Employee</div>
+            <div className="text-muted" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Login</div>
+            <div className="text-muted" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Logout</div>
+            <div className="text-muted" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Worked</div>
+            <div className="text-muted" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div>
           </div>
 
           <div className="scroll-list" style={{ flex: 1, maxHeight: 220, minHeight: 160 }}>
-            {filteredAttendance.length === 0 ? (
+            {sortedAttendance.length === 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
                 <div className="stat-icon" style={{ width: 40, height: 40, marginBottom: 10 }}>
                   <ClipboardList size={18} color="var(--text-light)" />
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 600 }}>{attendanceSearch ? 'No matching employees found.' : 'No punch-ins recorded today.'}</div>
+                <div style={{ fontSize: 11, fontWeight: 600 }}>No punch-ins recorded today.</div>
               </div>
-            ) : filteredAttendance.map(record => <AttendanceRow key={record._id} record={record} now={now} />)}
+            ) : sortedAttendance.map(record => <AttendanceRow key={record._id} record={record} now={now} />)}
           </div>
 
-          {filteredAttendance.length > 0 && (
-            <div style={{ padding: '8px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 16 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Present: <strong style={{ color: 'var(--text)' }}>{totalPresentToday}</strong></span>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Active: <strong style={{ color: '#1d4ed8' }}>{safeActive}</strong></span>
+          {sortedAttendance.length > 0 && (
+            <div style={{ padding: '10px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 16 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Present: <strong style={{ color: 'var(--text)' }}>{totalPresentToday}</strong></span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Active: <strong style={{ color: '#1d4ed8' }}>{safeActive}</strong></span>
             </div>
           )}
         </div>
       </div>
 
-
-      {/* ── Announcements ── */}
-      <AnnouncementsSection />
 
 
       {/* ── Modals ── */}
@@ -695,12 +1272,11 @@ export default function Dashboard() {
       <Modal
         open={showNotActiveModal}
         onClose={() => setShowNotActiveModal(false)}
-        title="Not Active & Late Team"
+        title="Absent / Not Active Team"
         size="md"
       >
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Not Active: <strong style={{ color: '#b91c1c' }}>{notActiveCount}</strong></span>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Late Punch-In: <strong style={{ color: '#c2410c' }}>{latePunchins.length}</strong></span>
         </div>
         <div style={{ maxHeight: 480, overflowY: 'auto', padding: '8px 0' }}>
           <div style={{ padding: '0 20px 8px', fontSize: 12, fontWeight: 700, color: '#b91c1c', textTransform: 'uppercase' }}>Not Punched In Today</div>
@@ -715,21 +1291,6 @@ export default function Dashboard() {
               bg="#fef2f2" color="#b91c1c"
             />
           ))}
-          <div style={{ padding: '12px 20px 8px', fontSize: 12, fontWeight: 700, color: '#c2410c', textTransform: 'uppercase', borderTop: '1px solid var(--border)' }}>Late Punch-In Only</div>
-          {latePunchins.length === 0 ? (
-            <div style={{ padding: '0 20px 12px', fontSize: 13, color: 'var(--text-muted)' }}>No late punch-ins today.</div>
-          ) : latePunchins.map(record => {
-            const { lateByMinutes } = getLateInfo(record.punchIn)
-            return (
-              <PunchRow
-                key={record._id}
-                name={record.staff?.fullName || 'Unknown'}
-                meta={`${fmtTime(record.punchIn)} · Late by ${fmtLateDuration(lateByMinutes)}`}
-                bg="#fff7ed" color="#c2410c"
-                badge={<span className="pill pill-orange">Late</span>}
-              />
-            )
-          })}
         </div>
       </Modal>
 

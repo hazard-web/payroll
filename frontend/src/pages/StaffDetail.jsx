@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Mail, Phone, Briefcase, Calendar, Landmark, CreditCard, Trash2, Code,
   FileText, Loader2, IndianRupee, Shield, FileDigit, Edit, X, User,
-  ExternalLink, Eye, Download, Clock, ClipboardList
+  ExternalLink, Eye, Download, Clock, ClipboardList, MoreVertical, Plus
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api'
@@ -159,12 +159,100 @@ function AttendanceStatusBadge({ record }) {
   return <span className="badge" style={{ background: 'var(--text)', color: '#ffffff' }}>Absent</span>
 }
 
+const initials = (name) => {
+  if (!name) return ''
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+}
+
+function DocumentCardRow({ label, document }) {
+  const isUploaded = Boolean(document?.url);
+  return (
+    <div style={{
+      border: '1px solid var(--border)',
+      borderRadius: 12,
+      padding: '16px',
+      background: 'var(--surface)',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      gap: 12,
+      minHeight: 120
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          {/* Icon Box */}
+          <div style={{
+            width: 40,
+            height: 40,
+            borderRadius: 8,
+            background: isUploaded ? 'rgba(88, 131, 59, 0.08)' : 'var(--bg)',
+            color: isUploaded ? 'var(--primary)' : 'var(--text-light)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            {label === 'Profile Picture' ? <User size={18} /> : <FileText size={18} />}
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{label}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              {isUploaded ? (
+                <>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', background: 'rgba(88, 131, 59, 0.08)', padding: '2px 6px', borderRadius: 4 }}>
+                    Verified ✓
+                  </span>
+                  {document.uploadedAt && (
+                    <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                      on {new Date(document.uploadedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-light)', background: 'var(--bg)', padding: '2px 6px', borderRadius: 4 }}>
+                  Not uploaded
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Action Button */}
+        <button style={{ border: 'none', background: 'transparent', color: 'var(--text-light)', cursor: 'pointer', padding: 4 }}>
+          <MoreVertical size={16} />
+        </button>
+      </div>
+
+      {!isUploaded && (
+        <button className="btn-secondary" style={{ width: '100%', height: 32, borderRadius: 6, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <Plus size={12} /> Upload Document
+        </button>
+      )}
+      
+      {isUploaded && (
+        <a 
+          href={document.url} 
+          download={document.originalName || label}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-secondary"
+          style={{ width: '100%', height: 32, borderRadius: 6, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, textDecoration: 'none', color: 'var(--text)', border: '1px solid var(--border)' }}
+        >
+          <Download size={12} /> Download / View
+        </a>
+      )}
+    </div>
+  );
+}
+
 export default function StaffDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [staff, setStaff] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('details')
+
   const [deleting, setDeleting] = useState(false)
 
   const [attendance, setAttendance] = useState([])
@@ -182,6 +270,7 @@ export default function StaffDetail() {
 
 
   const [showEditModal, setShowEditModal] = useState(false)
+  const [activeMenuId, setActiveMenuId] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     fullName: '', employeeId: '', email: '', phone: '', designation: '', department: '',
@@ -267,10 +356,27 @@ export default function StaffDetail() {
   }, [staff])
 
   useEffect(() => {
-    if (activeTab === 'attendance' && !attendanceLoaded) fetchAttendance()
-    if (activeTab === 'leave' && !leavesLoaded) fetchLeaves()
-    if (activeTab === 'salary' && !payslipsLoaded && staff) fetchPayslips()
-  }, [activeTab, attendanceLoaded, leavesLoaded, payslipsLoaded, staff, fetchAttendance, fetchLeaves, fetchPayslips])
+    if (staff) {
+      fetchAttendance()
+      fetchLeaves()
+      fetchPayslips()
+    }
+  }, [staff, fetchAttendance, fetchLeaves, fetchPayslips])
+
+  useEffect(() => {
+    if (staff) {
+      const hash = window.location.hash
+      if (hash) {
+        const timer = setTimeout(() => {
+          const element = document.querySelector(hash)
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth' })
+          }
+        }, 200)
+        return () => clearTimeout(timer)
+      }
+    }
+  }, [staff])
 
 
   const handleDelete = async () => {
@@ -346,7 +452,7 @@ export default function StaffDetail() {
   const isIntern = staff.type === 'Intern'
 
   return (
-    <PageShell wide>
+    <PageShell style={{ maxWidth: 'none' }}>
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
       <button
         type="button"
@@ -357,215 +463,444 @@ export default function StaffDetail() {
         <ArrowLeft size={16} /> Back to Team
       </button>
 
-      <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden', boxShadow: '0 10px 30px -10px rgba(0,0,0,0.05)' }}>
-        {/* Header */}
-        <div style={{ padding: 'var(--space-8)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 24 }}>
-          <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
-            <div style={{
-              width: 80, height: 80, borderRadius: 12, overflow: 'hidden',
-              background: staff.type === 'Employee' ? 'var(--primary)' : 'var(--emerald)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 32, fontWeight: 800
-            }}>
-              {staff.documents?.profileImage?.url ? (
-                <img src={staff.documents.profileImage.url} alt={staff.fullName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                staff.fullName.charAt(0).toUpperCase()
-              )}
-            </div>
-            <div>
-              <h1 style={{ margin: 0, color: 'var(--primary)', fontSize: 24, marginBottom: 8 }}>{staff.fullName}</h1>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                <span className={`badge ${staff.type === 'Employee' ? 'badge-navy' : 'badge-emerald'}`}>{staff.type}</span>
-                <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{staff.designation || 'No Designation'} · {staff.department || 'General'}</span>
-                {staff.profileCompleted ? (
-                  <span style={{ padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700, background: 'rgba(88,131,59, 0.1)', color: '#58833b', border: '1px solid rgba(88,131,59, 0.2)' }}>✓ Profile Complete</span>
-                ) : (
-                  <span style={{ padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700, background: 'rgba(234, 88, 12, 0.1)', color: '#c2410c', border: '1px solid rgba(234, 88, 12, 0.2)' }}>Profile Incomplete</span>
-                )}
-              </div>
-            </div>
+      {/* ── Top Header Card ── */}
+      <div style={{ 
+        background: 'var(--surface)', 
+        borderRadius: 16, 
+        border: '1px solid var(--border)', 
+        padding: '24px', 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        flexWrap: 'wrap', 
+        gap: 20,
+        marginBottom: 20
+      }}>
+        <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
+          {/* Initials Avatar Box */}
+          <div style={{
+            width: 72, 
+            height: 72, 
+            borderRadius: 14, 
+            background: 'var(--primary)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            color: 'white', 
+            fontSize: 24, 
+            fontWeight: 800,
+            flexShrink: 0
+          }}>
+            {staff.documents?.profileImage?.url ? (
+              <img src={staff.documents.profileImage.url} alt={staff.fullName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 14 }} />
+            ) : (
+              initials(staff.fullName)
+            )}
           </div>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <button onClick={() => setShowEditModal(true)} style={{ padding: '10px 20px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer', display: 'flex', gap: 8, alignItems: 'center' }}>
-              <Edit size={16} /> Edit Details
-            </button>
-            <button onClick={handleDelete} disabled={deleting} style={{ padding: '10px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              {deleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={18} />}
-            </button>
+          <div>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 }}>
+              <h1 style={{ margin: 0, color: 'var(--text)', fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em' }}>{staff.fullName}</h1>
+              <span style={{ 
+                padding: '3px 10px', 
+                borderRadius: 100, 
+                fontSize: 10, 
+                fontWeight: 700, 
+                background: 'rgba(88, 131, 59, 0.08)', 
+                color: 'var(--primary)', 
+                border: '1px solid rgba(88, 131, 59, 0.2)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4
+              }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--primary)' }} />
+                Active Employee
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span className={`badge ${staff.type === 'Employee' ? 'badge-navy' : 'badge-emerald'}`} style={{ fontSize: 10, padding: '2px 8px', textTransform: 'uppercase' }}>
+                {staff.type}
+              </span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                {staff.designation || 'No Designation'} - {staff.department || 'General'}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div style={{ padding: '20px 32px 0', borderBottom: '1px solid var(--border)' }}>
-          <ShellTabBar tabs={TABS} active={activeTab} onChange={setActiveTab} />
-        </div>
+        {/* Header Actions */}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', position: 'relative' }}>
+          <button 
+            onClick={() => setShowEditModal(true)} 
+            className="btn-secondary"
+            style={{ 
+              height: 38,
+              padding: '0 16px',
+              borderRadius: 8, 
+              border: '1px solid var(--border)', 
+              background: 'var(--surface)', 
+              color: 'var(--text)', 
+              fontWeight: 700, 
+              fontSize: 12,
+              cursor: 'pointer', 
+              display: 'flex', 
+              gap: 8, 
+              alignItems: 'center' 
+            }}
+          >
+            <Edit size={14} /> Edit Details
+          </button>
+          
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveMenuId(activeMenuId === staff._id ? null : staff._id);
+            }} 
+            className="btn-icon btn-hover"
+            style={{ 
+              width: 38, 
+              height: 38, 
+              borderRadius: 8, 
+              border: '1px solid var(--border)', 
+              background: 'var(--surface)', 
+              color: 'var(--text-light)', 
+              cursor: 'pointer', 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center' 
+            }}
+          >
+            <MoreVertical size={16} />
+          </button>
 
-        {/* Tab Content */}
-        <div style={{ padding: 'var(--space-8)' }}>
-          {activeTab === 'details' && (
-            <motion.div key="details" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{ padding: '24px 32px' }}>
-              
-              {/* Section 1: Employment Details */}
-              <div className="dossier-section">
-                <div className="dossier-section-title">Employment & Role Specifications</div>
-                <div className="dossier-grid">
-                  <DossierField label="Employee ID / Code" value={staff.employeeId} />
-                  <DossierField label="Date of Joining" value={staff.joiningDate ? new Date(staff.joiningDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} />
-                  <DossierField label="Department" value={staff.department} />
-                  <DossierField label="Designation" value={staff.designation} />
-                  {staff.pfNumber && <DossierField label="PF Number" value={staff.pfNumber} />}
-                </div>
+          {activeMenuId === staff._id && (
+            <>
+              <div 
+                style={{ position: 'fixed', inset: 0, zIndex: 110 }} 
+                onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} 
+              />
+              <div style={{
+                position: 'absolute',
+                right: 0,
+                top: '110%',
+                width: 180,
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 10,
+                boxShadow: 'var(--shadow-lg)',
+                zIndex: 120,
+                display: 'flex',
+                flexDirection: 'column',
+                padding: '6px 0',
+                textAlign: 'left'
+              }}>
+                <button
+                  onClick={() => { 
+                    setActiveMenuId(null); 
+                    handleDelete();
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '8px 16px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#ef4444',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8
+                  }}
+                >
+                  <Trash2 size={13} /> Deactivate Employee
+                </button>
               </div>
-
-              {/* Section 2: Contact & Personal File */}
-              <div className="dossier-section">
-                <div className="dossier-section-title">Contact & Personal File</div>
-                <div className="dossier-grid">
-                  <DossierField label="Email Address" value={staff.email} />
-                  <DossierField label="Phone Number" value={staff.phone} />
-                  <DossierField label="Date of Birth" value={staff.dob ? new Date(staff.dob).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} />
-                  <DossierField label="Gender" value={staff.gender} />
-                  
-                  <div className="dossier-span-2">
-                    <DossierField 
-                      label="Registered Address" 
-                      value={
-                        staff.address && (staff.address.street || staff.address.city)
-                          ? `${staff.address.street || ''}${staff.address.street ? ', ' : ''}${staff.address.city || ''}${staff.address.state ? `, ${staff.address.state}` : ''}${staff.address.pincode ? ` - ${staff.address.pincode}` : ''}`
-                          : '—'
-                      } 
-                    />
-                  </div>
-                  <div className="dossier-span-2">
-                    <DossierField 
-                      label="Emergency Contact" 
-                      value={
-                        staff.emergencyContact?.name
-                          ? `${staff.emergencyContact.name} (${staff.emergencyContact.relationship || 'Emergency'}) · ${staff.emergencyContact.phone || ''}`
-                          : '—'
-                      } 
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Section 3: Financial Profile & Compensation */}
-              <div className="dossier-section">
-                <div className="dossier-section-title">Compensation & Financial Information</div>
-                <div className="dossier-grid">
-                  <DossierField label="PAN Card Number" value={staff.panNumber || staff.financials?.panNumber} />
-                  <DossierField label="Bank Name" value={staff.bankDetails?.bankName || staff.financials?.bankName} />
-                  <DossierField label="Account Number" value={staff.bankDetails?.accountNumber || staff.financials?.accountNumber} />
-                  <DossierField label="IFSC Code" value={staff.bankDetails?.ifscCode || staff.financials?.ifscCode} />
-                  
-                  <div className="dossier-span-4" style={{ marginTop: 12 }}>
-                    {isIntern ? (
-                      <DossierField label="Monthly Stipend (Base Salary)" value={`₹ ${staff.salaryDetails?.baseSalary?.toLocaleString('en-IN') || 0}`} />
-                    ) : (
-                      <DossierField label="Annual CTC Structure" value={`₹ ${staff.salaryDetails?.annualCTC?.toLocaleString('en-IN') || 0}`} />
-                    )}
-                    <div style={{ padding: '12px 16px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5, marginTop: 12 }}>
-                      {isIntern
-                        ? 'Intern payslips will be generated based on this monthly stipend amount. Absence deductions are applied automatically in the generator.'
-                        : 'Employee payslips (Basic, HRA, PF, PT, etc.) are automatically derived from this Annual CTC figure during generation.'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Section 4: Document Registry */}
-              <div className="dossier-section" style={{ marginBottom: 0 }}>
-                <div className="dossier-section-title">Identity Document Registry</div>
-                <p style={{ fontSize: 12.5, color: 'var(--text-light)', marginBottom: 16 }}>Official verification document attachments uploaded by this employee.</p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 24 }}>
-                  <DocumentCard label="Profile Picture" document={staff.documents?.profileImage} />
-                  <DocumentCard label="Aadhar Card" document={staff.documents?.aadharCard} />
-                  <DocumentCard label="PAN Card" document={staff.documents?.panCard} />
-                </div>
-              </div>
-
-              {/* Encapsulated Dossier Styles */}
-              <style>{`
-                .dossier-section {
-                  margin-bottom: 36px;
-                }
-                .dossier-section-title {
-                  font-size: 12.5px;
-                  font-weight: 800;
-                  color: var(--primary);
-                  text-transform: uppercase;
-                  letter-spacing: 0.08em;
-                  border-bottom: 1px dashed var(--border);
-                  padding-bottom: 8px;
-                  margin-bottom: 20px;
-                }
-                .dossier-grid {
-                  display: grid;
-                  grid-template-columns: repeat(4, 1fr);
-                  gap: 20px 32px;
-                }
-                .dossier-span-2 {
-                  grid-column: span 2;
-                }
-                .dossier-span-4 {
-                  grid-column: span 4;
-                }
-                .dossier-field {
-                  display: flex;
-                  flex-direction: column;
-                  justify-content: flex-start;
-                  min-height: 48px;
-                }
-                .dossier-field-label {
-                  font-size: 10.5px;
-                  color: var(--text-light);
-                  font-weight: 800;
-                  text-transform: uppercase;
-                  letter-spacing: 0.05em;
-                  margin-bottom: 4px;
-                }
-                .dossier-field-value {
-                  font-size: 14px;
-                  font-weight: 700;
-                  color: var(--text);
-                }
-                .dossier-action-cell {
-                  display: flex;
-                  justify-content: space-between;
-                  align-items: center;
-                  min-height: 48px;
-                }
-                @media (max-width: 950px) {
-                  .dossier-grid {
-                    grid-template-columns: repeat(2, 1fr);
-                  }
-                  .dossier-span-2 {
-                    grid-column: span 2;
-                  }
-                }
-                @media (max-width: 600px) {
-                  .dossier-grid {
-                    grid-template-columns: 1fr;
-                  }
-                  .dossier-span-2, .dossier-span-4 {
-                    grid-column: span 1;
-                  }
-                }
-              `}</style>
-            </motion.div>
+            </>
           )}
+        </div>
+      </div>
 
-          {activeTab === 'attendance' && (
-            <motion.div key="attendance" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-              <h3 style={{ color: 'var(--primary)', marginBottom: 8 }}>Attendance Records</h3>
-              <p style={{ margin: '0 0 24px', fontSize: 13, color: 'var(--text-muted)' }}>
-                Complete attendance history for {staff.fullName}.
-              </p>
-              {attendanceLoading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Loader2 size={32} className="animate-spin" /></div>
-              ) : attendance.length === 0 ? (
-                <EmptyState message="No attendance records found for this employee." />
-              ) : (
+      {/* ── Horizontal Stats Grid Card ── */}
+      <div style={{
+        background: 'var(--surface)',
+        borderRadius: 16,
+        border: '1px solid var(--border)',
+        padding: '20px 24px',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: 20,
+        marginBottom: 20
+      }}>
+        {/* Stat 1: Employee ID */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 8, background: 'rgba(88, 131, 59, 0.08)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <FileDigit size={16} />
+          </div>
+          <div>
+            <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employee ID</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staff.employeeId || '—'}</div>
+          </div>
+        </div>
+
+        {/* Stat 2: Date of Joining */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 8, background: 'rgba(88, 131, 59, 0.08)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Calendar size={16} />
+          </div>
+          <div>
+            <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date of Joining</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>
+              {staff.joiningDate ? new Date(staff.joiningDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+            </div>
+          </div>
+        </div>
+
+        {/* Stat 3: Department */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 8, background: 'rgba(88, 131, 59, 0.08)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Landmark size={16} />
+          </div>
+          <div>
+            <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Department</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staff.department || '—'}</div>
+          </div>
+        </div>
+
+        {/* Stat 4: Designation */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 8, background: 'rgba(88, 131, 59, 0.08)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Briefcase size={16} />
+          </div>
+          <div>
+            <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Designation</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staff.designation || '—'}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Three Column Details Panel Row ── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+        gap: 20,
+        marginBottom: 20
+      }}>
+        {/* Panel 1: Employment & Role */}
+        <div className="detail-panel-card">
+          <div className="panel-card-header">
+            <User size={16} style={{ color: 'var(--primary)' }} />
+            <span>Employment & Role</span>
+          </div>
+          <div className="panel-card-body">
+            <div className="info-kv-row">
+              <span className="info-kv-key">Employee ID / Code</span>
+              <span className="info-kv-val">{staff.employeeId || '—'}</span>
+            </div>
+            <div className="info-kv-row">
+              <span className="info-kv-key">Date of Joining</span>
+              <span className="info-kv-val">{staff.joiningDate ? new Date(staff.joiningDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span>
+            </div>
+            <div className="info-kv-row">
+              <span className="info-kv-key">Department</span>
+              <span className="info-kv-val">{staff.department || '—'}</span>
+            </div>
+            <div className="info-kv-row">
+              <span className="info-kv-key">Designation</span>
+              <span className="info-kv-val">{staff.designation || '—'}</span>
+            </div>
+            <div className="info-kv-row">
+              <span className="info-kv-key">Employment Type</span>
+              <span className="info-kv-val">{staff.type || 'Employee'}</span>
+            </div>
+            <div className="info-kv-row">
+              <span className="info-kv-key">Work Location</span>
+              <span className="info-kv-val">{staff.workLocation || 'Office'}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Panel 2: Contact & Personal */}
+        <div className="detail-panel-card">
+          <div className="panel-card-header">
+            <Mail size={16} style={{ color: 'var(--primary)' }} />
+            <span style={{ color: 'var(--primary)' }}>Contact & Personal</span>
+          </div>
+          <div className="panel-card-body">
+            <div className="info-kv-row">
+              <span className="info-kv-key">Email Address</span>
+              <span className="info-kv-val">{staff.email || '—'}</span>
+            </div>
+            <div className="info-kv-row">
+              <span className="info-kv-key">Phone Number</span>
+              <span className="info-kv-val">{staff.phone || '—'}</span>
+            </div>
+            <div className="info-kv-row">
+              <span className="info-kv-key">Date of Birth</span>
+              <span className="info-kv-val">{staff.dob ? new Date(staff.dob).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span>
+            </div>
+            <div className="info-kv-row">
+              <span className="info-kv-key">Gender</span>
+              <span className="info-kv-val">{staff.gender || '—'}</span>
+            </div>
+            <div className="info-kv-row" style={{ flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+              <span className="info-kv-key">Registered Address</span>
+              <span className="info-kv-val" style={{ textAlign: 'left', lineHeight: 1.4 }}>
+                {staff.address && (staff.address.street || staff.address.city)
+                  ? `${staff.address.street || ''}${staff.address.street ? ', ' : ''}${staff.address.city || ''}${staff.address.state ? `, ${staff.address.state}` : ''}${staff.address.pincode ? ` - ${staff.address.pincode}` : ''}`
+                  : '—'}
+              </span>
+            </div>
+            <div className="info-kv-row" style={{ flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+              <span className="info-kv-key">Emergency Contact</span>
+              <span className="info-kv-val" style={{ textAlign: 'left', lineHeight: 1.4 }}>
+                {staff.emergencyContact?.name
+                  ? `${staff.emergencyContact.name} (${staff.emergencyContact.relationship || 'Emergency'}) · ${staff.emergencyContact.phone || ''}`
+                  : '—'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Panel 3: Compensation & Financial */}
+        <div className="detail-panel-card">
+          <div className="panel-card-header">
+            <Landmark size={16} style={{ color: 'var(--primary)' }} />
+            <span style={{ color: 'var(--primary)' }}>Compensation & Financial</span>
+          </div>
+          <div className="panel-card-body">
+            <div className="info-kv-row">
+              <span className="info-kv-key">PAN Card Number</span>
+              <span className="info-kv-val">{staff.panNumber || staff.financials?.panNumber || '—'}</span>
+            </div>
+            <div className="info-kv-row">
+              <span className="info-kv-key">Bank Name</span>
+              <span className="info-kv-val">{staff.bankDetails?.bankName || staff.financials?.bankName || '—'}</span>
+            </div>
+            <div className="info-kv-row">
+              <span className="info-kv-key">Account Number</span>
+              <span className="info-kv-val">{staff.bankDetails?.accountNumber || staff.financials?.accountNumber || '—'}</span>
+            </div>
+            <div className="info-kv-row">
+              <span className="info-kv-key">IFSC Code</span>
+              <span className="info-kv-val">{staff.bankDetails?.ifscCode || staff.financials?.ifscCode || '—'}</span>
+            </div>
+            
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                {isIntern ? 'Monthly Stipend Structure' : 'Annual CTC Structure'}
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--primary)', letterSpacing: '-0.01em' }}>
+                ₹ {isIntern 
+                  ? (staff.salaryDetails?.baseSalary?.toLocaleString('en-IN') || 0) 
+                  : (staff.salaryDetails?.annualCTC?.toLocaleString('en-IN') || 0)}
+              </div>
+              
+              <div style={{ 
+                padding: '10px 12px', 
+                background: 'rgba(88, 131, 59, 0.04)', 
+                borderRadius: 8, 
+                border: '1px solid rgba(88, 131, 59, 0.12)', 
+                fontSize: 11, 
+                color: 'var(--text-muted)', 
+                lineHeight: 1.4, 
+                marginTop: 10 
+              }}>
+                {isIntern
+                  ? 'Intern payslips will be generated based on this monthly stipend amount. Absence deductions are applied automatically in the generator.'
+                  : 'Employee payslips (Basic, HRA, PF, PT, etc.) are automatically derived from this Annual CTC figure during generation.'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Identity Document Registry ── */}
+      <div style={{
+        background: 'var(--surface)',
+        borderRadius: 16,
+        border: '1px solid var(--border)',
+        padding: '24px',
+        marginBottom: 20
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Shield size={16} color="var(--primary)" />
+            <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', margin: 0 }}>Identity Document Registry</h3>
+          </div>
+          <button className="btn-secondary" style={{ height: 32, borderRadius: 8, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Plus size={14} /> Upload New Document
+          </button>
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 20px 0' }}>Official verification document attachments uploaded by this employee.</p>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
+          {/* Card 1: Profile Picture */}
+          <DocumentCardRow label="Profile Picture" document={staff.documents?.profileImage} />
+          {/* Card 2: Aadhar Card */}
+          <DocumentCardRow label="Aadhar Card" document={staff.documents?.aadharCard} />
+          {/* Card 3: PAN Card */}
+          <DocumentCardRow label="PAN Card" document={staff.documents?.panCard} />
+        </div>
+      </div>
+
+      <style>{`
+        .detail-panel-card {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 24px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .panel-card-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 14px;
+          font-weight: 800;
+          color: var(--primary);
+        }
+        .panel-card-body {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .info-kv-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-bottom: 8px;
+          border-bottom: 1px dashed var(--border);
+        }
+        .info-kv-row:last-child {
+          border-bottom: none;
+        }
+        .info-kv-key {
+          font-size: 11px;
+          color: var(--text-light);
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .info-kv-val {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--text);
+          text-align: right;
+        }
+      `}</style>
+
+          {attendance.length > 0 && (
+            <>
+              <div style={{ height: '1px', background: 'var(--border)', margin: '24px 32px' }} />
+              {/* Section: Attendance */}
+              <div id="attendance" style={{ padding: '24px 32px' }}>
+                <h3 style={{ color: 'var(--primary)', marginBottom: 8 }}>Attendance Records</h3>
+                <p style={{ margin: '0 0 24px', fontSize: 13, color: 'var(--text-muted)' }}>
+                  Complete attendance history for {staff.fullName}.
+                </p>
                 <div style={{ overflowX: 'auto', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 14 }}>
                     <thead>
@@ -598,21 +933,19 @@ export default function StaffDetail() {
                     </tbody>
                   </table>
                 </div>
-              )}
-            </motion.div>
+              </div>
+            </>
           )}
 
-          {activeTab === 'leave' && (
-            <motion.div key="leave" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-              <h3 style={{ color: 'var(--primary)', marginBottom: 8 }}>Leave History</h3>
-              <p style={{ margin: '0 0 24px', fontSize: 13, color: 'var(--text-muted)' }}>
-                All leave requests submitted by {staff.fullName}.
-              </p>
-              {leavesLoading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Loader2 size={32} className="animate-spin" /></div>
-              ) : leaves.length === 0 ? (
-                <EmptyState message="No leave records found for this employee." />
-              ) : (
+          {leaves.length > 0 && (
+            <>
+              <div style={{ height: '1px', background: 'var(--border)', margin: '24px 32px' }} />
+              {/* Section: Leave */}
+              <div id="leave" style={{ padding: '24px 32px' }}>
+                <h3 style={{ color: 'var(--primary)', marginBottom: 8 }}>Leave History</h3>
+                <p style={{ margin: '0 0 24px', fontSize: 13, color: 'var(--text-muted)' }}>
+                  All leave requests submitted by {staff.fullName}.
+                </p>
                 <div style={{ overflowX: 'auto', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
                     <thead>
@@ -645,21 +978,19 @@ export default function StaffDetail() {
                     </tbody>
                   </table>
                 </div>
-              )}
-            </motion.div>
+              </div>
+            </>
           )}
 
-          {activeTab === 'salary' && (
-            <motion.div key="salary" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-              <h3 style={{ color: 'var(--primary)', marginBottom: 8 }}>Salary Slips</h3>
-              <p style={{ margin: '0 0 24px', fontSize: 13, color: 'var(--text-muted)' }}>
-                All generated payslips for {staff.fullName}.
-              </p>
-              {payslipsLoading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Loader2 size={32} className="animate-spin" /></div>
-              ) : payslips.length === 0 ? (
-                <EmptyState message="No salary slips generated for this employee yet." />
-              ) : (
+          {payslips.length > 0 && (
+            <>
+              <div style={{ height: '1px', background: 'var(--border)', margin: '24px 32px' }} />
+              {/* Section: Salary Slips */}
+              <div id="salary" style={{ padding: '24px 32px' }}>
+                <h3 style={{ color: 'var(--primary)', marginBottom: 8 }}>Salary Slips</h3>
+                <p style={{ margin: '0 0 24px', fontSize: 13, color: 'var(--text-muted)' }}>
+                  All generated payslips for {staff.fullName}.
+                </p>
                 <div style={{ overflowX: 'auto', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 14 }}>
                     <thead>
@@ -703,11 +1034,9 @@ export default function StaffDetail() {
                     </tbody>
                   </table>
                 </div>
-              )}
-            </motion.div>
+              </div>
+            </>
           )}
-        </div>
-      </div>
 
       {/* Edit Staff Modal */}
       <AnimatePresence>

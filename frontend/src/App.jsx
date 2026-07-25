@@ -41,6 +41,8 @@ const LeavePolicy           = lazy(() => import('./pages/LeavePolicy'))
 const StaffSupport          = lazy(() => import('./pages/StaffSupport'))
 const Profile               = lazy(() => import('./pages/Profile'))
 const Announcements         = lazy(() => import('./pages/Announcements'))
+const SettingsPage          = lazy(() => import('./pages/SettingsPage'))
+const TaskAssignment        = lazy(() => import('./pages/TaskAssignment'))
 
 const PortalChangePassword  = lazy(() => import('./pages/portal/PortalChangePassword'))
 const PortalDashboard       = lazy(() => import('./pages/portal/PortalDashboard'))
@@ -190,13 +192,19 @@ export default function App() {
         <Route path="staff"           element={<Lazy component={StaffList} />} />
         <Route path="staff/:id"       element={<Lazy component={StaffDetail} />} />
         <Route path="performance"     element={<Lazy component={TeamPerformance} />} />
-        <Route path="performance/:id"  element={<Lazy component={StaffPerformanceDetail} />} />
-        <Route path="audit-logs"      element={<Lazy component={AuditLogs} />} />
-        <Route path="leave-requests"  element={<Lazy component={LeaveRequests} />} />
+        <Route path="performance/:id" element={<Lazy component={StaffPerformanceDetail} />} />
+        <Route path="attendance"      element={<Lazy component={LeaveRequests} />} />
+        <Route path="leave"           element={<Lazy component={LeaveRequests} />} />
+        <Route path="settings"        element={<Lazy component={SettingsPage} />} />
+        <Route path="tasks"           element={<Lazy component={TaskAssignment} />} />
+        
+        {/* Redirect old routes */}
+        <Route path="leave-requests"  element={<Navigate to="/leave" replace />} />
+        <Route path="leave-policy"    element={<Navigate to="/leave" replace />} />
+        <Route path="profile"         element={<Navigate to="/settings" replace />} />
+        <Route path="announcements"   element={<Navigate to="/settings" replace />} />
+        <Route path="audit-logs"      element={<Navigate to="/settings" replace />} />
         <Route path="staff-support"   element={<Lazy component={StaffSupport} />} />
-        <Route path="profile"         element={<Lazy component={Profile} />} />
-        <Route path="announcements"   element={<Lazy component={Announcements} />} />
-        <Route path="leave-policy"    element={<Lazy component={LeavePolicy} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

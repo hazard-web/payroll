@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   LogIn, LogOut, Clock, Loader2, X, Plus, Timer,
   Briefcase, Activity, CheckCircle2, ListChecks,
-  Coffee, Zap, Radio, BellRing
+  Coffee, Zap, Radio, BellRing, Calendar, Megaphone, ChevronLeft, ChevronRight, UserCheck,
+  CloudSun, Sun, Moon, Sparkles, Hourglass, Users, Video, FileText
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import api from '../../api'
@@ -10,44 +11,41 @@ import PageShell from '../../components/PageShell'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useStaffPortal } from '../../context/StaffPortalContext'
 import { useNavigate } from 'react-router-dom'
-import { UserCheck } from 'lucide-react'
-import AnnouncementPreviewWidget from '../../components/AnnouncementPreviewWidget'
 
 // ── Mini stat card for the 4-metric row ──────────────────────────────
 function MetricCard({ icon: Icon, label, value, sub, accent, active }) {
   return (
     <div style={{
-      padding: '14px 16px',
-      borderRadius: 12,
-      background: active
-        ? `linear-gradient(135deg, ${accent}18 0%, ${accent}08 100%)`
-        : 'var(--surface)',
-      border: `1px solid ${active ? `${accent}30` : 'var(--border)'}`,
+      padding: '16px 20px',
+      borderRadius: 14,
+      background: `linear-gradient(135deg, ${accent}12 0%, ${accent}03 100%)`,
+      border: '1px solid var(--border)',
+      borderLeft: `4px solid ${accent}`,
       display: 'flex',
       flexDirection: 'column',
       gap: 8,
       position: 'relative',
       overflow: 'hidden',
-      transition: 'box-shadow 0.2s',
-      boxShadow: active ? `0 4px 16px ${accent}15` : '0 1px 4px rgba(0,0,0,0.04)',
-    }}>
+      transition: 'all 0.25s ease',
+      boxShadow: active ? `0 8px 18px -4px ${accent}25` : 'var(--shadow-sm)',
+    }} className="btn-hover">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{
-          width: 30, height: 30, borderRadius: 8,
+          width: 32, height: 32, borderRadius: 8,
           background: `${accent}18`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
         }}>
-          <Icon size={15} color={accent} />
+          <Icon size={16} color={accent} />
         </div>
-        <span style={{ fontSize: 10, fontWeight: 700, color: accent, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        <span style={{ fontSize: 10, fontWeight: 800, color: accent, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
           {label}
         </span>
       </div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>
+      <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', lineHeight: 1.1, marginTop: 4 }}>
         {value}
       </div>
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>{sub}</div>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginTop: 2 }}>{sub}</div>
     </div>
   )
 }
@@ -60,6 +58,33 @@ export default function PortalDashboard() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [showProfilePopup, setShowProfilePopup] = useState(false)
+
+  // Summary states for the current month
+  const [history, setHistory] = useState([])
+  const [leaves, setLeaves] = useState([])
+
+  const fetchSummaryData = useCallback(async () => {
+    if (!staffUser) return
+    try {
+      const today = new Date()
+      const m = today.getMonth() + 1
+      const y = today.getFullYear()
+      const [historyRes, leavesRes] = await Promise.all([
+        api.get('/attendance/history', { params: { month: m, year: y } }),
+        api.get('/leaves/my-requests')
+      ])
+      setHistory(historyRes.data.history || [])
+      setLeaves(leavesRes.data.data || [])
+    } catch (err) {
+      console.error('Failed to fetch summary statistics:', err)
+    }
+  }, [staffUser])
+
+  useEffect(() => {
+    if (staffUser) {
+      fetchSummaryData()
+    }
+  }, [staffUser, fetchSummaryData])
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
@@ -94,10 +119,42 @@ export default function PortalDashboard() {
   const [taskMode, setTaskMode] = useState('in')
   const [taskItems, setTaskItems] = useState([{ project: '', description: '', status: 'Pending', notes: '' }])
   const [taskSubmitting, setTaskSubmitting] = useState(false)
+  const [expandedTasks, setExpandedTasks] = useState({})
 
   // Announcements
   const [announcements, setAnnouncements] = useState([])
   const [announcementsLoading, setAnnouncementsLoading] = useState(true)
+
+  // Daily Schedule checklist states
+  const dateStr = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const scheduleStorageKey = useMemo(() => `portal_schedule_${staffUser?.id || 'guest'}_${dateStr}`, [staffUser, dateStr])
+  
+  const [scheduleList, setScheduleList] = useState(() => {
+    const defaultEvents = [
+      { time: '10:30 AM', label: 'Daily Standup', desc: 'Team Sync', dot: '#22c55e', checked: false },
+      { time: '01:00 PM', label: 'Lunch Break', desc: '45 mins', dot: '#3b82f6', checked: false },
+      { time: '03:30 PM', label: 'Client Meeting', desc: 'Project Sync', dot: '#8b5cf6', checked: false },
+      { time: '05:30 PM', label: 'Task Review', desc: 'Daily Wrap-up', dot: '#f59e0b', checked: false }
+    ]
+    try {
+      const saved = localStorage.getItem(scheduleStorageKey)
+      if (saved) return JSON.parse(saved)
+    } catch (e) {
+      console.warn('Failed to parse schedule')
+    }
+    return defaultEvents
+  })
+  
+  const [showAddEvent, setShowAddEvent] = useState(false)
+  const [newEvent, setNewEvent] = useState({ time: '', label: '', desc: '', dot: '#22c55e' })
+
+  useEffect(() => {
+    localStorage.setItem(scheduleStorageKey, JSON.stringify(scheduleList))
+  }, [scheduleList, scheduleStorageKey])
+
+  // Calendar Widget states
+  const [calMonth, setCalMonth] = useState(new Date().getMonth())
+  const [calYear, setCalYear] = useState(new Date().getFullYear())
 
   // Fetch announcements via portal-auth endpoint
   useEffect(() => {
@@ -171,6 +228,24 @@ export default function PortalDashboard() {
     setTaskItems(prev => prev.filter((_, idx) => idx !== index))
   }
 
+  const handleDirectPunchIn = async () => {
+    setTaskSubmitting(true)
+    try {
+      const coords = await getLocation()
+      const existingTasks = activeShift?.tasks || []
+      const endpoint = '/attendance/punch-in'
+      const payload = { tasks: existingTasks, ...(coords || {}) }
+      const res = await api.post(endpoint, payload)
+      toast.success(res.data.message)
+      await fetchActiveShift()
+      await fetchSummaryData()
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to punch in')
+    } finally {
+      setTaskSubmitting(false)
+    }
+  }
+
   const handleTaskSubmit = async () => {
     setTaskSubmitting(true)
     try {
@@ -195,6 +270,7 @@ export default function PortalDashboard() {
       toast.success(res.data.message)
       setShowTaskModal(false)
       await fetchActiveShift()
+      await fetchSummaryData()
     } catch (err) {
       toast.error(err.response?.data?.message || err.message || `Failed to ${taskMode === 'in' ? 'punch in' : 'punch out'}`)
     } finally {
@@ -214,7 +290,7 @@ export default function PortalDashboard() {
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening'
   const greetingEmoji = hour < 12 ? '🌅' : hour < 17 ? '☀️' : '🌙'
   const dayOfWeek = new Date().getDay()
-  const isPunchedIn = Boolean(activeShift && !activeShift.punchOut)
+  const isPunchedIn = Boolean(activeShift && activeShift.sessions?.some(s => s.isActive))
 
   const effectiveWorkDays = (staffUser?.workingDays && staffUser.workingDays.length)
     ? staffUser.workingDays
@@ -252,6 +328,277 @@ export default function PortalDashboard() {
     return { bg: 'rgba(107,114,128,0.1)', color: '#6b7280' }
   }
 
+  const summaryStats = useMemo(() => {
+    const today = new Date()
+    const year = today.getFullYear()
+    const month = today.getMonth() // 0-indexed
+
+    let present = 0
+    let late = 0
+    let absent = 0
+
+    // Check each day of the month up to today
+    for (let d = 1; d <= today.getDate(); d++) {
+      const date = new Date(year, month, d)
+      const dayOfWeek = date.getDay()
+
+      // If it's a working day
+      if (effectiveWorkDays.includes(dayOfWeek)) {
+        // Find attendance record for this day (date matches date)
+        const record = history.find(r => {
+          const rDate = new Date(r.date)
+          return rDate.getDate() === d && rDate.getMonth() === month && rDate.getFullYear() === year
+        })
+
+        if (record) {
+          if (record.workStatus === 'Absent' || record.workStatus === 'LOP') {
+            absent++
+          } else {
+            present++
+            // Check if late (punchIn after 10:30 AM IST)
+            if (record.punchIn) {
+              const pin = new Date(record.punchIn)
+              const options = { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' }
+              const istString = pin.toLocaleTimeString('en-US', options)
+              const [hStr, mStr] = istString.split(':')
+              const pinHours = parseInt(hStr)
+              const pinMins = parseInt(mStr)
+              const minsSinceMidnight = pinHours * 60 + pinMins
+              if (minsSinceMidnight > 630) {
+                late++
+              }
+            }
+          }
+        } else {
+          // Check if there was an approved leave for this day
+          const hasLeave = leaves.some(l => {
+            if (l.status !== 'Approved') return false
+            const start = new Date(l.startDate)
+            const end = new Date(l.endDate)
+            const checkDate = new Date(year, month, d, 12, 0, 0)
+            return checkDate >= start && checkDate <= end
+          })
+
+          if (!hasLeave) {
+            absent++
+          }
+        }
+      }
+    }
+
+    // Count approved leaves in the current month
+    const approvedLeavesCount = leaves.filter(l => {
+      if (l.status !== 'Approved') return false
+      const start = new Date(l.startDate)
+      const end = new Date(l.endDate)
+      const monthStart = new Date(year, month, 1)
+      const monthEnd = new Date(year, month + 1, 0, 23, 59, 59)
+      return start <= monthEnd && end >= monthStart
+    }).length
+
+    return {
+      present,
+      absent,
+      leave: approvedLeavesCount,
+      late
+    }
+  }, [history, leaves, effectiveWorkDays])
+
+  const getDaysInMonth = (m, y) => new Date(y, m + 1, 0).getDate()
+  const getFirstDayOfMonth = (m, y) => {
+    const day = new Date(y, m, 1).getDay()
+    return day === 0 ? 6 : day - 1
+  }
+
+  const getBannerImage = () => {
+    const hr = currentTime.getHours()
+    if (hr < 12) return '/dashboard_banner_morning.png'
+    if (hr < 17) return '/dashboard_banner_afternoon.png'
+    return '/dashboard_banner_evening.png'
+  }
+
+  const getCalendarDays = () => {
+    const prevMonthDaysCount = getFirstDayOfMonth(calMonth, calYear)
+    const prevMonth = calMonth === 0 ? 11 : calMonth - 1
+    const prevYear = calMonth === 0 ? calYear - 1 : calYear
+    const totalDaysInPrevMonth = getDaysInMonth(prevMonth, prevYear)
+
+    const prevDays = Array.from({ length: prevMonthDaysCount }).map((_, idx) => ({
+      day: totalDaysInPrevMonth - prevMonthDaysCount + idx + 1,
+      isCurrentMonth: false,
+      isNextMonth: false,
+      isPrevMonth: true
+    }))
+
+    const currDays = Array.from({ length: getDaysInMonth(calMonth, calYear) }).map((_, idx) => ({
+      day: idx + 1,
+      isCurrentMonth: true,
+      isNextMonth: false,
+      isPrevMonth: false
+    }))
+
+    const totalRendered = prevMonthDaysCount + currDays.length
+    const totalSlots = totalRendered > 35 ? 42 : 35
+    const nextMonthDaysCount = totalSlots - totalRendered
+
+    const nextDays = Array.from({ length: nextMonthDaysCount }).map((_, idx) => ({
+      day: idx + 1,
+      isCurrentMonth: false,
+      isNextMonth: true,
+      isPrevMonth: false
+    }))
+
+    return [...prevDays, ...currDays, ...nextDays]
+  }
+
+  const fmtAnnouncementDate = (dt) => {
+    if (!dt) return '—'
+    const d = new Date(dt)
+    const day = d.getDate()
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    return `${day} ${months[d.getMonth()]}`
+  }
+
+  const weeklyHours = useMemo(() => {
+    const today = new Date()
+    const dayOfWeek = today.getDay()
+    const startOfWeek = new Date(today)
+    const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
+    startOfWeek.setDate(diff)
+    startOfWeek.setHours(0, 0, 0, 0)
+    
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    const result = days.map((dayName, idx) => {
+      const date = new Date(startOfWeek)
+      date.setDate(startOfWeek.getDate() + idx)
+      
+      const record = history.find(r => {
+        const rDate = new Date(r.date)
+        return rDate.getDate() === date.getDate() && rDate.getMonth() === date.getMonth() && rDate.getFullYear() === date.getFullYear()
+      })
+      
+      const hrs = record?.totalHours || 0
+      const height = Math.min(72, Math.max(4, Math.round((hrs / 10) * 72)))
+      const isWeekend = idx >= 5
+      const color = isWeekend ? '#3b82f6' : 'var(--primary)'
+      
+      return {
+        day: dayName,
+        hrs: hrs > 0 ? `${hrs.toFixed(1)}h` : '0h',
+        rawHours: hrs,
+        height,
+        color: hrs > 0 ? color : 'rgba(156,163,175,0.2)'
+      }
+    })
+    
+    const totalRaw = result.reduce((sum, d) => sum + d.rawHours, 0)
+    const totalHoursVal = Math.floor(totalRaw)
+    const totalMinsVal = Math.round((totalRaw - totalHoursVal) * 60)
+    const totalLabel = `${totalHoursVal}h ${totalMinsVal}m`
+    
+    const startOfLastWeek = new Date(startOfWeek)
+    startOfLastWeek.setDate(startOfWeek.getDate() - 7)
+    const endOfLastWeek = new Date(startOfLastWeek)
+    endOfLastWeek.setDate(startOfLastWeek.getDate() + 6)
+    endOfLastWeek.setHours(23, 59, 59, 999)
+    
+    const lastWeekRaw = history.reduce((sum, r) => {
+      const rDate = new Date(r.date)
+      if (rDate >= startOfLastWeek && rDate <= endOfLastWeek) {
+        return sum + (r.totalHours || 0)
+      }
+      return sum
+    }, 0)
+    
+    let comparisonLabel = 'Same as last week'
+    let comparisonColor = 'var(--text-muted)'
+    if (lastWeekRaw > 0) {
+      const diffPct = ((totalRaw - lastWeekRaw) / lastWeekRaw) * 100
+      if (diffPct > 0) {
+        comparisonLabel = `+${diffPct.toFixed(0)}% vs last week`
+        comparisonColor = '#22c55e'
+      } else if (diffPct < 0) {
+        comparisonLabel = `${diffPct.toFixed(0)}% vs last week`
+        comparisonColor = '#ef4444'
+      }
+    } else {
+      comparisonLabel = totalRaw > 0 ? 'Active this week' : 'No hours logged'
+      comparisonColor = 'var(--primary)'
+    }
+    
+    return {
+      days: result,
+      totalLabel,
+      comparisonLabel,
+      comparisonColor
+    }
+  }, [history])
+
+  const heatmapCells = useMemo(() => {
+    const today = new Date()
+    const year = today.getFullYear()
+    const month = today.getMonth()
+    const firstDay = new Date(year, month, 1).getDay()
+    const startOffset = firstDay === 0 ? 6 : firstDay - 1
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const todayDate = today.getDate()
+    
+    const cells = []
+    for (let wIdx = 0; wIdx < 5; wIdx++) {
+      const weekCells = []
+      for (let cIdx = 0; cIdx < 7; cIdx++) {
+        const dayIndex = wIdx * 7 + cIdx
+        const dayNum = dayIndex - startOffset + 1
+        let color = 'rgba(156,163,175,0.04)'
+        
+        if (dayNum >= 1 && dayNum <= daysInMonth) {
+          const date = new Date(year, month, dayNum)
+          const dayOfWeek = date.getDay()
+          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+          
+          const record = history.find(r => {
+            const rDate = new Date(r.date)
+            return rDate.getUTCDate() === dayNum && rDate.getUTCMonth() === month && rDate.getUTCFullYear() === year
+          })
+          
+          if (record) {
+            if (record.workStatus === 'Absent' || record.workStatus === 'LOP') {
+              color = '#ef4444'
+            } else if (record.workStatus === 'Half Day') {
+              color = '#86efac'
+            } else {
+              color = '#22c55e'
+            }
+          } else {
+            if (dayNum > todayDate) {
+              color = 'rgba(156,163,175,0.06)'
+            } else {
+              const hasLeave = leaves.some(l => {
+                if (l.status !== 'Approved') return false
+                const start = new Date(l.startDate)
+                const end = new Date(l.endDate)
+                const checkDate = new Date(year, month, dayNum, 12, 0, 0)
+                return checkDate >= start && checkDate <= end
+              })
+              if (hasLeave) {
+                color = '#f59e0b'
+              } else if (isWeekend) {
+                color = 'rgba(156,163,175,0.15)'
+              } else {
+                color = '#ef4444'
+              }
+            }
+          }
+        }
+        weekCells.push({ dayNum, color })
+      }
+      cells.push(weekCells)
+    }
+    return cells
+  }, [history, leaves])
+
+  const pendingLeavesCount = useMemo(() => leaves.filter(l => l.status === 'Pending').length, [leaves])
+
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: 100 }}>
       <Loader2 size={40} className="animate-spin" style={{ color: 'var(--primary)' }} />
@@ -259,358 +606,546 @@ export default function PortalDashboard() {
   )
 
   return (
-    <PageShell>
-      <div style={{ display: 'grid', gap: 14 }}>
+    <PageShell style={{ maxWidth: 'none' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-        {/* ── Greeting Header Card ── */}
-        <motion.header
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 14,
-            padding: '14px 20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 12,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {/* ── Row 1: Greeting split cards ── */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1.4fr 1fr',
+          gap: 20
+        }} className="dashboard-row-1">
+          {/* Card A: Welcome */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 16,
+              padding: '24px 28px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              boxShadow: 'var(--shadow-sm)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+          >
             <div style={{
-              width: 42, height: 42, borderRadius: 12,
-              background: 'linear-gradient(135deg, #58833b18, #58833b08)',
-              border: '1px solid #58833b25',
+              width: 44, height: 44, borderRadius: 12,
+              background: 'rgba(88,131,59,0.1)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20,
+              flexShrink: 0
             }}>
-              {greetingEmoji}
+              {currentTime.getHours() < 12 ? (
+                <CloudSun size={22} color="var(--primary)" />
+              ) : currentTime.getHours() < 17 ? (
+                <Sun size={22} color="var(--primary)" />
+              ) : (
+                <Moon size={22} color="var(--primary)" />
+              )}
             </div>
-            <div>
-              <h1 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>
-                {greeting}, <span style={{ color: 'var(--primary)' }}>{staffUser?.fullName?.split(' ')[0]}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>
+                {greeting}, <span style={{ color: 'var(--primary)' }}>{staffUser?.fullName?.split(' ')[0]}</span>! 👋
               </h1>
-              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, marginTop: 2 }}>
-                {currentTime.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, fontWeight: 500 }}>
+                Let's make today productive and meaningful.
               </p>
             </div>
-          </div>
+          </motion.div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            {/* Live Clock */}
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+          {/* Card B: Date/Time & Desk illustration */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 16,
+              padding: '20px 24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 16,
+              boxShadow: 'var(--shadow-sm)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, zIndex: 2 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Calendar size={14} style={{ color: 'var(--primary)' }} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>
+                  {currentTime.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
               </div>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {currentTime.toLocaleTimeString('en-IN', { second: '2-digit' })}s
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Clock size={14} style={{ color: '#3b82f6' }} />
+                <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
+                  {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                </span>
+              </div>
+              <div style={{ marginTop: 4 }}>
+                <span style={{
+                  fontSize: 10, fontWeight: 800,
+                  padding: '4px 10px', borderRadius: 99,
+                  background: isPunchedIn ? 'rgba(34, 197, 94, 0.1)' : 'rgba(107,114,128,0.08)',
+                  color: isPunchedIn ? '#16a34a' : '#6b7280',
+                  border: `1px solid ${isPunchedIn ? 'rgba(34,197,94,0.15)' : 'rgba(107,114,128,0.1)'}`
+                }}>
+                  Office Status: {isPunchedIn ? 'Working' : 'Open'}
+                </span>
               </div>
             </div>
 
-            {/* Status pill */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              padding: '7px 14px',
-              borderRadius: 999,
-              background: isPunchedIn ? 'rgba(88,131,59,0.1)' : 'rgba(107,114,128,0.08)',
-              border: `1px solid ${isPunchedIn ? 'rgba(88,131,59,0.25)' : 'rgba(107,114,128,0.18)'}`,
-            }}>
-              <span style={{
-                width: 7, height: 7, borderRadius: '50%',
-                background: isPunchedIn ? '#58833b' : '#9ca3af',
-                display: 'inline-block',
-                boxShadow: isPunchedIn ? '0 0 0 3px rgba(88,131,59,0.2)' : 'none',
-                animation: isPunchedIn ? 'portalPulse 2s ease-in-out infinite' : 'none',
-              }} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: isPunchedIn ? '#58833b' : '#6b7280' }}>
-                {isPunchedIn ? 'Active' : 'Offline'}
-              </span>
+            {/* dynamic desk illustration vector */}
+            <div style={{ zIndex: 1, marginRight: -10 }} className="dashboard-desk-illustration">
+              <img src={getBannerImage()} alt="Desk Workspace" style={{ maxHeight: 90, width: 'auto', objectFit: 'contain' }} />
             </div>
-          </div>
-        </motion.header>
+          </motion.div>
+        </div>
 
-        {/* ── Metrics Row (4 compact cards) ── */}
+        {/* ── Row 2: Metrics Row (4 Columns with SVG Sparklines) ── */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
-          style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}
-        >
-          <MetricCard
-            icon={Timer}
-            label="Worked"
-            value={formatHours(workedHours)}
-            sub="/ 8h target"
-            accent="#58833b"
-            active={isPunchedIn}
-          />
-          <MetricCard
-            icon={Clock}
-            label="Remaining"
-            value={formatHours(remainingHours)}
-            sub="to target"
-            accent="#3b82f6"
-          />
-          <MetricCard
-            icon={Activity}
-            label="Sessions"
-            value={sessionCount}
-            sub={`session${sessionCount === 1 ? '' : 's'} today`}
-            accent="#8b5cf6"
-          />
-          <MetricCard
-            icon={Zap}
-            label="Status"
-            value={isPunchedIn ? 'Active' : (activeShift?.workStatus || 'Idle')}
-            sub={isPunchedIn ? 'Punched in' : 'Not punched in'}
-            accent={isPunchedIn ? '#58833b' : '#9ca3af'}
-            active={isPunchedIn}
-          />
-        </motion.div>
-
-        {/* ── Punch Card ── */}
-        <motion.section
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
           style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 14,
-            overflow: 'hidden',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+            gap: 20
           }}
         >
-          {/* Card header */}
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(88,131,59,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Briefcase size={14} color="var(--primary)" />
-            </div>
-            <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>Today's Attendance</span>
-            {clientName && (
-              <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 999, background: 'rgba(88,131,59,0.08)', color: 'var(--primary)' }}>
-                {clientName}
-              </span>
-            )}
-          </div>
-
-          <div style={{ padding: '16px 18px' }}>
-            {/* Punch times row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-              <div style={{
-                padding: '12px 14px', borderRadius: 10,
-                background: 'var(--bg)', border: '1px solid var(--border)',
-                display: 'flex', alignItems: 'center', gap: 10,
-              }}>
-                <div style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(88,131,59,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <LogIn size={13} color="#58833b" />
-                </div>
-                <div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>First Punch In</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', marginTop: 1 }}>{formatTimeLabel(firstPunchIn)}</div>
-                </div>
-              </div>
-              <div style={{
-                padding: '12px 14px', borderRadius: 10,
-                background: 'var(--bg)', border: '1px solid var(--border)',
-                display: 'flex', alignItems: 'center', gap: 10,
-              }}>
-                <div style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <LogOut size={13} color="#ef4444" />
-                </div>
-                <div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Last Punch Out</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', marginTop: 1 }}>{formatTimeLabel(lastPunchOut)}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Live timer if punched in */}
-            {isPunchedIn && firstPunchIn && (
-              <div style={{
-                padding: '10px 14px', borderRadius: 10,
-                background: 'rgba(88,131,59,0.06)', border: '1px solid rgba(88,131,59,0.15)',
-                display: 'flex', alignItems: 'center', gap: 10,
-                marginBottom: 14,
-              }}>
-                <Coffee size={14} color="#58833b" />
-                <span style={{ fontSize: 12, color: '#58833b', fontWeight: 600 }}>Session running:</span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
-                  {formatDuration(activeShift?.sessions?.slice(-1)[0]?.startTime || firstPunchIn)}
-                </span>
-              </div>
-            )}
-
-            {/* Punch button */}
-            <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => openTaskModal(isPunchedIn ? 'out' : 'in')}
-              disabled={actionLoading || taskSubmitting}
-              style={{
-                width: '100%',
-                height: 46,
-                borderRadius: 10,
-                border: 'none',
-                color: 'white',
-                background: isPunchedIn
-                  ? 'linear-gradient(135deg, #ef4444, #dc2626)'
-                  : 'linear-gradient(135deg, #58833b, #4a7032)',
-                cursor: 'pointer',
-                fontSize: 14,
-                fontWeight: 700,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                boxShadow: isPunchedIn
-                  ? '0 4px 16px rgba(239,68,68,0.25)'
-                  : '0 4px 16px rgba(88,131,59,0.25)',
-                transition: 'all 0.2s',
-              }}
-            >
-              {actionLoading || taskSubmitting
-                ? <Loader2 size={18} className="animate-spin" />
-                : isPunchedIn
-                  ? <><LogOut size={16} /> Punch Out</>
-                  : <><LogIn size={16} /> Punch In</>
-              }
-            </motion.button>
-          </div>
-        </motion.section>
-
-        {/* ── Today's Task Plan ── */}
-        <motion.section
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 14,
-            overflow: 'hidden',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-          }}
-        >
-          {/* Card header */}
+          {/* Card 1: Worked Hours */}
           <div style={{
-            padding: '14px 18px',
-            borderBottom: '1px solid var(--border)',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10,
+            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+            padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, boxShadow: 'var(--shadow-sm)'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(88,131,59,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ListChecks size={14} color="var(--primary)" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Clock size={18} color="#3b82f6" />
               </div>
               <div>
-                <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>Today's Task Plan</span>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, marginTop: 1 }}>
-                  Enter tasks on Punch In · Update status on Punch Out
-                </p>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Worked Hours</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>{formatHours(workedHours)}</div>
               </div>
             </div>
-            <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: 'rgba(88,131,59,0.08)', color: 'var(--primary)' }}>
-              {totalTasks} Tasks
-            </span>
+            <svg width="55" height="22" viewBox="0 0 55 22" style={{ overflow: 'visible', flexShrink: 0 }}>
+              <path d="M0 16 Q 13.75 6, 27.5 14 T 55 4" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
+            </svg>
           </div>
 
-          <div style={{ padding: '14px 18px' }}>
-            {/* Task list */}
-            <div style={{ display: 'grid', gap: 8, marginBottom: totalTasks > 0 ? 16 : 0 }}>
-              {activeShift?.tasks?.length ? activeShift.tasks.map((task, index) => {
-                const { bg, color } = getTaskStatusStyle(task.status)
-                return (
-                  <div
-                    key={index}
-                    style={{
-                      display: 'flex', alignItems: 'flex-start', gap: 12,
-                      padding: '12px 14px', borderRadius: 10,
-                      background: 'var(--bg)', border: '1px solid var(--border)',
-                    }}
-                  >
-                    <div style={{
-                      width: 22, height: 22, borderRadius: '50%',
-                      background: bg, border: `2px solid ${color}`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0, marginTop: 1,
-                    }}>
-                      {task.status === 'Completed' && <CheckCircle2 size={11} color={color} />}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>
-                        {task.project || 'Untitled project'}
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>{task.description}</div>
-                    </div>
-                    <span style={{
-                      padding: '3px 10px', borderRadius: 999,
-                      fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-                      letterSpacing: '0.04em', background: bg, color, flexShrink: 0,
-                    }}>
-                      {task.status}
-                    </span>
+          {/* Card 2: Attendance */}
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+            padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, boxShadow: 'var(--shadow-sm)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(34,197,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <UserCheck size={18} color="#22c55e" />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Attendance</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>Present</div>
+              </div>
+            </div>
+            <svg width="55" height="22" viewBox="0 0 55 22" style={{ overflow: 'visible', flexShrink: 0 }}>
+              <path d="M0 16 Q 13.75 18, 27.5 8 T 55 12" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </div>
+
+          {/* Card 3: Today's Tasks */}
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+            padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, boxShadow: 'var(--shadow-sm)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(139,92,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <ListChecks size={18} color="#8b5cf6" />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Today's Tasks</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>{totalTasks}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontWeight: 600 }}>{activeShift?.tasks?.filter(t => t.status === 'Completed').length || 0} Completed</div>
+              </div>
+            </div>
+            <svg width="55" height="22" viewBox="0 0 55 22" style={{ overflow: 'visible', flexShrink: 0 }}>
+              <path d="M0 12 Q 13.75 4, 27.5 18 T 55 6" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </div>
+
+          {/* Card 4: Leave Balance */}
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+            padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, boxShadow: 'var(--shadow-sm)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Briefcase size={18} color="#f59e0b" />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Leave Balance</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>
+                  {(staffUser?.leaveBalance?.casual || 0) + (staffUser?.leaveBalance?.sick || 0)} Days
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontWeight: 600 }}>
+                  {pendingLeavesCount} Pending Requests
+                </div>
+              </div>
+            </div>
+            <svg width="55" height="22" viewBox="0 0 55 22" style={{ overflow: 'visible', flexShrink: 0 }}>
+              <path d="M0 20 Q 13.75 10, 27.5 14 T 55 8" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </div>
+        </motion.div>
+
+        {/* ── Row 3: Daily Activity Widgets (Attendance Clock, Tasks, Schedule) ── */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1.25fr)',
+          gap: 20
+        }} className="dashboard-row-3">
+
+          {/* Column 1: Today's Attendance circular tracker */}
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+            padding: 20, boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 16,
+            height: 330, boxSizing: 'border-box'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Today's Attendance</span>
+              <span style={{
+                fontSize: 9, fontWeight: 800, padding: '3px 8px', borderRadius: 99,
+                background: isPunchedIn ? 'rgba(34,197,94,0.1)' : 'rgba(107,114,128,0.08)',
+                color: isPunchedIn ? '#16a34a' : 'var(--text-muted)'
+              }}>
+                {isPunchedIn ? 'Currently Working' : 'Not Punched In'}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1 }}>
+              {/* Circular Gauge visual */}
+              <div style={{ position: 'relative', width: 124, height: 124, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="124" height="124" viewBox="0 0 124 124">
+                  <circle cx="62" cy="62" r="54" fill="none" stroke="var(--border)" strokeWidth="6" />
+                  <circle
+                    cx="62" cy="62" r="54" fill="none"
+                    stroke={isPunchedIn ? 'var(--primary)' : '#6b7280'} strokeWidth="6"
+                    strokeDasharray={2 * Math.PI * 54}
+                    strokeDashoffset={2 * Math.PI * 54 - (isPunchedIn ? 0.65 : 0.05) * 2 * Math.PI * 54}
+                    strokeLinecap="round"
+                    transform="rotate(-90 62 62)"
+                    style={{ transition: 'stroke-dashoffset 0.35s' }}
+                  />
+                </svg>
+                <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
+                    {isPunchedIn ? currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--:--'}
+                  </span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    {isPunchedIn ? 'Punched In' : 'Punched Out'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Status parameters */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6, flex: 1 }}>
+                {[
+                  { label: 'First Punch In', value: formatTimeLabel(firstPunchIn) },
+                  { label: 'Last Punch Out', value: formatTimeLabel(lastPunchOut) },
+                  { label: 'Worked Hours', value: formatHours(workedHours) },
+                  { label: 'Current Status', value: isPunchedIn ? 'Working' : 'Offline', isGreen: isPunchedIn }
+                ].map((stat, sIdx) => (
+                  <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--border)', fontSize: 10 }}>
+                    <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{stat.label}</span>
+                    <span style={{ color: stat.isGreen ? '#16a34a' : 'var(--text)', fontWeight: 800 }}>{stat.value}</span>
                   </div>
-                )
-              }) : (
-                <div style={{
-                  padding: '20px', borderRadius: 10,
-                  background: 'var(--bg)', border: '1px dashed var(--border)',
-                  color: 'var(--text-muted)', textAlign: 'center', fontSize: 13,
-                }}>
-                  <ListChecks size={22} style={{ display: 'block', margin: '0 auto 8px', opacity: 0.4 }} />
-                  No task plan yet. Use <strong>Punch In</strong> to add your first tasks.
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <motion.button
+                whileHover={{ scale: 1.005 }}
+                whileTap={{ scale: 0.99 }}
+                onClick={() => {
+                  if (isPunchedIn) {
+                    openTaskModal('out')
+                  } else {
+                    const hasPunchedToday = activeShift && activeShift.sessions && activeShift.sessions.length > 0
+                    if (hasPunchedToday) {
+                      handleDirectPunchIn()
+                    } else {
+                      openTaskModal('in')
+                    }
+                  }
+                }}
+                disabled={actionLoading || taskSubmitting}
+                style={{
+                  width: '100%', height: 38, borderRadius: 8, border: 'none', color: 'white',
+                  background: isPunchedIn ? '#dc2626' : 'var(--primary)',
+                  cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6
+                }}
+              >
+                {actionLoading || taskSubmitting ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : isPunchedIn ? (
+                  <><LogOut size={14} /> Punch Out</>
+                ) : (
+                  <><LogIn size={14} /> Punch In</>
+                )}
+              </motion.button>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 9, color: 'var(--text-muted)', fontWeight: 600 }}>
+                <Clock size={10} /> You will be automatically logged out at 11:59 PM
+              </div>
+            </div>
+          </div>
+
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+            padding: 20, boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 14,
+            height: 330, boxSizing: 'border-box', minWidth: 0
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Today's Tasks</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button 
+                  onClick={() => openTaskModal(isPunchedIn ? 'out' : 'in')}
+                  style={{ 
+                    border: 'none', background: 'rgba(88,131,59,0.08)', color: 'var(--primary)',
+                    borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 800, cursor: 'pointer',
+                    display: 'inline-flex', alignItems: 'center', gap: 4
+                  }}
+                >
+                  <Plus size={11} /> Add Task
+                </button>
+                <span style={{ fontSize: 10, fontWeight: 800, background: 'rgba(88,131,59,0.08)', color: 'var(--primary)', padding: '2px 8px', borderRadius: 99 }}>
+                  {totalTasks} Tasks
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gap: 6, flex: 1, alignContent: 'start', marginTop: 4, overflowY: 'auto', paddingRight: 2 }}>
+              {activeShift && Array.isArray(activeShift.tasks) && activeShift.tasks.length > 0 ? (
+                activeShift.tasks.map((task, idx) => {
+                  const done = task.status === 'Completed'
+                  const statusStyle = getTaskStatusStyle(task.status)
+
+                  return (
+                    <div 
+                      key={task._id || idx} 
+                      onClick={() => navigate('/portal/tasks')}
+                      title="Click to manage task in My Tasks"
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between', 
+                        gap: 8, 
+                        padding: '6px 10px', 
+                        borderRadius: 6, 
+                        background: 'var(--bg)', 
+                        border: '1px solid var(--border)',
+                        cursor: 'pointer',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(156,163,175,0.05)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'var(--bg)'}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+                        <span style={{
+                          width: 13, height: 13, borderRadius: 3, border: `1.5px solid ${done ? 'var(--primary)' : 'var(--border)'}`,
+                          background: done ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                        }}>
+                          {done && <UserCheck size={8} color="white" />}
+                        </span>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>
+                            {task.project || 'General'}
+                          </div>
+                          {task.description && (
+                            <div style={{ fontSize: 9, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>
+                              {task.description.split(' ').slice(0, 3).join(' ') + '...'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: 7.5, fontWeight: 800, padding: '1px 5px', borderRadius: 4,
+                        background: statusStyle.bg, color: statusStyle.color, border: `1px solid ${statusStyle.color}40`, flexShrink: 0
+                      }}>
+                        {task.status}
+                      </span>
+                    </div>
+                  )
+                })
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '24px 10px', flex: 1 }}>
+                  <span style={{ fontSize: 20, marginBottom: 6 }}>📋</span>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>No tasks for today</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-light)', marginTop: 2 }}>Punch in or add tasks to get started.</div>
                 </div>
               )}
             </div>
 
-            {/* Progress + stats */}
-            {totalTasks > 0 && (
-              <div>
-                {/* Progress bar */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                  <div style={{ flex: 1, height: 6, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}>
-                    <div style={{
-                      width: `${completionRate}%`, height: '100%',
-                      background: 'linear-gradient(90deg, #58833b, #7da859)',
-                      borderRadius: 999, transition: 'width 0.5s ease',
-                    }} />
-                  </div>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--primary)', minWidth: 36 }}>{completionRate}%</span>
-                </div>
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+              <span onClick={() => navigate('/portal/tasks')} style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', cursor: 'pointer' }}>
+                View all tasks →
+              </span>
+            </div>
+          </div>
 
-                {/* Task summary pills */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                  {[
-                    { label: 'Total', value: totalTasks, color: '#6b7280', bg: 'rgba(107,114,128,0.08)' },
-                    { label: 'Done', value: completedTasks, color: '#58833b', bg: 'rgba(88,131,59,0.08)' },
-                    { label: 'Pending', value: pendingTasks, color: '#d97706', bg: 'rgba(245,158,11,0.08)' },
-                  ].map(({ label, value, color, bg }) => (
-                    <div key={label} style={{
-                      padding: '10px 12px', borderRadius: 10,
-                      background: bg, textAlign: 'center',
-                    }}>
-                      <div style={{ fontSize: 11, color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>{label}</div>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>{value}</div>
-                    </div>
-                  ))}
+          {/* Column 3: Today's Schedule events timeline */}
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+            padding: 20, boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', gap: 14,
+            height: 330, boxSizing: 'border-box', minWidth: 0
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Today's Schedule</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button 
+                  onClick={() => setShowAddEvent(!showAddEvent)}
+                  style={{ 
+                    border: 'none', background: 'rgba(88,131,59,0.08)', color: 'var(--primary)',
+                    borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 800, cursor: 'pointer',
+                    display: 'inline-flex', alignItems: 'center', gap: 4
+                  }}
+                >
+                  <Plus size={11} /> Add Event
+                </button>
+              </div>
+            </div>
+
+            {/* Inline Add Event Form */}
+            {showAddEvent && (
+              <div style={{ padding: 12, background: 'var(--bg)', borderRadius: 10, border: '1px solid var(--border)', display: 'grid', gap: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>Schedule New Event</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 6 }}>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. 10:30 AM" 
+                    value={newEvent.time} 
+                    onChange={e => setNewEvent({ ...newEvent, time: e.target.value })} 
+                    style={{ padding: '6px 8px', fontSize: 11, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
+                  />
+                  <input 
+                    type="text" 
+                    placeholder="Event Title" 
+                    value={newEvent.label} 
+                    onChange={e => setNewEvent({ ...newEvent, label: e.target.value })} 
+                    style={{ padding: '6px 8px', fontSize: 11, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
+                  />
+                </div>
+                <input 
+                  type="text" 
+                  placeholder="Short Description" 
+                  value={newEvent.desc} 
+                  onChange={e => setNewEvent({ ...newEvent, desc: e.target.value })} 
+                  style={{ padding: '6px 8px', fontSize: 11, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {['#22c55e', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444'].map(c => (
+                      <span 
+                        key={c} 
+                        onClick={() => setNewEvent({ ...newEvent, dot: c })}
+                        style={{ 
+                          width: 14, height: 14, borderRadius: '50%', background: c, cursor: 'pointer',
+                          border: newEvent.dot === c ? '2px solid var(--text)' : 'none', boxSizing: 'border-box'
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button 
+                      onClick={() => setShowAddEvent(false)} 
+                      style={{ padding: '4px 10px', fontSize: 10, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' }}
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (!newEvent.time || !newEvent.label) {
+                          toast.error('Time and Title are required!')
+                          return
+                        }
+                        setScheduleList([...scheduleList, { ...newEvent, checked: false }])
+                        setNewEvent({ time: '', label: '', desc: '', dot: '#22c55e' })
+                        setShowAddEvent(false)
+                        toast.success('Event added to today\'s schedule!')
+                      }}
+                      style={{ padding: '4px 10px', fontSize: 10, borderRadius: 6, border: 'none', background: 'var(--primary)', color: 'white', fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      Add
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
+
+            <div style={{ display: 'grid', gap: 8, flex: 1, alignContent: 'start', marginTop: 4, overflowY: 'auto', paddingRight: 2 }}>
+              {scheduleList.length > 0 ? (
+                scheduleList.map((ev, eIdx) => {
+                  const getIcon = (dotColor) => {
+                    if (dotColor === '#3b82f6') return Coffee
+                    if (dotColor === '#8b5cf6') return Video
+                    if (dotColor === '#f59e0b') return FileText
+                    return Users
+                  }
+                  const Icon = getIcon(ev.dot)
+                  const evBg = ev.dot === '#22c55e' ? 'rgba(34,197,94,0.08)' : ev.dot === '#3b82f6' ? 'rgba(59,130,246,0.08)' : ev.dot === '#8b5cf6' ? 'rgba(139,92,246,0.08)' : ev.dot === '#f59e0b' ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)'
+                  
+                  return (
+                    <div key={eIdx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--border)', gap: 8, opacity: ev.checked ? 0.65 : 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                        <input 
+                          type="checkbox" 
+                          checked={!!ev.checked} 
+                          onChange={() => {
+                            setScheduleList(scheduleList.map((item, idx) => idx === eIdx ? { ...item, checked: !item.checked } : item))
+                          }}
+                          style={{ cursor: 'pointer', width: 13, height: 13 }}
+                        />
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: ev.dot, flexShrink: 0 }} />
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: ev.checked ? 'line-through' : 'none' }}>{ev.label}</div>
+                          <div style={{ fontSize: 9, color: 'var(--text-muted)', fontWeight: 500, marginTop: 1 }}>{ev.desc}</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        <span style={{ fontSize: 9, color: 'var(--text-muted)', fontWeight: 700 }}>{ev.time}</span>
+                        <div style={{ width: 24, height: 24, borderRadius: 6, background: evBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Icon size={12} color={ev.dot} />
+                        </div>
+                        <button 
+                          onClick={() => {
+                            setScheduleList(scheduleList.filter((_, idx) => idx !== eIdx))
+                            toast.success('Event removed')
+                          }}
+                          style={{ border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px 4px' }}
+                          title="Remove Event"
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 10px', textAlign: 'center', flex: 1 }}>
+                  <span style={{ fontSize: 18, marginBottom: 4 }}>📅</span>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>Schedule is empty</div>
+                  <div style={{ fontSize: 9, color: 'var(--text-light)', marginTop: 2 }}>Click "+ Add Event" to plan your day.</div>
+                </div>
+              )}
+            </div>
           </div>
-        </motion.section>
+        </div>
 
-        {/* ── Announcements Preview Widget ── */}
-        <AnnouncementPreviewWidget
-          announcements={announcements}
-          loading={announcementsLoading}
-          viewAllPath="/portal/announcements"
-          emptyMessage="No active announcements."
-        />
+
       </div>
-
       {/* ── Pulse keyframe ── */}
       <style>{`
         @keyframes portalPulse {
@@ -618,6 +1153,43 @@ export default function PortalDashboard() {
           50%       { box-shadow: 0 0 0 5px rgba(88,131,59,0.08); }
         }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .greeting-chip-hover {
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        .greeting-chip-hover:hover {
+          background: rgba(156, 163, 175, 0.09) !important;
+          border-color: rgba(88, 131, 59, 0.3) !important;
+          transform: translateY(-1px);
+        }
+        @media (max-width: 768px) {
+          .premium-greeting-card {
+            flex-direction: column !important;
+            padding: 24px 20px !important;
+            align-items: stretch !important;
+            gap: 20px !important;
+          }
+          .premium-greeting-left {
+            align-items: center !important;
+            text-align: center !important;
+          }
+          .premium-greeting-title-row {
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 10px !important;
+          }
+          .premium-greeting-subtitle {
+            margin-left: 0 !important;
+            text-align: center !important;
+          }
+          .premium-greeting-chips-row {
+            margin-left: 0 !important;
+            justify-content: center !important;
+            gap: 8px !important;
+          }
+          .premium-greeting-illustration {
+            display: none !important;
+          }
+        }
       `}</style>
 
       {/* ── Task Modal ── */}

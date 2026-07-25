@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageShell, { PageLoading } from '../components/PageShell'
-import { Search, Activity, ArrowRight } from 'lucide-react'
+import { Search, Activity, MoreVertical } from 'lucide-react'
 import api from '../api'
 
 function initials(name = '') {
@@ -16,6 +16,7 @@ export default function TeamPerformance() {
   const [filteredStaff, setFilteredStaff] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
+  const [activeMenuId, setActiveMenuId] = useState(null)
 
   useEffect(() => {
     const fetchStaffList = async () => {
@@ -48,68 +49,43 @@ export default function TeamPerformance() {
     }
   }, [searchQuery, staffList])
 
+  useEffect(() => {
+    if (activeMenuId === null) return
+    const handleClose = () => setActiveMenuId(null)
+    window.addEventListener('click', handleClose)
+    return () => window.removeEventListener('click', handleClose)
+  }, [activeMenuId])
+
   if (loading) return <PageShell><PageLoading label="Loading team…" /></PageShell>
 
   return (
     <PageShell wide>
       <style>{`
         /* ── Team Performance ─────────────────────────────── */
-        .tp-page-header {
-          position: sticky; top: 0; z-index: 50;
-          background: var(--bg);
-          border-bottom: 1px solid var(--border);
-          margin: calc(-1 * var(--page-padding-y)) calc(-1 * var(--page-padding-x)) 0;
-          padding: 20px var(--page-padding-x) 14px;
-          backdrop-filter: blur(12px);
-        }
-        .tp-header-top {
-          display: flex; align-items: center; justify-content: space-between;
-          gap: 16px; flex-wrap: wrap; padding-bottom: 14px;
-        }
-        .tp-title-block { display: flex; align-items: center; gap: 14px; }
-        .tp-title-icon {
-          width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
-          background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, #000));
-          display: flex; align-items: center; justify-content: center;
-          box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 30%, transparent);
-        }
-        .tp-title-text h1 {
-          margin: 0; font-size: 22px; font-weight: 800;
-          color: var(--text); letter-spacing: -0.03em; line-height: 1.2;
-        }
-        .tp-title-text p { margin: 3px 0 0; font-size: 13px; color: var(--text-muted); font-weight: 500; }
-        .tp-badge {
-          background: color-mix(in srgb, var(--primary) 12%, transparent);
-          color: var(--primary);
-          border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
-          border-radius: 99px; padding: 2px 10px;
-          font-size: 12px; font-weight: 700;
-        }
-
-        /* Search */
-        .tp-search-wrap { position: relative; }
+        .tp-search-wrap { position: relative; max-width: 280px; }
         .tp-search-icon {
-          position: absolute; left: 14px; top: 50%;
+          position: absolute; left: 12px; top: 50%;
           transform: translateY(-50%); color: var(--text-light); pointer-events: none;
         }
         .tp-search-input {
-          width: 100%; height: 42px;
-          padding-left: 42px; padding-right: 16px;
-          border: 1.5px solid var(--border); border-radius: 10px;
-          background: var(--bg); color: var(--text);
-          font-size: 14px; font-weight: 500; outline: none;
+          width: 100%; height: 32px;
+          padding-left: 36px; padding-right: 12px;
+          border: 1.5px solid var(--border); border-radius: 8px;
+          background: var(--surface); color: var(--text);
+          font-size: 12px; font-weight: 600; outline: none;
           transition: border-color .2s, box-shadow .2s; box-sizing: border-box;
+          font-family: var(--font-display), sans-serif;
         }
         .tp-search-input:focus {
           border-color: var(--primary);
-          box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
         }
 
         /* Table container */
         .tp-table {
           width: 100%; border: 1px solid var(--border);
-          border-radius: 12px; overflow: hidden;
-          background: var(--surface); margin-top: 24px;
+          border-radius: 12px; overflow: visible;
+          background: var(--surface); margin-top: 14px;
+          font-family: var(--font-display), sans-serif;
         }
 
         /* Grid: avatar | name | id | role | dept | action */
@@ -198,30 +174,15 @@ export default function TeamPerformance() {
         @media (min-width: 861px) { .tp-mobile-meta { display: none; } }
       `}</style>
 
-      {/* ── Sticky Header ── */}
-      <div className="tp-page-header">
-        <div className="tp-header-top">
-          <div className="tp-title-block">
-            <div className="tp-title-icon">
-              <Activity size={22} color="white" strokeWidth={2} />
-            </div>
-            <div className="tp-title-text">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <h1>Team Performance</h1>
-                <span className="tp-badge">{staffList.length} members</span>
-              </div>
-              <p>View task performance and history for your team members.</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="tp-search-wrap">
-          <Search size={16} className="tp-search-icon" />
+      {/* Search Bar */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+        <div className="tp-search-wrap" style={{ marginTop: 0 }}>
+          <Search size={14} className="tp-search-icon" />
           <input
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search by name, ID, role or department…"
+            placeholder="Search team..."
             className="tp-search-input"
           />
         </div>
@@ -237,7 +198,7 @@ export default function TeamPerformance() {
           {searchQuery ? 'No employees found matching your search.' : 'No team members found.'}
         </div>
       ) : (
-        <div className="tp-table">
+        <div className="tp-table" style={{ overflow: 'visible' }}>
 
           {/* Column Headers */}
           <div className="tp-grid tp-thead-row">
@@ -273,13 +234,66 @@ export default function TeamPerformance() {
                 {staff.department  && <span className="tp-tag">{staff.department}</span>}
               </div>
 
-              <div className="tp-action-col">
+              <div className="tp-action-col" style={{ position: 'relative' }}>
                 <button
-                  onClick={() => navigate(`/performance/${staff._id}`)}
-                  className="tp-view-btn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setActiveMenuId(activeMenuId === staff._id ? null : staff._id)
+                  }}
+                  className="btn-icon btn-hover"
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 8,
+                    color: 'var(--text-light)',
+                    background: 'transparent',
+                    border: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer'
+                  }}
+                  title="Actions"
                 >
-                  View <ArrowRight size={11} />
+                  <MoreVertical size={14} />
                 </button>
+                      {activeMenuId === staff._id && (
+                        <div style={{
+                          position: 'absolute',
+                          right: 0,
+                          top: '80%',
+                          width: 160,
+                          background: 'var(--surface)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 10,
+                          boxShadow: 'var(--shadow-lg)',
+                          zIndex: 120,
+                          overflow: 'hidden',
+                          padding: '4px 0'
+                        }}>
+                          <button
+                            onClick={() => navigate(`/performance/${staff._id}`)}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            style={{
+                              width: '100%',
+                              textAlign: 'left',
+                              padding: '8px 12px',
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text)',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              transition: 'background 0.15s'
+                            }}
+                          >
+                            📈 View Details
+                          </button>
+                        </div>
+                      )}
               </div>
 
             </div>

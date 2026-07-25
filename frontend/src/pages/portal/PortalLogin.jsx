@@ -89,7 +89,7 @@ export default function PortalLogin() {
           </motion.div>
         </div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>
-          Team Experience Interface &copy; {new Date().getFullYear()} PaySlip Pro
+          Team Experience Interface &copy; {new Date().getFullYear()} Payroll
         </div>
       </motion.div>
 

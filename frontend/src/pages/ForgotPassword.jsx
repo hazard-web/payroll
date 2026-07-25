@@ -84,7 +84,7 @@ export default function ForgotPassword() {
           </motion.div>
         </div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>
-          Professional Statutory Artifacts &copy; {new Date().getFullYear()} PaySlip Pro Enterprise
+          Professional Statutory Artifacts &copy; {new Date().getFullYear()} Payroll
         </div>
       </motion.div>
 

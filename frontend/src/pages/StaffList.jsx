@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
-  Plus, Briefcase, Loader2, FilePlus, Eye, Users, Search
+  Plus, Briefcase, Loader2, FilePlus, Users, Search, MoreVertical
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api'
@@ -22,6 +22,35 @@ const FILTER_OPTIONS = [
   { value: 'Intern', label: 'Intern' },
 ]
 
+function DropdownItem({ onClick, children, style = {} }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        background: hover ? 'var(--bg)' : 'none',
+        border: 'none',
+        width: '100%',
+        padding: '8px 16px',
+        fontSize: 12,
+        fontWeight: 600,
+        color: 'var(--text)',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        textAlign: 'left',
+        transition: 'background 0.15s',
+        ...style
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function StaffList() {
   const [staff, setStaff] = useState([])
   const [loading, setLoading] = useState(true)
@@ -30,6 +59,7 @@ export default function StaffList() {
   const [showModal, setShowModal] = useState(false)
   const [editingStaff, setEditingStaff] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [activeMenuId, setActiveMenuId] = useState(null)
   const navigate = useNavigate()
 
   const [formData, setFormData] = useState({
@@ -38,6 +68,16 @@ export default function StaffList() {
   })
 
   useEffect(() => { fetchStaff() }, [])
+
+  const handleDeleteStaff = async (id) => {
+    try {
+      await api.delete(`/staff/${id}`)
+      setStaff(staff.filter(s => s._id !== id))
+      toast.success('Team member deactivated/deleted successfully')
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Deletion failed')
+    }
+  }
 
   const fetchStaff = async () => {
     try {
@@ -170,115 +210,75 @@ export default function StaffList() {
 
   return (
     <PageShell wide>
-
-      {/* ── Professional Sticky Header ── */}
       <div style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 50,
-        background: 'var(--bg)',
-        borderBottom: '1px solid var(--border)',
-        margin: 'calc(-1 * var(--page-padding-y)) calc(-1 * var(--page-padding-x)) 0',
-        padding: '0 var(--page-padding-x)',
-        backdropFilter: 'blur(12px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 16,
+        flexWrap: 'wrap',
+        marginBottom: 20,
       }}>
-        {/* Row 1: Title + Controls */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 16,
-          paddingTop: 20,
-          paddingBottom: 14,
-          flexWrap: 'wrap',
-        }}>
-          {/* Left: Title block */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-            <div style={{
-              width: 44, height: 44, borderRadius: 12,
-              background: 'linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 70%, #000))',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0, boxShadow: '0 4px 12px color-mix(in srgb, var(--primary) 30%, transparent)'
-            }}>
-              <Users size={22} color="white" strokeWidth={2} />
-            </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <h1 style={{
-                  margin: 0,
-                  fontSize: 22, fontWeight: 800,
-                  color: 'var(--text)',
-                  letterSpacing: '-0.03em',
-                  lineHeight: 1.2
-                }}>Team Management</h1>
-                <span style={{
-                  background: 'var(--primary-tint, rgba(88,131,59,0.12))',
-                  color: 'var(--primary)',
-                  border: '1px solid color-mix(in srgb, var(--primary) 25%, transparent)',
-                  borderRadius: 99, padding: '2px 10px',
-                  fontSize: 12, fontWeight: 700
-                }}>
-                  {staff.length} members
-                </span>
-              </div>
-              <p style={{ margin: '3px 0 0', fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>
-                Manage your regular employees and interns.
-              </p>
-            </div>
-          </div>
-
-          {/* Right: Filter tabs + Add button */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
-            <SegmentedControl
-              options={FILTER_OPTIONS}
-              value={filterType}
-              onChange={setFilterType}
-              style={{ height: 40, minWidth: 220 }}
-            />
-            <button
-              onClick={() => setShowModal(true)}
-              className="btn-primary"
-              style={{ height: 40, padding: '0 18px', whiteSpace: 'nowrap', borderRadius: 10, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}
-            >
-              <Plus size={18} strokeWidth={2.5} /> Add member
-            </button>
-          </div>
+        {/* Left: Filter tabs + Add button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <SegmentedControl
+            options={FILTER_OPTIONS}
+            value={filterType}
+            onChange={setFilterType}
+            style={{ height: 32 }}
+          />
+          <button
+            onClick={() => setShowModal(true)}
+            className="btn-primary"
+            style={{ 
+              height: 32, 
+              padding: '0 14px', 
+              whiteSpace: 'nowrap', 
+              borderRadius: 8, 
+              fontSize: 12, 
+              fontWeight: 700, 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 6,
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <Plus size={14} strokeWidth={2.5} /> Add member
+          </button>
         </div>
 
-        {/* Row 2: Full-width Search */}
-        <div style={{ paddingBottom: 14 }}>
-          <div style={{ position: 'relative', maxWidth: '100%' }}>
-            <Search
-              size={16}
-              style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-light)', pointerEvents: 'none' }}
-            />
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search by name, email, or designation…"
-              style={{
-                width: '100%',
-                height: 42,
-                paddingLeft: 42, paddingRight: 16,
-                border: '1.5px solid var(--border)',
-                borderRadius: 10,
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                fontSize: 14, fontWeight: 500,
-                outline: 'none',
-                transition: 'border-color 0.2s, box-shadow 0.2s',
-                boxSizing: 'border-box',
-              }}
-              onFocus={e => { e.target.style.borderColor = 'var(--primary)'; e.target.style.boxShadow = '0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent)'; }}
-              onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; }}
-            />
-          </div>
+        {/* Right: Search Bar */}
+        <div style={{ position: 'relative', width: '100%', maxWidth: 300, minWidth: 200 }}>
+          <Search
+            size={14}
+            style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-light)', pointerEvents: 'none' }}
+          />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search team…"
+            style={{
+              width: '100%',
+              height: 32,
+              paddingLeft: 32, paddingRight: 12,
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              background: 'var(--surface)',
+              color: 'var(--text)',
+              fontSize: 12, fontWeight: 500,
+              outline: 'none',
+              transition: 'border-color 0.2s',
+              boxSizing: 'border-box',
+            }}
+            onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+            onBlur={e => e.target.style.borderColor = 'var(--border)'}
+          />
         </div>
       </div>
 
       {/* ── Content ── */}
-      <div style={{ marginTop: 24 }}>
+      <div>
       {filteredStaff.length === 0 ? (
         <EmptyState
           icon={Briefcase}
@@ -294,12 +294,12 @@ export default function StaffList() {
         <div className="table-card" style={{ overflowX: 'auto', width: '100%' }}>
           <table className="data-table" style={{ width: '100%', tableLayout: 'fixed' }}>
             <colgroup>
-              <col style={{ width: '28%' }} />
+              <col style={{ width: '25%' }} />
+              <col style={{ width: '22%' }} />
+              <col style={{ width: '12%' }} />
               <col style={{ width: '18%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '13%' }} />
-              <col style={{ width: '16%' }} />
               <col style={{ width: '15%' }} />
+              <col style={{ width: '8%' }} />
             </colgroup>
             <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
               <tr>
@@ -320,15 +320,15 @@ export default function StaffList() {
                   transition={{ delay: i * 0.03 }}
                 >
                   <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <Avatar
                         name={person.fullName}
                         className={person.type === 'Intern' ? 'avatar--intern' : 'avatar--employee'}
-                        style={{ width: 48, height: 48, fontSize: 16, borderRadius: 12 }}
+                        style={{ width: 32, height: 32, fontSize: 11, borderRadius: 8 }}
                       />
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>{person.fullName}</div>
-                            <div className="text-muted" style={{ fontSize: 12 }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>{person.fullName}</div>
+                        <div className="text-muted" style={{ fontSize: 11 }}>
                           {person.employeeId || <em style={{ opacity: 0.7 }}>No ID assigned</em>}
                         </div>
                       </div>
@@ -336,8 +336,8 @@ export default function StaffList() {
                   </td>
 
                   <td>
-                    <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{person.designation || 'No Designation'}</div>
-                    <div className="text-muted" style={{ fontSize: 11, fontWeight: 500 }}>{person.department || 'N/A'}</div>
+                    <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)' }}>{person.designation || 'No Designation'}</div>
+                    <div className="text-muted" style={{ fontSize: 10, fontWeight: 500 }}>{person.department || 'N/A'}</div>
                   </td>
 
                   <td>
@@ -355,10 +355,10 @@ export default function StaffList() {
 
                   <td>
                     <div>
-                      <div className="text-muted" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>
+                      <div className="text-muted" style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>
                         {person.type === 'Employee' ? 'Annual CTC' : 'Monthly Stipend'}
                       </div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primary)' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>
                         ₹{person.type === 'Employee'
                           ? (person.salaryDetails?.annualCTC?.toLocaleString() || 0)
                           : (person.salaryDetails?.baseSalary?.toLocaleString() || 0)
@@ -367,22 +367,79 @@ export default function StaffList() {
                     </div>
                   </td>
 
-                  <td style={{ textAlign: 'right' }}>
+                  <td style={{ position: 'relative', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
                       <button
-                        onClick={(e) => { e.stopPropagation(); navigate(`/generate?staffId=${person._id}`); }}
-                        className="btn-icon"
-                        title="Generate Payslip"
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          setActiveMenuId(activeMenuId === person._id ? null : person._id); 
+                        }}
+                        className="btn-icon btn-hover"
+                        style={{ 
+                          width: 30, 
+                          height: 30, 
+                          borderRadius: 8, 
+                          color: 'var(--primary)',
+                          background: 'rgba(88, 131, 59, 0.08)',
+                          border: 'none',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer'
+                        }}
+                        title="Actions"
                       >
-                        <FilePlus size={16} />
+                        <MoreVertical size={14} />
                       </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); navigate(`/staff/${person._id}`); }}
-                        className="btn-primary btn-sm"
-                        style={{ padding: '8px 16px' }}
-                      >
-                        <Eye size={14} /> View Details
-                      </button>
+
+                      {activeMenuId === person._id && (
+                        <>
+                          <div 
+                            style={{ position: 'fixed', inset: 0, zIndex: 110 }} 
+                            onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} 
+                          />
+                          <div style={{
+                            position: 'absolute',
+                            right: 16,
+                            top: '80%',
+                            width: 180,
+                            background: 'var(--surface)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 10,
+                            boxShadow: 'var(--shadow-lg)',
+                            zIndex: 120,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            padding: '6px 0',
+                            textAlign: 'left'
+                          }}>
+                            <DropdownItem onClick={() => { setActiveMenuId(null); navigate(`/staff/${person._id}`); }}>
+                              👁️ View Details
+                            </DropdownItem>
+                            <DropdownItem onClick={(e) => { setActiveMenuId(null); handleEdit(e, person); }}>
+                              ✏️ Edit Employee
+                            </DropdownItem>
+                            <DropdownItem onClick={() => { setActiveMenuId(null); navigate(`/attendance?search=${person.employeeId || person.fullName}`); }}>
+                              📅 Attendance
+                            </DropdownItem>
+                            <DropdownItem onClick={() => { setActiveMenuId(null); navigate(`/generate?staffId=${person._id}`); }}>
+                              📄 Generate Payslip
+                            </DropdownItem>
+                            <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }} />
+                            <DropdownItem 
+                              onClick={() => { 
+                                setActiveMenuId(null); 
+                                if (window.confirm(`Are you sure you want to deactivate/delete ${person.fullName}? All associated records (attendance, leaves, payslips) will be permanently deleted.`)) {
+                                  handleDeleteStaff(person._id);
+                                }
+                              }} 
+                              style={{ color: '#ef4444' }}
+                            >
+                              🚫 Deactivate Employee
+                            </DropdownItem>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </td>
                 </motion.tr>

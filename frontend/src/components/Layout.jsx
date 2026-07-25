@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, List, Menu,
-  Settings, User, Users,
+  Settings, User, Users, Clock,
   Sun, Moon, ChevronLeft, ChevronRight, Bell, CalendarDays, Activity, TrendingUp,
   LogOut, AlertTriangle, Loader2, FileText, UserCheck, CheckCheck,
-  Download, Sparkles, ChevronDown, Radio, ShieldCheck
+  Download, Sparkles, ChevronDown, Radio, ShieldCheck, ListTodo
 } from 'lucide-react'
 import api from '../api'
 import { toast } from 'react-hot-toast'
@@ -17,13 +17,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/staff', label: 'Team Management', icon: Users },
-  { to: '/leave-requests', label: 'Attendance & Leave', icon: CalendarDays },
-  { to: '/performance', label: 'Team Performance', icon: TrendingUp },
-  { to: '/payslips', label: 'All Payslips', icon: List },
-  { to: '/leave-policy', label: 'Leave Policy', icon: ShieldCheck },
-  { to: '/announcements', label: 'Announcements', icon: Radio },
-  { to: '/audit-logs', label: 'Activity Logs', icon: Activity },
-  { to: '/profile', label: 'Company Profile', icon: Settings },
+  { to: '/attendance', label: 'Attendance', icon: Clock },
+  { to: '/leave', label: 'Leave', icon: CalendarDays },
+  { to: '/performance', label: 'Performance', icon: TrendingUp },
+  { to: '/tasks', label: 'Work Management', icon: ListTodo },
+  { to: '/payslips', label: 'All payslip', icon: List },
+  { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
 function useMediaQuery(query) {
@@ -45,14 +44,58 @@ export default function Layout() {
   const { theme, setTheme } = useTheme()
   const location = useLocation()
   const navigate = useNavigate()
+
+  const getActiveTitle = () => {
+    const path = location.pathname
+    const sorted = [...navItems].sort((a, b) => b.to.length - a.to.length)
+    const matched = sorted.find(item => {
+      if (item.to === '/') return path === '/'
+      return path.startsWith(item.to)
+    })
+    return matched ? matched.label : 'Payroll'
+  }
+
   const [deferredPrompt, setDeferredPrompt] = useState(null)
   const [notifications, setNotifications] = useState([])
   const [notifOpen, setNotifOpen] = useState(false)
+  const [announcements, setAnnouncements] = useState([])
+  const [announcementsOpen, setAnnouncementsOpen] = useState(false)
+
+  const fetchAnnouncements = async () => {
+    try {
+      const res = await api.get('/announcements')
+      const all = res.data.data || []
+      const now = new Date()
+      const active = all.filter((a) => {
+        if (!a.isActive) return false
+        const now = new Date()
+        if (a.startDate) {
+          const start = new Date(a.startDate)
+          start.setHours(0, 0, 0, 0)
+          if (start > now) return false
+        }
+        if (a.endDate) {
+          const end = new Date(a.endDate)
+          end.setHours(23, 59, 59, 999)
+          if (end < now) return false
+        }
+        return true
+      })
+      active.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      setAnnouncements(active)
+    } catch {
+      // silently fail
+    }
+  }
 
   useEffect(() => {
     if (user) {
       fetchNotifications()
-      const interval = setInterval(fetchNotifications, 60000)
+      fetchAnnouncements()
+      const interval = setInterval(() => {
+        fetchNotifications()
+        fetchAnnouncements()
+      }, 60000)
       return () => clearInterval(interval)
     }
   }, [user])
@@ -203,26 +246,23 @@ export default function Layout() {
                 whiteSpace: 'nowrap',
                 letterSpacing: '-0.02em'
               }}>
-                PaySlip <span style={{ color: 'var(--primary)' }}>Pro</span>
+                Payroll
               </span>
             )}
           </div>
         </div>
 
-        {/* Left-center part of header: Menu toggle button */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, height: '100%', flex: 1, paddingLeft: 16 }}>
-          <button 
-            onClick={toggleSidebar}
-            style={{ 
-              background: 'none', border: 'none', 
-              color: 'var(--text)', cursor: 'pointer', 
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              padding: 8, borderRadius: 8, transition: 'all 0.2s'
-            }}
-            className="btn-hover"
-          >
-            <Menu size={20} />
-          </button>
+        {/* Dynamic Page Header Title */}
+        <div style={{ display: 'flex', alignItems: 'center', flex: 1, paddingLeft: 24 }}>
+          <span style={{ 
+            fontSize: 15, 
+            fontWeight: 700, 
+            color: 'var(--text)',
+            letterSpacing: '-0.01em',
+            textTransform: 'capitalize'
+          }}>
+            {getActiveTitle()}
+          </span>
         </div>
 
         {/* Right side of header: Actions */}
@@ -243,6 +283,103 @@ export default function Layout() {
               <Download size={18} />
             </button>
           )}
+
+          {/* Announcements System */}
+          <div style={{ position: 'relative' }}>
+            <button 
+              onClick={() => setAnnouncementsOpen(!announcementsOpen)}
+              style={{ 
+                background: announcements.length > 0 ? 'rgba(239, 68, 68, 0.06)' : 'var(--bg)', 
+                border: announcements.length > 0 ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid var(--border)', 
+                color: announcements.length > 0 ? '#ef4444' : 'var(--text)', 
+                cursor: 'pointer', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 38, height: 38, borderRadius: 10, position: 'relative'
+              }}
+              title="Workspace Announcements"
+              className="btn-hover"
+            >
+              <Radio size={18} color={announcements.length > 0 ? '#ef4444' : 'var(--text)'} />
+              {announcements.length > 0 && (
+                <span style={{
+                  position: 'absolute', top: -3, right: -3,
+                  width: 8, height: 8, background: '#ef4444',
+                  borderRadius: '50%', border: '2px solid var(--surface)'
+                }} />
+              )}
+            </button>
+
+            {announcementsOpen && (
+              <>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 190 }} onClick={() => setAnnouncementsOpen(false)} />
+                <div style={{
+                  position: 'absolute', top: 46, right: 0, width: 340,
+                  background: 'var(--surface)', borderRadius: 14,
+                  boxShadow: '0 20px 40px rgba(0,0,0,0.18)', border: '1px solid var(--border)',
+                  zIndex: 200, overflow: 'hidden'
+                }}>
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Radio size={15} color="var(--primary)" />
+                      <span style={{ fontWeight: 800, fontSize: 13, color: 'var(--primary)' }}>Announcements</span>
+                    </div>
+                    <button 
+                      onClick={() => { setAnnouncementsOpen(false); navigate('/announcements'); }}
+                      style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer' }}
+                    >
+                      View All
+                    </button>
+                  </div>
+
+                  <div style={{ maxHeight: 300, overflowY: 'auto', padding: '8px 0' }}>
+                    {announcements.length === 0 ? (
+                      <div style={{ padding: '24px 16px', color: 'var(--text-muted)', fontSize: 11, textAlign: 'center' }}>
+                        No active announcements.
+                      </div>
+                    ) : (
+                      announcements.map((a) => (
+                        <div 
+                          key={a._id}
+                          style={{ 
+                            padding: '10px 16px', 
+                            borderBottom: '1px solid var(--border)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 4,
+                            textAlign: 'left'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{
+                              fontSize: 8,
+                              fontWeight: 800,
+                              textTransform: 'uppercase',
+                              padding: '1px 5px',
+                              borderRadius: 4,
+                              background: a.priority === 'Urgent' ? '#fef2f2' : a.priority === 'Important' ? '#fffbeb' : '#f0fdf4',
+                              color: a.priority === 'Urgent' ? '#ef4444' : a.priority === 'Important' ? '#d97706' : '#22c55e',
+                              border: `1px solid ${a.priority === 'Urgent' ? '#fca5a5' : a.priority === 'Important' ? '#fcd34d' : '#86efac'}`
+                            }}>
+                              {a.priority}
+                            </span>
+                            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                              {new Date(a.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>
+                            {a.title}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                            {a.message}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Notification System */}
           <div style={{ position: 'relative' }}>
@@ -401,7 +538,7 @@ export default function Layout() {
           zIndex: 120,
           transform: (isMobile && !sidebarOpen) ? 'translateX(-100%)' : 'translateX(0)',
           transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-          borderRight: '1px solid rgba(255,255,255,0.1)',
+          borderRight: '1px solid var(--border)',
           overflow: 'hidden'
         }}>
           {/* Navigation Sidebar */}
@@ -409,27 +546,27 @@ export default function Layout() {
             <div style={{ 
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: sidebarOpen ? '0 12px 16px' : '0 0 16px',
-              borderBottom: '1px solid rgba(255,255,255,0.05)',
+              borderBottom: '1px solid var(--border)',
               marginBottom: 16
             }}>
               {sidebarOpen ? (
                 <>
                   <span style={{ 
-                    fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', 
+                    fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', 
                     letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap'
                   }}>
-                    Technologies
+                    Workspace
                   </span>
                   <button 
                     onClick={toggleSidebar} 
                     style={{ 
-                      background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', 
+                      background: 'none', border: 'none', color: 'var(--text-muted)', 
                       cursor: 'pointer', padding: 4, borderRadius: 4,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       transition: 'all 0.2s'
                     }}
-                    onMouseEnter={e => e.currentTarget.style.color = 'white'}
-                    onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                    onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
                     title="Collapse sidebar"
                   >
                     <ChevronLeft size={16} />
@@ -443,10 +580,10 @@ export default function Layout() {
                     background: 'none', border: 'none', cursor: 'pointer',
                     width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     padding: '4px 0', borderRadius: 4, transition: 'all 0.2s',
-                    color: 'rgba(255,255,255,0.4)',
+                    color: 'var(--text-muted)',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.color = 'white'}
-                  onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
                 >
                   <ChevronRight size={16} />
                 </button>
@@ -458,22 +595,26 @@ export default function Layout() {
                 to={to}
                 end={end}
                 title={!sidebarOpen ? label : ''}
-                style={({ isActive }) => ({
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                  gap: 12,
-                  padding: '12px 16px',
-                  borderRadius: 6,
-                  marginBottom: 6,
-                  textDecoration: 'none',
-                  fontSize: 14,
-                  fontWeight: isActive ? 600 : 500,
-                  color: isActive ? 'white' : 'rgba(255,255,255,0.5)',
-                  background: isActive ? 'var(--sidebar-active)' : 'transparent',
-                  transition: 'all 0.2s ease',
-                  whiteSpace: 'nowrap'
-                })}
+                className="sidebar-link"
+                style={({ isActive }) => {
+                  const active = isActive || (to === '/payslips' && location.pathname.startsWith('/generate'));
+                  return {
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: sidebarOpen ? 'flex-start' : 'center',
+                    gap: 12,
+                    padding: '12px 16px',
+                    borderRadius: 6,
+                    marginBottom: 6,
+                    textDecoration: 'none',
+                    fontSize: 14,
+                    fontWeight: active ? 600 : 500,
+                    color: active ? 'white' : 'var(--text-muted)',
+                    background: active ? 'var(--sidebar-active)' : 'transparent',
+                    transition: 'all 0.2s ease',
+                    whiteSpace: 'nowrap'
+                  };
+                }}
               >
                 <Icon size={20} opacity={0.8} style={{ flexShrink: 0 }} />
                 {sidebarOpen && <span>{label}</span>}
@@ -481,12 +622,12 @@ export default function Layout() {
             ))}
           </nav>
 
-          <div style={{ padding: '0 14px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+          <div style={{ padding: '0 14px 14px', borderTop: '1px solid var(--border)', paddingTop: 12 }}>
             {sidebarOpen ? (
               /* Company card with Sign Out clearly inside */
               <div style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
                 borderRadius: 12,
                 overflow: 'hidden',
               }}>
@@ -497,7 +638,7 @@ export default function Layout() {
                     display: 'flex', alignItems: 'center', gap: 10,
                     padding: '11px 12px', cursor: 'pointer', transition: 'background 0.2s'
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   title="Company Profile"
                 >
@@ -510,17 +651,17 @@ export default function Layout() {
                     {(user?.companyName || 'A').charAt(0).toUpperCase()}
                   </div>
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {user?.companyName || 'Company'}
                     </div>
-                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {user?.email || 'admin'}
                     </div>
                   </div>
                 </div>
 
                 {/* Divider */}
-                <div style={{ height: '1px', background: 'rgba(255,255,255,0.07)', margin: '0' }} />
+                <div style={{ height: '1px', background: 'var(--border)', margin: '0' }} />
 
                 {/* Sign Out row — clearly inside card */}
                 <button
@@ -528,11 +669,11 @@ export default function Layout() {
                   style={{
                     width: '100%', background: 'none', border: 'none', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '9px 12px', color: 'rgba(255,255,255,0.45)',
+                    padding: '9px 12px', color: 'var(--text-muted)',
                     fontSize: 12, fontWeight: 600, transition: 'all 0.2s',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.1)'; e.currentTarget.style.color = '#f87171'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'; e.currentTarget.style.color = '#ef4444'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-muted)'; }}
                 >
                   <LogOut size={13} style={{ flexShrink: 0 }} />
                   Sign Out
@@ -544,14 +685,14 @@ export default function Layout() {
                 onClick={logout}
                 title="Sign Out"
                 style={{
-                  width: '100%', background: 'transparent', color: 'rgba(255,255,255,0.4)',
-                  border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8,
+                  width: '100%', background: 'transparent', color: 'var(--text-muted)',
+                  border: '1px solid var(--border)', borderRadius: 8,
                   padding: '8px 0', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'all 0.2s'
                 }}
-                onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; e.currentTarget.style.borderColor = 'rgba(248,113,113,0.3)'; }}
-                onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.2)'; }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
               >
                 <LogOut size={14} />
               </button>

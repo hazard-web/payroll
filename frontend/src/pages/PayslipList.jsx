@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Search, Filter, Eye, Download, Mail, Trash2, FileText,
-  ChevronLeft, ChevronRight, Loader2, Copy, Plus, Share2
+  Search, Filter, Download, Mail, Trash2, FileText,
+  ChevronLeft, ChevronRight, Loader2, Copy, Plus, Share2, MoreVertical
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api'
 import PageShell, { PageHeader } from '../components/PageShell'
-import { Avatar, EmptyState, SearchInput } from '../components/UI'
+import { Avatar, EmptyState, SearchInput, Modal } from '../components/UI'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const CURRENT_YEAR = new Date().getFullYear()
@@ -38,6 +38,7 @@ export default function PayslipList() {
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 })
   const [actionLoading, setActionLoading] = useState({})
   const [deleting, setDeleting] = useState(null)
+  const [selectedPayslip, setSelectedPayslip] = useState(null)
 
   const fetchPayslips = useCallback(async () => {
     setLoading(true)
@@ -60,6 +61,14 @@ export default function PayslipList() {
     const timer = setTimeout(fetchPayslips, search ? 350 : 0)
     return () => clearTimeout(timer)
   }, [fetchPayslips])
+  useEffect(() => {
+    if (selectedPayslip === null) return
+    const handleClose = () => setSelectedPayslip(null)
+    window.addEventListener('click', handleClose)
+    return () => window.removeEventListener('click', handleClose)
+  }, [selectedPayslip])
+
+
 
   const handleDownload = async (id, name, month, year) => {
     setActionLoading(a => ({ ...a, [`dl_${id}`]: true }))
@@ -137,18 +146,7 @@ export default function PayslipList() {
   const isFiltered = search || filterMonth || filterYear
 
   return (
-    <PageShell>
-      <PageHeader
-        title="Payslip Vault"
-        subtitle={<>Management console for <strong>{pagination.total}</strong> generated artifacts.</>}
-        actions={
-          <button onClick={() => navigate('/generate')} className="btn-primary btn-md">
-            <Plus size={18} strokeWidth={3} />
-            Create New
-          </button>
-        }
-      />
-
+    <PageShell style={{ maxWidth: 'none' }}>
       {/* Filter Bar */}
       <div className="fade-in glass" style={{
         padding: 'var(--space-4) var(--space-5)', marginBottom: 'var(--space-6)',
@@ -162,7 +160,7 @@ export default function PayslipList() {
           />
         </div>
 
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginLeft: 'auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Filter size={14} color="var(--text-light)" />
             <select
@@ -190,16 +188,36 @@ export default function PayslipList() {
             <button
               onClick={() => { setSearch(''); setFilterMonth(''); setFilterYear(''); setPage(1) }}
               className="btn-secondary btn-sm"
+              style={{ height: 34, borderRadius: 8, fontSize: 12, fontWeight: 600 }}
             >
               Reset Filters
             </button>
           )}
+
+          <button
+            onClick={() => navigate('/generate')}
+            className="btn-primary"
+            style={{ 
+              height: 34, 
+              padding: '0 14px', 
+              borderRadius: 8, 
+              fontSize: 12, 
+              fontWeight: 700, 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 6,
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <Plus size={16} strokeWidth={2.5} /> Create New
+          </button>
         </div>
       </div>
 
       {/* Data Table */}
-      <div className="fade-in glass" style={{ animationDelay: '100ms', overflow: 'hidden' }}>
-        <div className="table-card" style={{ border: 'none' }}>
+      <div className="fade-in glass" style={{ animationDelay: '100ms', overflow: 'visible' }}>
+        <div className="table-card" style={{ border: 'none', overflow: 'visible' }}>
           <table className="data-table" style={{ minWidth: 800 }}>
             <thead>
               <tr style={{ background: 'var(--primary)' }}>
@@ -276,15 +294,196 @@ export default function PayslipList() {
                     </td>
 
                     {/* Actions */}
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: 6 }}>
-                        <ActionBtn icon={Eye} label="View Full Slip" onClick={() => navigate(`/payslips/${p._id}`)} color="var(--primary)" />
-                        <ActionBtn icon={Share2} label="Push to Portal" loading={actionLoading[`push_${p._id}`]} onClick={() => handlePush(p._id)} color="var(--primary)" />
-                        <ActionBtn icon={Copy} label="Clone Document" loading={actionLoading[`dup_${p._id}`]} onClick={() => handleDuplicate(p._id)} color="var(--primary)" />
-                        <ActionBtn icon={Download} label="Export PDF" loading={actionLoading[`dl_${p._id}`]} onClick={() => handleDownload(p._id, p.employeeName, p.month, p.year)} color="var(--primary)" />
-                        <ActionBtn icon={Mail} label="Push to Email" loading={actionLoading[`em_${p._id}`]} onClick={() => handleEmail(p._id, p.employeeEmail)} color="var(--primary)" />
-                        <ActionBtn icon={Trash2} label="Purge Record" loading={deleting === p._id} onClick={() => handleDelete(p._id)} color="var(--primary)" />
-                      </div>
+                    <td style={{ textAlign: 'right', position: 'relative' }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedPayslip(selectedPayslip?._id === p._id ? null : p)
+                        }}
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 8,
+                          color: 'var(--text-light)',
+                          background: 'transparent',
+                          border: 'none',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer'
+                        }}
+                        className="btn-hover"
+                        title="Actions"
+                      >
+                        <MoreVertical size={14} />
+                      </button>
+
+                      {selectedPayslip?._id === p._id && (
+                        <div 
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            position: 'absolute',
+                            right: 12,
+                            top: '80%',
+                            width: 170,
+                            background: 'var(--surface)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 10,
+                            boxShadow: 'var(--shadow-lg)',
+                            zIndex: 120,
+                            overflow: 'hidden',
+                            padding: '4px 0',
+                            textAlign: 'left'
+                          }}
+                        >
+                          <button
+                            onClick={() => { setSelectedPayslip(null); navigate(`/payslips/${p._id}`); }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            style={{
+                              width: '100%',
+                              textAlign: 'left',
+                              padding: '8px 12px',
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text)',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              transition: 'background 0.15s'
+                            }}
+                          >
+                            📄 View Full Slip
+                          </button>
+                          <button
+                            onClick={async () => {
+                              setSelectedPayslip(null);
+                              await handlePush(p._id);
+                            }}
+                            disabled={actionLoading[`push_${p._id}`]}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            style={{
+                              width: '100%',
+                              textAlign: 'left',
+                              padding: '8px 12px',
+                              background: 'none',
+                              border: 'none',
+                              color: p.isPushedToPortal ? '#22c55e' : 'var(--text)',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              transition: 'background 0.15s'
+                            }}
+                          >
+                            🌐 {p.isPushedToPortal ? 'Remove Portal' : 'Push to Portal'}
+                          </button>
+                          <button
+                            onClick={async () => {
+                              setSelectedPayslip(null);
+                              await handleEmail(p._id, p.employeeEmail);
+                            }}
+                            disabled={actionLoading[`em_${p._id}`]}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            style={{
+                              width: '100%',
+                              textAlign: 'left',
+                              padding: '8px 12px',
+                              background: 'none',
+                              border: 'none',
+                              color: p.emailSent ? '#3b82f6' : 'var(--text)',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              transition: 'background 0.15s'
+                            }}
+                          >
+                            ✉️ {p.emailSent ? 'Resend Email' : 'Send to Email'}
+                          </button>
+                          <button
+                            onClick={async () => {
+                              setSelectedPayslip(null);
+                              await handleDownload(p._id, p.employeeName, p.month, p.year);
+                            }}
+                            disabled={actionLoading[`dl_${p._id}`]}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            style={{
+                              width: '100%',
+                              textAlign: 'left',
+                              padding: '8px 12px',
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text)',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              transition: 'background 0.15s'
+                            }}
+                          >
+                            📥 Download PDF
+                          </button>
+                          <button
+                            onClick={async () => {
+                              setSelectedPayslip(null);
+                              await handleDuplicate(p._id);
+                            }}
+                            disabled={actionLoading[`dup_${p._id}`]}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            style={{
+                              width: '100%',
+                              textAlign: 'left',
+                              padding: '8px 12px',
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text)',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              transition: 'background 0.15s'
+                            }}
+                          >
+                            📋 Clone Record
+                          </button>
+                          <button
+                            onClick={async () => {
+                              setSelectedPayslip(null);
+                              await handleDelete(p._id);
+                            }}
+                            disabled={deleting === p._id}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            style={{
+                              width: '100%',
+                              textAlign: 'left',
+                              padding: '8px 12px',
+                              background: 'none',
+                              border: 'none',
+                              color: '#dc2626',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              transition: 'background 0.15s'
+                            }}
+                          >
+                            🗑️ Delete
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -320,6 +519,9 @@ export default function PayslipList() {
           </div>
         )}
       </div>
+
+
+
     </PageShell>
   )
 }

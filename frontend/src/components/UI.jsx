@@ -107,9 +107,10 @@ export function SegmentedControl({
   value,
   onChange,
   className = '',
+  style = {},
 }) {
   return (
-    <div className={`segmented ${className}`}>
+    <div className={`segmented ${className}`} style={style}>
       {options.map((opt) => (
         <button
           key={opt.value}
@@ -294,20 +295,32 @@ export function StatCard({
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       className={`stat-card ${onClick ? 'stat-card--clickable' : ''} ${className}`}
-      style={{ textDecoration: 'none', border: 0, textAlign: 'left', width: '100%' }}
+      style={{
+        textDecoration: 'none',
+        border: '1px solid var(--border)',
+        borderRadius: 12,
+        padding: '16px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        textAlign: 'left',
+        width: '100%',
+        background: color.startsWith('#') ? `${color}0c` : 'rgba(148, 163, 184, 0.04)',
+        cursor: onClick ? 'pointer' : 'default'
+      }}
     >
-      <div className="stat-icon" style={{ background: `${color}15`, color }}>
-        {Icon && <Icon size={20} />}
+      <div className="stat-icon" style={{ background: `${color}18`, color, width: 38, height: 38, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        {Icon && <Icon size={18} />}
       </div>
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div className="text-muted" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+        <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>
           {label}
         </div>
-        <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', letterSpacing: -0.02 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', letterSpacing: -0.02 }}>
           {value}
         </div>
         {trend && (
-          <div style={{ fontSize: 11, fontWeight: 600, marginTop: 4, color }}>
+          <div style={{ fontSize: 10, fontWeight: 600, marginTop: 4, color }}>
             {trend}
           </div>
         )}

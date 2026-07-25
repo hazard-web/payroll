@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, LogOut, User, Clock,
-  CalendarDays, Menu, ChevronLeft, ChevronRight, Sun, Moon, Monitor, FileText, Bell, Loader2, CheckCheck, AlertTriangle, Headphones, Settings, ListChecks
+  CalendarDays, Menu, ChevronLeft, ChevronRight, Sun, Moon, Monitor, FileText, Bell, Loader2, CheckCheck, AlertTriangle, Headphones, Settings, ListChecks, Radio
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { useStaffPortal } from '../context/StaffPortalContext'
@@ -51,6 +51,25 @@ export default function PortalLayout() {
   const [supportMessage, setSupportMessage] = useState('')
   const [supportSubmitting, setSupportSubmitting] = useState(false)
 
+  // Announcements state
+  const [announcements, setAnnouncements] = useState([])
+  const [showAnnouncements, setShowAnnouncements] = useState(false)
+
+  const fetchAnnouncements = async () => {
+    try {
+      const res = await api.get('/portal/announcements')
+      setAnnouncements(res.data.data || [])
+    } catch (err) {
+      console.error('Failed to fetch portal announcements:', err)
+    }
+  }
+
+  useEffect(() => {
+    if (staffUser) {
+      fetchAnnouncements()
+    }
+  }, [staffUser])
+
   useEffect(() => {
     setSidebarOpen(!window.matchMedia('(max-width: 1024px)').matches)
   }, [])
@@ -60,6 +79,16 @@ export default function PortalLayout() {
   }, [location.pathname, isMobile])
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen)
+
+  const getActiveTitle = () => {
+    const path = location.pathname
+    const sorted = [...navItems].sort((a, b) => b.to.length - a.to.length)
+    const matched = sorted.find(item => {
+      if (item.to === '/portal') return path === '/portal'
+      return path.startsWith(item.to)
+    })
+    return matched ? matched.label : 'Team Portal'
+  }
 
   const fetchNotifications = async () => {
     setNotifLoading(true)
@@ -174,7 +203,7 @@ export default function PortalLayout() {
         zIndex: 120,
         transform: (isMobile && !sidebarOpen) ? 'translateX(-100%)' : 'translateX(0)',
         transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-        borderRight: '1px solid rgba(255,255,255,0.1)',
+        borderRight: '1px solid var(--border)',
         overflow: 'hidden'
       }}>
         {/* Brand Header */}
@@ -185,7 +214,7 @@ export default function PortalLayout() {
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 8,
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
+          borderBottom: '1px solid var(--border)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{
@@ -203,7 +232,7 @@ export default function PortalLayout() {
                 <div style={{
                   fontFamily: 'var(--font-display)',
                   fontSize: 12, fontWeight: 700,
-                  color: 'rgba(255,255,255,0.7)', letterSpacing: '0.1em',
+                  color: 'var(--text-muted)', letterSpacing: '0.1em',
                   whiteSpace: 'nowrap', textTransform: 'uppercase'
                 }}>Team Portal</div>
               </motion.div>
@@ -214,20 +243,25 @@ export default function PortalLayout() {
             <button 
               onClick={toggleSidebar} 
               style={{ 
-                background: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', 
+                background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', 
                 cursor: 'pointer', padding: 6, borderRadius: 8,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'all 0.2s',
                 marginLeft: 0
               }}
+              className="btn-hover"
             >
-              {sidebarOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
+              {sidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
             </button>
           )}
 
           {isMobile && (
-            <button onClick={() => setSidebarOpen(false)} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', cursor: 'pointer', padding: 6, borderRadius: 8 }}>
-              <ChevronLeft size={20} />
+            <button 
+              onClick={() => setSidebarOpen(false)} 
+              style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', padding: 6, borderRadius: 8 }}
+              className="btn-hover"
+            >
+              <ChevronLeft size={16} />
             </button>
           )}
         </div>
@@ -235,7 +269,7 @@ export default function PortalLayout() {
         {/* Navigation Sidebar */}
         <nav style={{ padding: '24px 16px', flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
           <div style={{ 
-            fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.3)', 
+            fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', 
             letterSpacing: '0.1em', padding: sidebarOpen ? '0 12px 14px' : '0 0 14px', 
             textTransform: 'uppercase', textAlign: sidebarOpen ? 'left' : 'center',
             whiteSpace: 'nowrap'
@@ -247,18 +281,19 @@ export default function PortalLayout() {
               key={to}
               to={to}
               title={!sidebarOpen ? label : ''}
+              className="sidebar-link"
               style={({ isActive }) => ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                gap: 10,
-                padding: '10px 14px',
+                gap: 12,
+                padding: '12px 16px',
                 borderRadius: 6,
                 marginBottom: 6,
                 textDecoration: 'none',
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: isActive ? 600 : 500,
-                color: isActive ? 'white' : 'rgba(255,255,255,0.55)',
+                color: isActive ? 'white' : 'var(--text-muted)',
                 background: isActive ? 'var(--sidebar-active)' : 'transparent',
                 transition: 'all 0.2s ease',
                 whiteSpace: 'nowrap'
@@ -271,45 +306,73 @@ export default function PortalLayout() {
         </nav>
 
         {/* User Profile Hook */}
-        <div style={{
-          padding: '20px 16px',
-          background: 'rgba(0,0,0,0.2)',
-          borderTop: '1px solid rgba(255,255,255,0.05)',
-        }}>
-          <div style={{ 
-            display: 'flex', alignItems: 'center', justifyContent: sidebarOpen ? 'flex-start' : 'center', gap: 12, 
-            padding: '12px', background: 'rgba(255,255,255,0.03)', 
-            borderRadius: 12, marginBottom: 12 
-          }}>
-            <div style={{ 
-              width: 36, height: 36, borderRadius: 10, 
-              background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0
+        <div style={{ padding: '0 14px 14px', borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+          {sidebarOpen ? (
+            <div style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 12,
+              overflow: 'hidden',
             }}>
-              <User size={16} color="var(--primary)" />
-            </div>
-            {sidebarOpen && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, color: 'white', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {staffUser?.fullName}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '11px 12px', cursor: 'pointer', transition: 'background 0.2s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <div style={{
+                  width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+                  background: 'var(--primary)', color: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: 800, fontSize: 14,
+                }}>
+                  {(staffUser?.fullName || 'E').charAt(0).toUpperCase()}
                 </div>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>{staffUser?.designation}</div>
-              </motion.div>
-            )}
-          </div>
-          <button 
-            onClick={logout}
-            className="btn-secondary"
-            style={{ 
-              width: '100%', background: 'rgba(255,255,255,0.05)', color: 'white', 
-              border: '1px solid rgba(255,255,255,0.1)', padding: sidebarOpen ? '10px' : '10px 0',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10
-            }}
-            title={!sidebarOpen ? "Sign Out" : ""}
-          >
-            <LogOut size={16} /> {sidebarOpen && "Sign Out"}
-          </button>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {staffUser?.fullName}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {staffUser?.designation || 'Team Member'}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ height: '1px', background: 'var(--border)', margin: '0' }} />
+
+              <button
+                onClick={logout}
+                style={{
+                  width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '9px 12px', color: 'var(--text-muted)',
+                  fontSize: 12, fontWeight: 600, transition: 'all 0.2s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'; e.currentTarget.style.color = '#ef4444'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+              >
+                <LogOut size={13} style={{ flexShrink: 0 }} />
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={logout}
+              title="Sign Out"
+              style={{
+                width: '100%', background: 'transparent', color: 'var(--text-muted)',
+                border: '1px solid var(--border)', borderRadius: 8,
+                padding: '8px 0', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.2)'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+            >
+              <LogOut size={14} />
+            </button>
+          )}
         </div>
       </aside>
 
@@ -352,12 +415,107 @@ export default function PortalLayout() {
                 <Menu size={20} />
               </button>
             )}
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primary)', opacity: 0.9, letterSpacing: '-0.01em' }}>
-              Team Portal Console
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', opacity: 0.9, letterSpacing: '-0.01em', textTransform: 'capitalize' }}>
+              {getActiveTitle()}
             </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {/* Announcement Megaphone in Red */}
+            <div style={{ position: 'relative' }}>
+              <button 
+                onClick={() => {
+                  setShowAnnouncements(!showAnnouncements);
+                  if(!showAnnouncements) fetchAnnouncements();
+                }}
+                style={{
+                  background: 'var(--bg)', border: '1px solid var(--border)', 
+                  color: '#ef4444', cursor: 'pointer', 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 40, height: 40, borderRadius: 12, transition: 'all 0.2s',
+                  position: 'relative'
+                }}
+                className="btn-hover"
+              >
+                <Radio size={20} />
+                {announcements.length > 0 && (
+                  <span style={{ position: 'absolute', top: -4, right: -4, width: 10, height: 10, background: '#ef4444', borderRadius: '50%', border: '2px solid var(--surface)' }} />
+                )}
+              </button>
+
+              <AnimatePresence>
+                {showAnnouncements && (
+                  <>
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 90 }} onClick={() => setShowAnnouncements(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      style={{
+                        position: 'absolute', top: '100%', right: 0, marginTop: 12,
+                        width: 320, background: 'var(--surface)', borderRadius: 14,
+                        border: '1px solid var(--border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.12)',
+                        zIndex: 100, overflow: 'hidden'
+                      }}
+                    >
+                      <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <Radio size={15} color="#ef4444" />
+                          <span style={{ fontWeight: 800, fontSize: 13, color: '#ef4444' }}>Announcements</span>
+                        </div>
+                      </div>
+                      <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                        {announcements.length === 0 ? (
+                          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                            <Radio size={26} style={{ opacity: 0.3, display: 'block', margin: '0 auto 8px', color: '#ef4444' }} />
+                            No active announcements.
+                          </div>
+                        ) : (
+                          announcements.map((a) => (
+                            <div 
+                              key={a._id}
+                              style={{ 
+                                padding: '12px 16px', 
+                                borderBottom: '1px solid var(--border)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 4,
+                                textAlign: 'left'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{
+                                  fontSize: 8,
+                                  fontWeight: 800,
+                                  textTransform: 'uppercase',
+                                  padding: '1px 5px',
+                                  borderRadius: 4,
+                                  background: a.priority === 'Urgent' ? '#fef2f2' : a.priority === 'Important' ? '#fffbeb' : '#f0fdf4',
+                                  color: a.priority === 'Urgent' ? '#ef4444' : a.priority === 'Important' ? '#d97706' : '#22c55e',
+                                  border: `1px solid ${a.priority === 'Urgent' ? '#fca5a5' : a.priority === 'Important' ? '#fcd34d' : '#86efac'}`
+                                }}>
+                                  {a.priority}
+                                </span>
+                                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                                  {new Date(a.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>
+                                {a.title}
+                              </div>
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                                {a.message}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
             {/* Notification Bell */}
             <div style={{ position: 'relative' }}>
               <button 

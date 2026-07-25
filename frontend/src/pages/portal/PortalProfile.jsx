@@ -1,15 +1,27 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStaffPortal } from '../../context/StaffPortalContext'
-import { Save, Loader2, AlertCircle, CheckCircle2, Upload, FileText } from 'lucide-react'
+import {
+  Save, Loader2, AlertCircle, CheckCircle2, Upload, FileText,
+  Mail, Phone, CreditCard, Calendar, User, MapPin, Landmark, ShieldCheck, Hash,
+  FileDigit, Briefcase, Shield, Edit, Download, Plus
+} from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import api from '../../api'
-import PageShell from '../../components/PageShell'
+import PageShell, { PageHeader } from '../../components/PageShell'
+import { InputField, SelectField } from '../../components/UI'
 import { motion } from 'framer-motion'
 
-const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/
+const PAN_REGEX = /^[A-Z0-9]{5,15}$/i
 
 const emptyForm = {
+  employeeId: '',
+  joiningDate: '',
+  department: '',
+  designation: '',
+  type: 'Employee',
+  workLocation: 'Office',
+  email: '',
   phone: '',
   panNumber: '',
   dob: '',
@@ -22,40 +34,115 @@ const emptyForm = {
     accountNumber: '',
     ifscCode: '',
     branch: ''
+  },
+  salaryDetails: {
+    annualCtc: ''
   }
 }
 
-function Section({ title, subtitle, children }) {
+const GENDER_OPTIONS = [
+  { value: 'Male', label: 'Male' },
+  { value: 'Female', label: 'Female' },
+  { value: 'Other', label: 'Other' }
+]
+
+function Section({ title, subtitle, icon: Icon, children }) {
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 28, marginBottom: 24 }}>
-      <h3 style={{ margin: 0, marginBottom: 6, color: 'var(--primary)', fontSize: 18 }}>{title}</h3>
-      {subtitle && <p style={{ margin: 0, marginBottom: 20, color: 'var(--text-muted)', fontSize: 13 }}>{subtitle}</p>}
-      {children}
+    <div className="section-card" style={{ marginBottom: 28 }}>
+      <div className="section-card__header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 16, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+        {Icon && <div style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', background: 'var(--bg)', padding: 8, borderRadius: 8 }}><Icon size={18} /></div>}
+        <div>
+          <h3 className="section-card__title" style={{ margin: 0, fontSize: 16 }}>{title}</h3>
+          {subtitle && <p className="section-card__subtitle" style={{ margin: '4px 0 0', fontSize: 12 }}>{subtitle}</p>}
+        </div>
+      </div>
+      <div className="section-card__body" style={{ padding: 0 }}>
+        {children}
+      </div>
     </div>
   )
 }
 
-function Field({ label, required, children, hint, error }) {
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        {label}{required && <span style={{ color: 'var(--primary)' }}> *</span>}
-      </label>
-      {children}
-      {hint && !error && (
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>{hint}</div>
-      )}
-      {error && (
-        <div style={{ fontSize: 11, color: '#dc2626', marginTop: 6, fontWeight: 600 }}>{error}</div>
-      )}
-    </div>
-  )
+const initials = (name) => {
+  if (!name) return ''
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
 }
 
-const inputStyle = {
-  width: '100%', padding: '12px 14px', background: 'var(--bg)',
-  border: '2px solid var(--border)', borderRadius: 10, outline: 'none', fontSize: 14,
-  color: 'var(--text)', transition: 'all 0.2s', fontWeight: 600
+function DocumentCardRowView({ label, document, onUploadClick }) {
+  const isUploaded = Boolean(document?.url);
+  return (
+    <div style={{
+      border: '1px solid var(--border)',
+      borderRadius: 12,
+      padding: '16px',
+      background: 'var(--surface)',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      gap: 12,
+      minHeight: 120
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <div style={{
+            width: 40,
+            height: 40,
+            borderRadius: 8,
+            background: isUploaded ? 'rgba(88, 131, 59, 0.08)' : 'var(--bg)',
+            color: isUploaded ? 'var(--primary)' : 'var(--text-light)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            {label === 'Profile Picture' ? <User size={18} /> : <FileText size={18} />}
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{label}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              {isUploaded ? (
+                <>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', background: 'rgba(88, 131, 59, 0.08)', padding: '2px 6px', borderRadius: 4 }}>
+                    Verified ✓
+                  </span>
+                  {document.uploadedAt && (
+                    <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                      on {new Date(document.uploadedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-light)', background: 'var(--bg)', padding: '2px 6px', borderRadius: 4 }}>
+                  Not uploaded
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {!isUploaded && (
+        <button type="button" onClick={onUploadClick} className="btn-secondary" style={{ width: '100%', height: 32, borderRadius: 6, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}>
+          <Plus size={12} /> Upload Document
+        </button>
+      )}
+      
+      {isUploaded && (
+        <a 
+          href={document.url} 
+          download={document.originalName || label}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-secondary"
+          style={{ width: '100%', height: 32, borderRadius: 6, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, textDecoration: 'none', color: 'var(--text)', border: '1px solid var(--border)', background: 'var(--surface)' }}
+        >
+          <Download size={12} /> Download / View
+        </a>
+      )}
+    </div>
+  );
 }
 
 const DOCUMENT_CONFIG = [
@@ -86,62 +173,93 @@ function DocumentUpload({ type, label, hint, accept, required, document, onUploa
 
   return (
     <div style={{
-      border: `2px dashed ${error ? '#dc2626' : 'var(--border)'}`,
-      borderRadius: 12, padding: 20,
-      background: 'var(--bg)', display: 'flex', flexDirection: 'column', gap: 12
+      border: `1.5px dashed ${error ? '#ef4444' : 'var(--border)'}`,
+      borderRadius: 14,
+      padding: 20,
+      background: 'var(--surface)',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 16,
+      transition: 'all 0.2s ease',
+      boxShadow: 'var(--shadow-sm)'
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
             {label}{required && <span style={{ color: 'var(--primary)' }}> *</span>}
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{hint}</div>
         </div>
-        {document?.uploadedAt && (
+        {document?.url && (
           <span style={{
-            fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 100,
-            background: 'rgba(88,131,59, 0.1)', color: '#58833b'
-          }}>Uploaded</span>
+            fontSize: 9, fontWeight: 800, padding: '3px 8px', borderRadius: 100,
+            background: 'rgba(88,131,59, 0.08)', color: '#58833b', border: '1px solid rgba(88,131,59, 0.15)'
+          }}>VERIFIED ✓</span>
         )}
       </div>
 
-      {document?.url && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      {document?.url ? (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: 12,
+          background: 'var(--bg)',
+          borderRadius: 10,
+          border: '1px solid var(--border)'
+        }}>
           {isImage ? (
             <img
               src={document.url}
               alt={label}
-              style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--border)' }}
+              style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }}
             />
-          ) : isPdf ? (
+          ) : (
             <div style={{
-              width: 72, height: 72, borderRadius: 10, border: '1px solid var(--border)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)'
+              width: 52, height: 52, borderRadius: 6, border: '1px solid var(--border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface)', color: 'var(--primary)'
             }}>
-              <FileText size={28} color="var(--primary)" />
+              <FileText size={24} />
             </div>
-          ) : null}
+          )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {document.originalName || 'Document'}
             </div>
             {document.uploadedAt && (
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                {new Date(document.uploadedAt).toLocaleDateString('en-IN')}
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+                {new Date(document.uploadedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
               </div>
             )}
           </div>
         </div>
+      ) : (
+        <div style={{
+          height: 80,
+          border: '1px dashed var(--border)',
+          borderRadius: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'column',
+          background: 'var(--bg)',
+          color: 'var(--text-light)',
+          fontSize: 11,
+          fontWeight: 500
+        }}>
+          <Upload size={18} style={{ marginBottom: 4, opacity: 0.5 }} />
+          Not uploaded yet
+        </div>
       )}
 
       <label style={{
-        display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px',
-        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
-        fontSize: 13, fontWeight: 700, color: 'var(--primary)', cursor: uploading ? 'not-allowed' : 'pointer',
-        alignSelf: 'flex-start', opacity: uploading ? 0.6 : 1
-      }}>
-        {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-        {document?.url ? 'Replace File' : 'Upload File'}
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 14px',
+        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8,
+        fontSize: 12, fontWeight: 700, color: 'var(--primary)', cursor: uploading ? 'not-allowed' : 'pointer',
+        opacity: uploading ? 0.6 : 1, transition: 'all 0.15s ease', width: '100%', boxSizing: 'border-box'
+      }} className="btn-hover">
+        {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+        {document?.url ? 'Replace Document' : 'Upload Document'}
         <input
           type="file"
           accept={accept}
@@ -165,21 +283,29 @@ export default function PortalProfile() {
   const [errors, setErrors] = useState({})
   const [documents, setDocuments] = useState({})
   const [uploadingDoc, setUploadingDoc] = useState(null)
+  
+  const [isEditing, setIsEditing] = useState(false)
+  const isEditingInitialized = useRef(false)
+  const hasInitializedForm = useRef(false)
 
-  // Track which staffUser the form was last initialized from.
-  // When the underlying user changes (e.g. login switch, or a real profile
-  // save that mutated fields), we reinitialize. When `staffUser` updates
-  // for a reason that shouldn't clobber the user's unsaved typing — most
-  // importantly, a document upload via refresh() — we MUST NOT reinitialize
-  // the form, because the server snapshot doesn't have the user's in-flight
-  // edits and overwriting would lose them.
-  const lastInitUserIdRef = useRef(null)
   useEffect(() => {
     if (!staffUser) return
-    const userId = staffUser.id || staffUser._id
-    // First load, or the actual logged-in user changed → full reinitialize.
-    if (lastInitUserIdRef.current !== userId) {
+    
+    // Set isEditing view initial state depending on profileCompletion
+    if (!isEditingInitialized.current) {
+      setIsEditing(!staffUser.profileCompleted)
+      isEditingInitialized.current = true
+    }
+
+    if (!hasInitializedForm.current || !isEditing) {
       setForm({
+        employeeId: staffUser.employeeId || '',
+        joiningDate: staffUser.joiningDate ? String(staffUser.joiningDate).split('T')[0] : '',
+        department: staffUser.department || '',
+        designation: staffUser.designation || '',
+        type: staffUser.type || 'Employee',
+        workLocation: staffUser.workLocation || 'Office',
+        email: staffUser.email || '',
         phone: staffUser.phone || '',
         panNumber: staffUser.panNumber || '',
         dob: staffUser.dob ? String(staffUser.dob).split('T')[0] : '',
@@ -202,47 +328,28 @@ export default function PortalProfile() {
           accountNumber: staffUser.bankDetails?.accountNumber || '',
           ifscCode: staffUser.bankDetails?.ifscCode || '',
           branch: staffUser.bankDetails?.branch || ''
+        },
+        salaryDetails: {
+          annualCtc: staffUser.salaryDetails?.annualCtc || ''
         }
       })
-      setDocuments(staffUser.documents || {})
-      lastInitUserIdRef.current = userId
-      return
+      hasInitializedForm.current = true
     }
-    // Same user, but a background refresh (e.g. document upload, profile
-    // save with no field changes): update ONLY the documents section.
-    // The form fields stay as the user typed them — that's the source of
-    // truth for unsaved edits. After the next save, the server snapshot
-    // will match what the user sees and the page will be in sync.
-    if (staffUser.documents) {
-      setDocuments(staffUser.documents)
-    }
-  }, [staffUser])
+    setDocuments(staffUser.documents || {})
+  }, [staffUser, isEditing])
 
   const handleDocumentUpload = async (type, data, originalName) => {
     setUploadingDoc(type)
     try {
-      // Snapshot the current form so we can restore it if the API response
-      // doesn't include the user's in-flight (unsaved) field values.
       const formSnapshot = form
       const res = await api.post(`/portal/me/documents/${type}`, { data, originalName })
       const label = DOCUMENT_CONFIG.find((d) => d.type === type)?.label || 'Document'
 
-      // Optimistic: update the local documents state immediately so the UI
-      // shows the just-uploaded file with the "Uploaded" badge right away,
-      // without waiting for the server round-trip.
       if (res.data?.document) {
         setDocuments((prev) => ({ ...prev, [type]: res.data.document }))
       }
 
-      // Refresh staff state from the server so profileCompleted is current.
       const refreshed = await refresh()
-
-      // CRITICAL: re-apply the form snapshot after refresh() updates context.
-      // refresh() replaces `staffUser` with the server snapshot; the
-      // useEffect that depends on `staffUser` will then run and (per the
-      // guard above) update only `documents`, but in case the snapshot
-      // contains different form fields (e.g. a typo fix landed in DB),
-      // we re-apply the user's in-flight edits on top.
       setForm(formSnapshot)
 
       if (errors[`documents.${type}`]) {
@@ -287,31 +394,27 @@ export default function PortalProfile() {
     }
   }
 
-  // Format validation runs on every save (always blocking). This catches
-  // malformed inputs (e.g. bad PAN, non-10-digit phone) without forcing
-  // the user to re-fill every field when they just want to update one.
   const validateFormat = () => {
     const e = {}
-    if (form.phone && form.phone.replace(/\D/g, '').length !== 10) {
-      e['phone'] = 'Enter a valid 10-digit phone number'
+    const phoneLen = (form.phone || '').replace(/\D/g, '').length
+    if (form.phone && (phoneLen < 8 || phoneLen > 12)) {
+      e['phone'] = 'Enter a valid phone number (8-12 digits)'
     }
     if (form.panNumber && !PAN_REGEX.test(form.panNumber.toUpperCase())) {
       e['panNumber'] = 'Invalid PAN format. Expected: ABCDE1234F'
     }
-    if (form.emergencyContact.phone &&
-        form.emergencyContact.phone.replace(/\D/g, '').length !== 10) {
-      e['emergencyContact.phone'] = 'Enter a valid 10-digit phone number'
+    const emergencyPhoneLen = (form.emergencyContact.phone || '').replace(/\D/g, '').length
+    if (form.emergencyContact.phone && (emergencyPhoneLen < 8 || emergencyPhoneLen > 12)) {
+      e['emergencyContact.phone'] = 'Enter a valid phone number (8-12 digits)'
     }
     return e
   }
 
-  // Required-field validation only blocks the FIRST-TIME profile completion.
-  // After profileCompleted is true, the user is just editing — never block
-  // a partial save with a "this field is required" error.
   const validateRequired = () => {
     const e = {}
-    if (!form.phone || form.phone.replace(/\D/g, '').length !== 10) {
-      e['phone'] = 'Enter a valid 10-digit phone number'
+    const phoneLen = (form.phone || '').replace(/\D/g, '').length
+    if (!form.phone || phoneLen < 8 || phoneLen > 12) {
+      e['phone'] = 'Enter a valid phone number (8-12 digits)'
     }
     if (!form.panNumber) {
       e['panNumber'] = 'PAN Number is required'
@@ -325,8 +428,9 @@ export default function PortalProfile() {
     if (!form.address.state) e['address.state'] = 'State is required'
     if (!form.address.pincode) e['address.pincode'] = 'Pincode is required'
     if (!form.emergencyContact.name) e['emergencyContact.name'] = 'Name is required'
-    if (!form.emergencyContact.phone || form.emergencyContact.phone.replace(/\D/g, '').length !== 10) {
-      e['emergencyContact.phone'] = 'Enter a valid 10-digit phone number'
+    const emergencyPhoneLen = (form.emergencyContact.phone || '').replace(/\D/g, '').length
+    if (!form.emergencyContact.phone || emergencyPhoneLen < 8 || emergencyPhoneLen > 12) {
+      e['emergencyContact.phone'] = 'Enter a valid phone number (8-12 digits)'
     }
     if (!form.bankDetails.accountHolderName) e['bankDetails.accountHolderName'] = 'Required'
     if (!form.bankDetails.bankName) e['bankDetails.bankName'] = 'Required'
@@ -343,9 +447,7 @@ export default function PortalProfile() {
   const handleSave = async (e) => {
     e.preventDefault()
 
-    // Always run format validation (block save on bad format).
     const formatErrors = validateFormat()
-    // Only run required-field validation if the profile is not yet complete.
     const requiredErrors = staffUser?.profileCompleted ? {} : validateRequired()
     const v = { ...formatErrors, ...requiredErrors }
     setErrors(v)
@@ -357,27 +459,32 @@ export default function PortalProfile() {
     setSaving(true)
     try {
       const payload = {
+        employeeId: form.employeeId,
+        joiningDate: form.joiningDate,
+        department: form.department,
+        designation: form.designation,
+        type: form.type,
+        workLocation: form.workLocation,
+        email: form.email,
         phone: form.phone.replace(/\D/g, ''),
         panNumber: form.panNumber.toUpperCase().trim(),
         dob: form.dob,
         gender: form.gender,
         address: { ...form.address, pincode: form.address.pincode.trim() },
         emergencyContact: { ...form.emergencyContact, phone: form.emergencyContact.phone.replace(/\D/g, '') },
-        bankDetails: { ...form.bankDetails, ifscCode: form.bankDetails.ifscCode.toUpperCase().trim() }
+        bankDetails: { ...form.bankDetails, ifscCode: form.bankDetails.ifscCode.toUpperCase().trim() },
+        salaryDetails: { annualCtc: Number(form.salaryDetails?.annualCtc || 0) }
       }
       await api.put('/portal/me', payload)
 
-      // Single source of truth: re-fetch the full staff from the server
-      // and let the useEffect re-initialize the form from that.
       const refreshed = await refresh()
 
       if (refreshed?.profileCompleted && !staffUser?.profileCompleted) {
-        // First-time completion: navigate to dashboard so the user doesn't
-        // get stuck on the profile page after the "Profile completed!" toast.
         toast.success('Profile completed! Redirecting…')
         setTimeout(() => navigate('/portal/dashboard'), 600)
       } else {
         toast.success('Profile updated successfully.')
+        setIsEditing(false)
       }
     } catch (err) {
       toast.error(err.response?.data?.message || err.message || 'Update failed')
@@ -399,256 +506,723 @@ export default function PortalProfile() {
     allDocumentsUploaded
   )
 
+  const isIntern = staffUser?.type === 'Intern'
+
+  if (!staffUser) {
+    return <div style={{ display: 'flex', justifyContent: 'center', padding: 100 }}><Loader2 size={40} className="animate-spin text-muted" /></div>
+  }
+
   return (
-    <PageShell>
-      <header className="page-header">
-        <div className="page-header__main">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <h1 className="page-title" style={{ margin: 0 }}>My Profile</h1>
-            {completed ? (
-              <span style={{
-                padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700,
-                background: 'rgba(88,131,59, 0.1)', color: '#58833b',
-                border: '1px solid rgba(88,131,59, 0.2)', display: 'inline-flex', alignItems: 'center', gap: 6
-              }}>
-                <CheckCircle2 size={14} /> Profile Complete
-              </span>
-            ) : (
-              <span style={{
-                padding: '4px 12px', borderRadius: 100, fontSize: 11, fontWeight: 700,
-                background: 'rgba(234, 88, 12, 0.1)', color: '#c2410c',
-                border: '1px solid rgba(234, 88, 12, 0.2)', display: 'inline-flex', alignItems: 'center', gap: 6
-              }}>
-                <AlertCircle size={14} /> Profile Incomplete
-              </span>
-            )}
-          </div>
-          <p className="page-subtitle">
-            {completed
-              ? 'Your profile is up to date. You can still update your contact details below.'
-              : 'Please complete all sections below including mandatory documents. Fields marked with * are required.'}
-          </p>
-        </div>
-      </header>
+    <PageShell style={{ maxWidth: 'none' }}>
+      <style>{`
+        .detail-panel-card {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 24px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .panel-card-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 14px;
+          font-weight: 800;
+          color: var(--primary);
+        }
+        .panel-card-body {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .info-kv-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-bottom: 8px;
+          border-bottom: 1px dashed var(--border);
+        }
+        .info-kv-row:last-child {
+          border-bottom: none;
+        }
+        .info-kv-key {
+          font-size: 11px;
+          color: var(--text-light);
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .info-kv-val {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--text);
+          text-align: right;
+        }
+      `}</style>
 
-      <form onSubmit={handleSave}>
-        <Section title="Contact Information" subtitle="Your email and phone number are set by your administrator. You may update your phone number below.">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-            <Field label="Email" required>
-              <input type="email" disabled value={staffUser?.email || ''} style={{ ...inputStyle, background: 'var(--bg)', color: 'var(--text-muted)', cursor: 'not-allowed' }} />
-            </Field>
-            <Field label="Phone Number (Admin Set)" required>
-              <input type="tel" disabled value={staffUser?.phone || ''} style={{ ...inputStyle, background: 'var(--bg)', color: 'var(--text-muted)', cursor: 'not-allowed' }} />
-            </Field>
-          </div>
-          <div style={{ marginTop: 16 }}>
-            <Field label="Update Phone Number" error={errors.phone}>
-              <input
-                type="tel"
-                value={form.phone}
-                onChange={(e) => updateField('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
-                placeholder="Enter new 10-digit mobile number"
-                style={inputStyle}
-                maxLength={10}
-              />
-            </Field>
-          </div>
-        </Section>
+      {!isEditing ? (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          {/* ── Top Header Card ── */}
+          <div style={{ 
+            background: 'var(--surface)', 
+            borderRadius: 16, 
+            border: '1px solid var(--border)', 
+            padding: '24px', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            flexWrap: 'wrap', 
+            gap: 20,
+            marginBottom: 20
+          }}>
+            <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
+              <div style={{
+                width: 72, 
+                height: 72, 
+                borderRadius: 14, 
+                background: 'var(--primary)', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                color: 'white', 
+                fontSize: 24, 
+                fontWeight: 800,
+                flexShrink: 0
+              }}>
+                {documents?.profileImage?.url ? (
+                  <img src={documents.profileImage.url} alt={staffUser.fullName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 14 }} />
+                ) : (
+                  initials(staffUser.fullName)
+                )}
+              </div>
+              <div>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 }}>
+                  <h1 style={{ margin: 0, color: 'var(--text)', fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em' }}>{staffUser.fullName}</h1>
+                  {completed ? (
+                    <span style={{ 
+                      padding: '3px 10px', 
+                      borderRadius: 100, 
+                      fontSize: 10, 
+                      fontWeight: 700, 
+                      background: 'rgba(88, 131, 59, 0.08)', 
+                      color: 'var(--primary)', 
+                      border: '1px solid rgba(88, 131, 59, 0.2)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4
+                    }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--primary)' }} />
+                      Verified Profile
+                    </span>
+                  ) : (
+                    <span style={{ 
+                      padding: '3px 10px', 
+                      borderRadius: 100, 
+                      fontSize: 10, 
+                      fontWeight: 700, 
+                      background: 'rgba(239, 68, 68, 0.08)', 
+                      color: '#ef4444', 
+                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4
+                    }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }} />
+                      Incomplete Profile
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span className={`badge ${staffUser.type === 'Employee' ? 'badge-navy' : 'badge-emerald'}`} style={{ fontSize: 10, padding: '2px 8px', textTransform: 'uppercase' }}>
+                    {staffUser.type || 'Employee'}
+                  </span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    {staffUser.designation || 'No Designation'} - {staffUser.department || 'General'}
+                  </span>
+                </div>
+              </div>
+            </div>
 
-        <Section title="Identity" subtitle="PAN is mandatory for payroll / TDS purposes.">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20 }}>
-            <Field label="PAN Number" required hint="Format: ABCDE1234F" error={errors.panNumber}>
-              <input
-                type="text"
-                value={form.panNumber}
-                onChange={(e) => updateField('panNumber', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))}
-                placeholder="ABCDE1234F"
-                style={inputStyle}
-                maxLength={10}
-                pattern="[A-Z]{5}[0-9]{4}[A-Z]{1}"
-              />
-            </Field>
-            <Field label="Date of Birth" required error={errors.dob}>
-              <input
-                type="date"
-                value={form.dob}
-                onChange={(e) => updateField('dob', e.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Gender" required error={errors.gender}>
-              <select
-                value={form.gender}
-                onChange={(e) => updateField('gender', e.target.value)}
-                style={inputStyle}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <button 
+                onClick={() => setIsEditing(true)} 
+                className="btn-secondary"
+                style={{ 
+                  height: 38,
+                  padding: '0 16px',
+                  borderRadius: 8, 
+                  border: '1px solid var(--border)', 
+                  background: 'var(--surface)', 
+                  color: 'var(--text)', 
+                  fontWeight: 700, 
+                  fontSize: 12,
+                  cursor: 'pointer', 
+                  display: 'flex', 
+                  gap: 8, 
+                  alignItems: 'center' 
+                }}
               >
-                <option value="">Select…</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
-            </Field>
+                <Edit size={14} /> Edit Profile
+              </button>
+            </div>
           </div>
-        </Section>
 
-        <Section title="Address" subtitle="Your current residential address.">
-          <Field label="Street / House No." required error={errors['address.street']}>
-            <input
-              type="text"
-              value={form.address.street}
-              onChange={(e) => updateField('address.street', e.target.value)}
-              placeholder="123, Main Street, Apt 4B"
-              style={inputStyle}
-            />
-          </Field>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20 }}>
-            <Field label="City" required error={errors['address.city']}>
-              <input
-                type="text"
-                value={form.address.city}
-                onChange={(e) => updateField('address.city', e.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="State" required error={errors['address.state']}>
-              <input
-                type="text"
-                value={form.address.state}
-                onChange={(e) => updateField('address.state', e.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Pincode" required error={errors['address.pincode']}>
-              <input
-                type="text"
-                value={form.address.pincode}
-                onChange={(e) => updateField('address.pincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
-                style={inputStyle}
-                maxLength={6}
-                inputMode="numeric"
-              />
-            </Field>
-          </div>
-        </Section>
+          {/* ── Horizontal Stats Grid Card ── */}
+          <div style={{
+            background: 'var(--surface)',
+            borderRadius: 16,
+            border: '1px solid var(--border)',
+            padding: '20px 24px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: 20,
+            marginBottom: 20
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 8, background: 'rgba(88, 131, 59, 0.08)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <FileDigit size={16} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employee ID</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staffUser.employeeId || '—'}</div>
+              </div>
+            </div>
 
-        <Section title="Emergency Contact" subtitle="Person to reach in case of emergency.">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20 }}>
-            <Field label="Full Name" required error={errors['emergencyContact.name']}>
-              <input
-                type="text"
-                value={form.emergencyContact.name}
-                onChange={(e) => updateField('emergencyContact.name', e.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Relationship">
-              <input
-                type="text"
-                value={form.emergencyContact.relationship}
-                onChange={(e) => updateField('emergencyContact.relationship', e.target.value)}
-                placeholder="Spouse, Parent, Sibling…"
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Phone" required error={errors['emergencyContact.phone']}>
-              <input
-                type="tel"
-                value={form.emergencyContact.phone}
-                onChange={(e) => updateField('emergencyContact.phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
-                style={inputStyle}
-                maxLength={10}
-                inputMode="numeric"
-              />
-            </Field>
-          </div>
-        </Section>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 8, background: 'rgba(88, 131, 59, 0.08)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Calendar size={16} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date of Joining</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>
+                  {staffUser.joiningDate ? new Date(staffUser.joiningDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                </div>
+              </div>
+            </div>
 
-        <Section title="Identity Documents" subtitle="All documents are mandatory. Upload your profile photo, Aadhar and PAN card. These will be visible to your administrator.">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
-            {DOCUMENT_CONFIG.map((doc) => (
-              <DocumentUpload
-                key={doc.type}
-                type={doc.type}
-                label={doc.label}
-                hint={doc.hint}
-                accept={doc.accept}
-                required={doc.required}
-                document={documents[doc.type]}
-                onUpload={handleDocumentUpload}
-                uploading={uploadingDoc === doc.type}
-                error={errors[`documents.${doc.type}`]}
-              />
-            ))}
-          </div>
-        </Section>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 8, background: 'rgba(88, 131, 59, 0.08)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Landmark size={16} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Department</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staffUser.department || '—'}</div>
+              </div>
+            </div>
 
-        <Section title="Bank Details" subtitle="Used for salary disbursement.">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-            <Field label="Account Holder Name" required error={errors['bankDetails.accountHolderName']}>
-              <input
-                type="text"
-                value={form.bankDetails.accountHolderName}
-                onChange={(e) => updateField('bankDetails.accountHolderName', e.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Bank Name" required error={errors['bankDetails.bankName']}>
-              <input
-                type="text"
-                value={form.bankDetails.bankName}
-                onChange={(e) => updateField('bankDetails.bankName', e.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Account Number" required error={errors['bankDetails.accountNumber']}>
-              <input
-                type="text"
-                value={form.bankDetails.accountNumber}
-                onChange={(e) => updateField('bankDetails.accountNumber', e.target.value.replace(/\D/g, ''))}
-                style={inputStyle}
-                inputMode="numeric"
-              />
-            </Field>
-            <Field label="IFSC Code" required error={errors['bankDetails.ifscCode']}>
-              <input
-                type="text"
-                value={form.bankDetails.ifscCode}
-                onChange={(e) => updateField('bankDetails.ifscCode', e.target.value.toUpperCase().slice(0, 11))}
-                style={inputStyle}
-                maxLength={11}
-              />
-            </Field>
-            <Field label="Branch (optional)">
-              <input
-                type="text"
-                value={form.bankDetails.branch}
-                onChange={(e) => updateField('bankDetails.branch', e.target.value)}
-                style={inputStyle}
-              />
-            </Field>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 8, background: 'rgba(88, 131, 59, 0.08)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Briefcase size={16} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Designation</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staffUser.designation || '—'}</div>
+              </div>
+            </div>
           </div>
-        </Section>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 20, background: requiredComplete ? 'rgba(88,131,59, 0.06)' : 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-            {requiredComplete
-              ? 'All required fields and documents are filled. Saving will mark your profile as complete.'
-              : 'Some required fields or documents are still missing.'}
+          {/* ── Three Column Details Panel Row ── */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: 20,
+            marginBottom: 20
+          }}>
+            {/* Panel 1: Employment & Role */}
+            <div className="detail-panel-card">
+              <div className="panel-card-header">
+                <User size={16} style={{ color: 'var(--primary)' }} />
+                <span>Employment & Role</span>
+              </div>
+              <div className="panel-card-body">
+                <div className="info-kv-row">
+                  <span className="info-kv-key">Employee ID / Code</span>
+                  <span className="info-kv-val">{staffUser.employeeId || '—'}</span>
+                </div>
+                <div className="info-kv-row">
+                  <span className="info-kv-key">Date of Joining</span>
+                  <span className="info-kv-val">{staffUser.joiningDate ? new Date(staffUser.joiningDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span>
+                </div>
+                <div className="info-kv-row">
+                  <span className="info-kv-key">Department</span>
+                  <span className="info-kv-val">{staffUser.department || '—'}</span>
+                </div>
+                <div className="info-kv-row">
+                  <span className="info-kv-key">Designation</span>
+                  <span className="info-kv-val">{staffUser.designation || '—'}</span>
+                </div>
+                <div className="info-kv-row">
+                  <span className="info-kv-key">Employment Type</span>
+                  <span className="info-kv-val">{staffUser.type || 'Employee'}</span>
+                </div>
+                <div className="info-kv-row">
+                  <span className="info-kv-key">Work Location</span>
+                  <span className="info-kv-val">{staffUser.workLocation || 'Office'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Panel 2: Contact & Personal */}
+            <div className="detail-panel-card">
+              <div className="panel-card-header">
+                <Mail size={16} style={{ color: 'var(--primary)' }} />
+                <span style={{ color: 'var(--primary)' }}>Contact & Personal</span>
+              </div>
+              <div className="panel-card-body">
+                <div className="info-kv-row">
+                  <span className="info-kv-key">Email Address</span>
+                  <span className="info-kv-val">{staffUser.email || '—'}</span>
+                </div>
+                <div className="info-kv-row">
+                  <span className="info-kv-key">Phone Number</span>
+                  <span className="info-kv-val">{staffUser.phone || '—'}</span>
+                </div>
+                <div className="info-kv-row">
+                  <span className="info-kv-key">Date of Birth</span>
+                  <span className="info-kv-val">{staffUser.dob ? new Date(staffUser.dob).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span>
+                </div>
+                <div className="info-kv-row">
+                  <span className="info-kv-key">Gender</span>
+                  <span className="info-kv-val">{staffUser.gender || '—'}</span>
+                </div>
+                <div className="info-kv-row" style={{ flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                  <span className="info-kv-key">Registered Address</span>
+                  <span className="info-kv-val" style={{ textAlign: 'left', lineHeight: 1.4 }}>
+                    {staffUser.address && (staffUser.address.street || staffUser.address.city)
+                      ? `${staffUser.address.street || ''}${staffUser.address.street ? ', ' : ''}${staffUser.address.city || ''}${staffUser.address.state ? `, ${staffUser.address.state}` : ''}${staffUser.address.pincode ? ` - ${staffUser.address.pincode}` : ''}`
+                      : '—'}
+                  </span>
+                </div>
+                <div className="info-kv-row" style={{ flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                  <span className="info-kv-key">Emergency Contact</span>
+                  <span className="info-kv-val" style={{ textAlign: 'left', lineHeight: 1.4 }}>
+                    {staffUser.emergencyContact?.name
+                      ? `${staffUser.emergencyContact.name} (${staffUser.emergencyContact.relationship || 'Emergency'}) · ${staffUser.emergencyContact.phone || ''}`
+                      : '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Panel 3: Compensation & Financial */}
+            <div className="detail-panel-card">
+              <div className="panel-card-header">
+                <Landmark size={16} style={{ color: 'var(--primary)' }} />
+                <span style={{ color: 'var(--primary)' }}>Compensation & Financial</span>
+              </div>
+              <div className="panel-card-body">
+                <div className="info-kv-row">
+                  <span className="info-kv-key">PAN Card Number</span>
+                  <span className="info-kv-val">{staffUser.panNumber || '—'}</span>
+                </div>
+                <div className="info-kv-row">
+                  <span className="info-kv-key">Bank Name</span>
+                  <span className="info-kv-val">{staffUser.bankDetails?.bankName || '—'}</span>
+                </div>
+                <div className="info-kv-row">
+                  <span className="info-kv-key">Account Number</span>
+                  <span className="info-kv-val">{staffUser.bankDetails?.accountNumber || '—'}</span>
+                </div>
+                <div className="info-kv-row">
+                  <span className="info-kv-key">IFSC Code</span>
+                  <span className="info-kv-val">{staffUser.bankDetails?.ifscCode || '—'}</span>
+                </div>
+                
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                    {isIntern ? 'Monthly Stipend Structure' : 'Annual CTC Structure'}
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--primary)', letterSpacing: '-0.01em' }}>
+                    ₹ {isIntern 
+                      ? (staffUser.salaryDetails?.baseSalary?.toLocaleString('en-IN') || 0) 
+                      : (staffUser.salaryDetails?.annualCTC?.toLocaleString('en-IN') || 0)}
+                  </div>
+                  
+                  <div style={{ 
+                    padding: '10px 12px', 
+                    background: 'rgba(88, 131, 59, 0.04)', 
+                    borderRadius: 8, 
+                    border: '1px solid rgba(88, 131, 59, 0.12)', 
+                    fontSize: 11, 
+                    color: 'var(--text-muted)', 
+                    lineHeight: 1.4, 
+                    marginTop: 10 
+                  }}>
+                    {isIntern
+                      ? 'Intern payslips will be generated based on this monthly stipend amount. Absence deductions are applied automatically in the generator.'
+                      : 'Employee payslips (Basic, HRA, PF, PT, etc.) are automatically derived from this Annual CTC figure during generation.'}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <motion.button
-            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-            type="submit" disabled={saving}
-            style={{
-              padding: '12px 28px', background: 'var(--primary)', color: 'white',
-              border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 8
-            }}
-          >
-            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            Save Profile
-          </motion.button>
-        </div>
-      </form>
+
+          {/* ── Identity Document Registry ── */}
+          <div style={{
+            background: 'var(--surface)',
+            borderRadius: 16,
+            border: '1px solid var(--border)',
+            padding: '24px',
+            marginBottom: 20
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Shield size={16} color="var(--primary)" />
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', margin: 0 }}>Identity Document Registry</h3>
+              </div>
+              <button onClick={() => setIsEditing(true)} className="btn-secondary" style={{ height: 32, borderRadius: 8, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface)', padding: '0 12px' }}>
+                <Plus size={14} /> Upload New Document
+              </button>
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 20px 0' }}>Official verification document attachments uploaded by you.</p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
+              <DocumentCardRowView label="Profile Picture" document={documents?.profileImage} onUploadClick={() => setIsEditing(true)} />
+              <DocumentCardRowView label="Aadhar Card" document={documents?.aadharCard} onUploadClick={() => setIsEditing(true)} />
+              <DocumentCardRowView label="PAN Card" document={documents?.panCard} onUploadClick={() => setIsEditing(true)} />
+            </div>
+          </div>
+        </motion.div>
+      ) : (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <PageHeader
+            title="Edit Profile"
+            subtitle={completed
+              ? 'Your profile is verified and active. You can keep your contact details updated below.'
+              : 'Please complete all required sections below to activate your employee portal access.'}
+            actions={
+              completed ? (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
+                  background: 'rgba(88,131,59, 0.08)', color: '#58833b', borderRadius: 99,
+                  fontSize: 12, fontWeight: 700, border: '1px solid rgba(88,131,59, 0.15)'
+                }}>
+                  <CheckCircle2 size={14} /> Profile Verified
+                </div>
+              ) : (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
+                  background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', borderRadius: 99,
+                  fontSize: 12, fontWeight: 700, border: '1px solid rgba(239, 68, 68, 0.15)'
+                }}>
+                  <AlertCircle size={14} /> Profile Incomplete
+                </div>
+              )
+            }
+          />
+
+          <form onSubmit={handleSave} style={{ marginTop: 24 }}>
+            <Section title="Employment & Role" subtitle="Official employment status, code, and department details." icon={Briefcase}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
+                <InputField
+                  label="Employee ID / Code"
+                  value={form.employeeId}
+                  onChange={(e) => updateField('employeeId', e.target.value)}
+                  icon={FileDigit}
+                />
+                <InputField
+                  label="Date of Joining"
+                  value={form.joiningDate}
+                  onChange={(e) => updateField('joiningDate', e.target.value)}
+                  type="date"
+                  icon={Calendar}
+                />
+                <InputField
+                  label="Department"
+                  value={form.department}
+                  onChange={(e) => updateField('department', e.target.value)}
+                  icon={Landmark}
+                />
+                <InputField
+                  label="Designation"
+                  value={form.designation}
+                  onChange={(e) => updateField('designation', e.target.value)}
+                  icon={Briefcase}
+                />
+                <SelectField
+                  label="Employment Type"
+                  value={form.type}
+                  onChange={(v) => updateField('type', v)}
+                  options={[
+                    { value: 'Employee', label: 'Employee' },
+                    { value: 'Intern', label: 'Intern' }
+                  ]}
+                />
+                <SelectField
+                  label="Work Location"
+                  value={form.workLocation}
+                  onChange={(v) => updateField('workLocation', v)}
+                  options={[
+                    { value: 'Office', label: 'Office' },
+                    { value: 'Remote', label: 'Remote' },
+                    { value: 'Client Site', label: 'Client Site' }
+                  ]}
+                />
+              </div>
+            </Section>
+
+            <Section title="Contact Information" subtitle="Your primary details and contact telephone number." icon={Mail}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+                <InputField
+                  label="Email"
+                  value={form.email}
+                  onChange={(e) => updateField('email', e.target.value)}
+                  required
+                  icon={Mail}
+                />
+                <InputField
+                  label="Official Phone Number"
+                  value={form.phone}
+                  onChange={(e) => updateField('phone', e.target.value.replace(/\D/g, '').slice(0, 12))}
+                  required
+                  icon={Phone}
+                  maxLength={12}
+                />
+              </div>
+            </Section>
+
+            <Section title="Identity Details" subtitle="Statutory tax and identity information used for salary disbursement and TDS filing." icon={CreditCard}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
+                <InputField
+                  label="PAN Number"
+                  value={form.panNumber}
+                  onChange={(e) => updateField('panNumber', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))}
+                  placeholder="ABCDE1234F"
+                  required
+                  error={errors.panNumber}
+                  hint="Format: ABCDE1234F"
+                  icon={CreditCard}
+                  maxLength={10}
+                />
+                <InputField
+                  label="Date of Birth"
+                  value={form.dob}
+                  onChange={(e) => updateField('dob', e.target.value)}
+                  type="date"
+                  required
+                  error={errors.dob}
+                  icon={Calendar}
+                />
+                <SelectField
+                  label="Gender"
+                  value={form.gender}
+                  onChange={(v) => updateField('gender', v)}
+                  options={GENDER_OPTIONS}
+                  required
+                  placeholder="Select Gender..."
+                  error={errors.gender}
+                />
+              </div>
+            </Section>
+
+            <Section title="Residential Address" subtitle="Your current residential address for official communication and billing." icon={MapPin}>
+              <InputField
+                label="Street / House No."
+                value={form.address.street}
+                onChange={(e) => updateField('address.street', e.target.value)}
+                placeholder="e.g. 123, Main Street, Apartment 4B"
+                required
+                error={errors['address.street']}
+                icon={MapPin}
+              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 20 }}>
+                <InputField
+                  label="City"
+                  value={form.address.city}
+                  onChange={(e) => updateField('address.city', e.target.value)}
+                  required
+                  error={errors['address.city']}
+                />
+                <InputField
+                  label="State"
+                  value={form.address.state}
+                  onChange={(e) => updateField('address.state', e.target.value)}
+                  required
+                  error={errors['address.state']}
+                />
+                <InputField
+                  label="Pincode"
+                  value={form.address.pincode}
+                  onChange={(e) => updateField('address.pincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  required
+                  error={errors['address.pincode']}
+                  maxLength={6}
+                  inputMode="numeric"
+                />
+              </div>
+            </Section>
+
+            <Section title="Emergency Contact" subtitle="Person to reach out to in case of work or personal emergencies." icon={User}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
+                <InputField
+                  label="Contact Full Name"
+                  value={form.emergencyContact.name}
+                  onChange={(e) => updateField('emergencyContact.name', e.target.value)}
+                  required
+                  error={errors['emergencyContact.name']}
+                  icon={User}
+                />
+                <InputField
+                  label="Relationship"
+                  value={form.emergencyContact.relationship}
+                  onChange={(e) => updateField('emergencyContact.relationship', e.target.value)}
+                  placeholder="e.g. Spouse, Parent, Sibling"
+                  icon={User}
+                />
+                <InputField
+                  label="Emergency Phone"
+                  value={form.emergencyContact.phone}
+                  onChange={(e) => updateField('emergencyContact.phone', e.target.value.replace(/\D/g, '').slice(0, 12))}
+                  required
+                  error={errors['emergencyContact.phone']}
+                  icon={Phone}
+                  maxLength={12}
+                  inputMode="numeric"
+                />
+              </div>
+            </Section>
+
+            <Section title="Identity Documents" subtitle="Please upload high-resolution images or PDF documents. All documents are mandatory and verified by HR." icon={FileText}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
+                {DOCUMENT_CONFIG.map((doc) => (
+                  <DocumentUpload
+                    key={doc.type}
+                    type={doc.type}
+                    label={doc.label}
+                    hint={doc.hint}
+                    accept={doc.accept}
+                    required={doc.required}
+                    document={documents[doc.type]}
+                    onUpload={handleDocumentUpload}
+                    uploading={uploadingDoc === doc.type}
+                    error={errors[`documents.${doc.type}`]}
+                  />
+                ))}
+              </div>
+            </Section>
+
+            <Section title="Bank Details" subtitle="Provide your official bank account details where your monthly salary will be disbursed." icon={Landmark}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+                <InputField
+                  label="Account Holder Name"
+                  value={form.bankDetails.accountHolderName}
+                  onChange={(e) => updateField('bankDetails.accountHolderName', e.target.value)}
+                  required
+                  error={errors['bankDetails.accountHolderName']}
+                  icon={User}
+                />
+                <InputField
+                  label="Bank Name"
+                  value={form.bankDetails.bankName}
+                  onChange={(e) => updateField('bankDetails.bankName', e.target.value)}
+                  required
+                  error={errors['bankDetails.bankName']}
+                  icon={Landmark}
+                />
+                <InputField
+                  label="Account Number"
+                  value={form.bankDetails.accountNumber}
+                  onChange={(e) => updateField('bankDetails.accountNumber', e.target.value.replace(/\D/g, ''))}
+                  required
+                  error={errors['bankDetails.accountNumber']}
+                  icon={CreditCard}
+                  inputMode="numeric"
+                />
+                <InputField
+                  label="IFSC Code"
+                  value={form.bankDetails.ifscCode}
+                  onChange={(e) => updateField('bankDetails.ifscCode', e.target.value.toUpperCase().slice(0, 11))}
+                  required
+                  error={errors['bankDetails.ifscCode']}
+                  icon={Hash}
+                  maxLength={11}
+                />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20, marginTop: 20 }}>
+                <InputField
+                  label="Branch Name (Optional)"
+                  value={form.bankDetails.branch}
+                  onChange={(e) => updateField('bankDetails.branch', e.target.value)}
+                  icon={MapPin}
+                />
+                <InputField
+                  label="Annual CTC Structure (₹)"
+                  value={form.salaryDetails?.annualCtc}
+                  onChange={(e) => updateField('salaryDetails.annualCtc', e.target.value)}
+                  type="number"
+                  icon={CreditCard}
+                  required
+                  placeholder="e.g. 280000"
+                />
+              </div>
+            </Section>
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '24px 32px',
+              background: requiredComplete ? 'rgba(88,131,59, 0.05)' : 'var(--bg)',
+              borderRadius: 16,
+              border: '1px solid var(--border)',
+              marginBottom: 48,
+              flexWrap: 'wrap',
+              gap: 16
+            }}>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
+                {requiredComplete
+                  ? '🎉 All required fields and documents are complete. Click Save to finalize.'
+                  : '⚠️ Please fill out all required fields and upload all documents before saving.'}
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                {completed && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(false)}
+                    style={{
+                      padding: '12px 24px',
+                      background: 'var(--surface)',
+                      color: 'var(--text-muted)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 10,
+                      fontWeight: 800,
+                      fontSize: 14,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                )}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="submit"
+                  disabled={saving}
+                  style={{
+                    padding: '12px 32px',
+                    background: 'var(--primary)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 10,
+                    fontWeight: 800,
+                    fontSize: 14,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    boxShadow: 'var(--shadow-sm)'
+                  }}
+                >
+                  {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  Save Profile Changes
+                </motion.button>
+              </div>
+            </div>
+          </form>
+        </motion.div>
+      )}
     </PageShell>
   )
 }

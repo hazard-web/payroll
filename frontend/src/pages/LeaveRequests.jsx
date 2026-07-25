@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import LeavePolicy from './LeavePolicy'
 import {
   Calendar, Clock, Loader2, CheckCircle2, XCircle,
   Search, MessageSquare, Download, ChevronLeft, ChevronRight,
   UserCheck, AlertTriangle, ClipboardList, TrendingUp, MapPin,
-  Briefcase, Save, RotateCcw, FileText
+  Briefcase, Save, RotateCcw, FileText, Eye, ShieldCheck
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -67,19 +69,7 @@ const fmtHours = h => {
   return `${hrs}h ${String(min).padStart(2,'0')}m`
 }
 
-const LATE_START_HOUR = 10
-const LATE_START_MINUTE = 30
-const LATE_CUTOFF_HOUR = 11
-const LATE_CUTOFF_MINUTE = 0
-const getLateInfo = punchIn => {
-  if (!punchIn) return { isLate: false, lateByMinutes: 0 }
-  const d = new Date(punchIn)
-  const mins = d.getHours() * 60 + d.getMinutes()
-  const start = LATE_START_HOUR * 60 + LATE_START_MINUTE
-  const cutoff = LATE_CUTOFF_HOUR * 60 + LATE_CUTOFF_MINUTE
-  if (mins <= cutoff) return { isLate: false, lateByMinutes: 0 }
-  return { isLate: true, lateByMinutes: Math.max(0, mins - start) }
-}
+
 
 const Avatar = ({ name, size = 38, bg = 'var(--primary)', color = '#fff' }) => (
   <div style={{ width: size, height: size, borderRadius: '50%', background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontWeight: 700, fontSize: size * 0.38 }}>
@@ -292,174 +282,122 @@ const toLocalDateStr = (d) => {
 }
 
 // ─── Attendance Tab ───────────────────────────────────────────────────────────
-function AttendanceTab() {
-  const now   = new Date()
-
-  // day / month view
-  const [viewMode, setViewMode]     = useState('day')   // 'day' | 'month'
-  const [dayFilter, setDayFilter]   = useState('today') // 'today' | 'yesterday' | 'custom'
-  const [customDate, setCustomDate] = useState(toLocalDateStr(now))
-
-  // month view state
-  const [month, setMonth]     = useState(now.getMonth() + 1)
-  const [year, setYear]       = useState(now.getFullYear())
-
-  const [records, setRecords] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch]   = useState('')
-  const [exportingStaffId, setExportingStaffId] = useState(null)
-
-  const getSelectedDate = () => {
-    if (dayFilter === 'today')     return toLocalDateStr(now)
-    if (dayFilter === 'yesterday') { const d = new Date(now); d.setDate(d.getDate() - 1); return toLocalDateStr(d) }
-    return customDate
+const getWorkingDaysCount = (year, month, weekendDays = [0, 6]) => {
+  const daysInMonth = new Date(year, month, 0).getDate()
+  let count = 0
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dayOfWeek = new Date(year, month - 1, d).getDay()
+    if (!weekendDays.includes(dayOfWeek)) {
+      count++
+    }
   }
+  return count
+}
 
-  const fetchAttendance = useCallback(async () => {
+function DropdownItem({ onClick, children, style = {} }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        background: hover ? 'var(--bg)' : 'none',
+        border: 'none',
+        width: '100%',
+        padding: '8px 16px',
+        fontSize: 12,
+        fontWeight: 600,
+        color: 'var(--text)',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        textAlign: 'left',
+        transition: 'background 0.15s',
+        ...style
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function AttendanceTab() {
+  const now = new Date()
+  const [selectedMonthYear, setSelectedMonthYear] = useState(() => {
+    return `${now.getMonth() + 1}-${now.getFullYear()}`
+  })
+  const location = useLocation()
+  const [search, setSearch] = useState(() => {
+    const params = new URLSearchParams(location.search)
+    return params.get('search') || ''
+  })
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const q = params.get('search')
+    if (q !== null) setSearch(q)
+  }, [location.search])
+
+  const [selectedDept, setSelectedDept] = useState('All')
+  const [selectedStatus, setSelectedStatus] = useState('All')
+
+  const [staffList, setStaffList] = useState([])
+  const [attendanceRecords, setAttendanceRecords] = useState([])
+  const [leaveRequests, setLeaveRequests] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [activeMenuId, setActiveMenuId] = useState(null)
+  const [exportingStaffId, setExportingStaffId] = useState(null)
+  const navigate = useNavigate()
+
+  const [monthStr, yearStr] = selectedMonthYear.split('-')
+  const month = parseInt(monthStr, 10)
+  const year = parseInt(yearStr, 10)
+
+  const monthOptions = []
+  const currentYear = new Date().getFullYear()
+  for (let y = currentYear - 1; y <= currentYear + 1; y++) {
+    for (let m = 1; m <= 12; m++) {
+      const d = new Date(y, m - 1, 1)
+      monthOptions.push({
+        value: `${m}-${y}`,
+        label: `${d.toLocaleString('en-US', { month: 'long' })} ${y}`
+      })
+    }
+  }
+  monthOptions.reverse()
+
+  const fetchData = async () => {
     try {
       setLoading(true)
-      if (viewMode === 'day') {
-        const res = await api.get('/attendance/admin/daily', { params: { date: getSelectedDate() } })
-        setRecords(res.data.data || [])
-      } else {
-        const res = await api.get('/attendance/admin/monthly', { params: { month, year } })
-        setRecords(res.data.data || [])
-      }
-    } catch {
-      toast.error('Failed to fetch attendance')
+      const [staffRes, attRes, leaveRes] = await Promise.all([
+        api.get('/staff'),
+        api.get('/attendance/admin/monthly', { params: { month, year } }),
+        api.get('/leaves/admin/pending')
+      ])
+      setStaffList(staffRes.data.data || [])
+      setAttendanceRecords(attRes.data.data || [])
+      setLeaveRequests(leaveRes.data.data || [])
+    } catch (err) {
+      toast.error('Failed to load attendance summary')
     } finally {
       setLoading(false)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, dayFilter, customDate, month, year])
-
-  useEffect(() => { fetchAttendance() }, [fetchAttendance])
-
-  const prevMonth = () => {
-    if (month === 1) { setMonth(12); setYear(y => y - 1) }
-    else setMonth(m => m - 1)
-  }
-  const nextMonth = () => {
-    const isCurrentMonth = month === now.getMonth() + 1 && year === now.getFullYear()
-    if (isCurrentMonth) return
-    if (month === 12) { setMonth(1); setYear(y => y + 1) }
-    else setMonth(m => m + 1)
-  }
-  const isCurrentMonth = month === now.getMonth() + 1 && year === now.getFullYear()
-
-  const filtered = records.filter(r => {
-    const q = search.toLowerCase()
-    return !q || r.staff?.fullName?.toLowerCase().includes(q) || r.staff?.employeeId?.toLowerCase().includes(q)
-  })
-
-  // Summary stats
-  const totalRecords  = filtered.length
-  const fullDays      = filtered.filter(r => r.workStatus === 'Full Day').length
-  const halfDays      = filtered.filter(r => r.workStatus === 'Half Day').length
-  const lateArrivals  = filtered.filter(r => getLateInfo(r.punchIn).isLate).length
-  const totalHrsAll   = filtered.reduce((s, r) => s + (r.totalHours || 0), 0)
-  const avgHrs        = totalRecords ? totalHrsAll / totalRecords : 0
-
-  // PDF export — full report
-  const exportPDF = () => {
-    const sortedForExport = [...filtered].sort((a, b) => new Date(a.date) - new Date(b.date))
-    const reportLabel = viewMode === 'day' ? getSelectedDate() : `${MONTHS[month - 1]} ${year}`
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-
-    // Header
-    doc.setFillColor(87, 131, 59)
-    doc.rect(0, 0, 297, 22, 'F')
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(14)
-    doc.setFont('helvetica', 'bold')
-    doc.text('Attendance Report', 14, 10)
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'normal')
-    doc.text(`Period: ${reportLabel}   |   Generated: ${new Date().toLocaleString('en-IN')}`, 14, 17)
-
-    // Summary row
-    doc.setTextColor(50, 50, 50)
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'bold')
-    doc.text(
-      `Total: ${totalRecords}   Full Days: ${fullDays}   Half Days: ${halfDays}   Late: ${lateArrivals}   Avg Hrs/Day: ${avgHrs.toFixed(1)}h`,
-      14, 30
-    )
-
-    // Table
-    const tableRows = sortedForExport.map((r, i) => {
-      const d = new Date(r.date)
-      const active = !r.punchOut &&
-        d.getFullYear() === now.getFullYear() &&
-        d.getMonth() === now.getMonth() &&
-        d.getDate() === now.getDate()
-      const lateFlag = getLateInfo(r.punchIn).isLate ? 'Yes' : 'No'
-      return [
-        i + 1,
-        r.staff?.fullName || 'Unknown',
-        r.staff?.employeeId || '—',
-        r.staff?.designation || '—',
-        d.toLocaleDateString('en-GB'),
-        d.toLocaleDateString('en-GB', { weekday: 'short' }),
-        r.punchIn ? new Date(r.punchIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—',
-        active ? 'Active (no punch-out)' : r.punchOut ? new Date(r.punchOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—',
-        r.totalHours ? `${r.totalHours.toFixed(2)}h` : active ? 'Active' : '—',
-        active ? 'Active' : (r.workStatus || r.status || '—'),
-        lateFlag
-      ]
-    })
-
-    autoTable(doc, {
-      startY: 35,
-      head: [['#', 'Employee', 'Emp ID', 'Designation', 'Date', 'Day', 'Login', 'Punch Out', 'Worked', 'Status', 'Late']],
-      body: tableRows,
-      styles: { fontSize: 8, cellPadding: 3 },
-      headStyles: { fillColor: [87, 131, 59], textColor: 255, fontStyle: 'bold', fontSize: 8 },
-      alternateRowStyles: { fillColor: [245, 250, 245] },
-      columnStyles: {
-        0:  { cellWidth: 8 },
-        1:  { cellWidth: 38 },
-        2:  { cellWidth: 18 },
-        3:  { cellWidth: 32 },
-        4:  { cellWidth: 22 },
-        5:  { cellWidth: 12 },
-        6:  { cellWidth: 22 },
-        7:  { cellWidth: 22 },
-        8:  { cellWidth: 18 },
-        9:  { cellWidth: 20 },
-        10: { cellWidth: 12 }
-      },
-      didDrawPage: (data) => {
-        const pageCount = doc.internal.getNumberOfPages()
-        doc.setFontSize(7)
-        doc.setTextColor(150)
-        doc.text(
-          `Page ${data.pageNumber} of ${pageCount}`,
-          297 - 14, doc.internal.pageSize.height - 6,
-          { align: 'right' }
-        )
-      }
-    })
-
-    const filename = viewMode === 'day'
-      ? `Attendance_${getSelectedDate()}.pdf`
-      : `Attendance_${MONTHS[month - 1]}_${year}.pdf`
-    doc.save(filename)
   }
 
-  const yearOptions = Array.from({ length: 4 }, (_, i) => now.getFullYear() - i)
+  useEffect(() => {
+    fetchData()
+  }, [selectedMonthYear])
 
-  // PDF export — per-staff full history
   const exportStaffPDF = async (staff) => {
     if (!staff?._id) return
     try {
       setExportingStaffId(staff._id)
       const res = await api.get(`/attendance/admin/staff/${staff._id}`)
       const history = (res.data?.history || []).sort((a, b) => new Date(a.date) - new Date(b.date))
-
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
 
-      // Header
       doc.setFillColor(87, 131, 59)
       doc.rect(0, 0, 297, 22, 'F')
       doc.setTextColor(255, 255, 255)
@@ -473,17 +411,15 @@ function AttendanceTab() {
         14, 17
       )
 
-      // Summary
-      const totalRec  = history.length
-      const fullD     = history.filter(r => r.workStatus === 'Full Day').length
-      const halfD     = history.filter(r => r.workStatus === 'Half Day').length
-      const lateC     = history.filter(r => getLateInfo(r.punchIn).isLate).length
-      const totalHrs  = history.reduce((s, r) => s + (r.totalHours || 0), 0)
+      const totalRec = history.length
+      const fullD = history.filter(r => r.workStatus === 'Full Day').length
+      const halfD = history.filter(r => r.workStatus === 'Half Day').length
+      const totalHrs = history.reduce((s, r) => s + (r.totalHours || 0), 0)
       doc.setTextColor(50, 50, 50)
       doc.setFontSize(9)
       doc.setFont('helvetica', 'bold')
       doc.text(
-        `Total Records: ${totalRec}   Full Days: ${fullD}   Half Days: ${halfD}   Late: ${lateC}   Total Hrs: ${totalHrs.toFixed(1)}h`,
+        `Total Records: ${totalRec}   Full Days: ${fullD}   Half Days: ${halfD}   Total Hrs: ${totalHrs.toFixed(1)}h`,
         14, 30
       )
 
@@ -497,14 +433,13 @@ function AttendanceTab() {
           r.punchOut ? new Date(r.punchOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—',
           r.locationIn?.lat ? `${Number(r.locationIn.lat).toFixed(4)}, ${Number(r.locationIn.lng).toFixed(4)}` : '—',
           r.totalHours ? `${r.totalHours.toFixed(2)}h` : '—',
-          r.workStatus || r.status || '—',
-          getLateInfo(r.punchIn).isLate ? 'Yes' : 'No'
+          r.workStatus || r.status || '—'
         ]
       })
 
       autoTable(doc, {
         startY: 35,
-        head: [['#', 'Date', 'Day', 'Login', 'Punch Out', 'Location', 'Worked', 'Status', 'Late']],
+        head: [['#', 'Date', 'Day', 'Login', 'Punch Out', 'Location', 'Worked', 'Status']],
         body: tableRows,
         styles: { fontSize: 8, cellPadding: 3 },
         headStyles: { fillColor: [87, 131, 59], textColor: 255, fontStyle: 'bold', fontSize: 8 },
@@ -515,10 +450,9 @@ function AttendanceTab() {
           2: { cellWidth: 14 },
           3: { cellWidth: 25 },
           4: { cellWidth: 25 },
-          5: { cellWidth: 45 },
-          6: { cellWidth: 20 },
-          7: { cellWidth: 25 },
-          8: { cellWidth: 12 }
+          5: { cellWidth: 50 },
+          6: { cellWidth: 25 },
+          7: { cellWidth: 25 }
         },
         didDrawPage: (data) => {
           const pageCount = doc.internal.getNumberOfPages()
@@ -540,246 +474,324 @@ function AttendanceTab() {
     }
   }
 
+  const exportStaffExcel = (s) => {
+    const headers = ['Date', 'Check-In', 'Check-Out', 'Total Hours', 'Status']
+    const staffAtt = attendanceRecords.filter(r => r.staff?._id === s._id)
+    const rowsData = staffAtt.map(r => [
+      new Date(r.date).toLocaleDateString('en-IN'),
+      r.punchIn ? new Date(r.punchIn).toLocaleTimeString('en-IN') : '—',
+      r.punchOut ? new Date(r.punchOut).toLocaleTimeString('en-IN') : '—',
+      r.totalHours ? r.totalHours.toFixed(2) : '—',
+      r.workStatus || r.status || '—'
+    ])
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [headers.join(','), ...rowsData.map(e => e.join(','))].join('\n')
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", `Attendance_${s.fullName.replace(/\s+/g, '_')}_${month}_${year}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const workingDays = getWorkingDaysCount(year, month, [0])
+  const departments = ['All', ...new Set(staffList.map(s => s.department).filter(Boolean))]
+
+  const rows = staffList.map(s => {
+    const staffAtt = attendanceRecords.filter(r => r.staff?._id === s._id)
+    const uniqueDatesAtt = []
+    const seenDates = new Set()
+    staffAtt.forEach(r => {
+      const dStr = new Date(r.date).toDateString()
+      if (!seenDates.has(dStr)) {
+        seenDates.add(dStr)
+        uniqueDatesAtt.push(r)
+      }
+    })
+
+    const presentCount = uniqueDatesAtt.filter(r => r.workStatus !== 'Absent' && r.workStatus !== 'LOP').length
+    const lateCount = 0
+
+    const staffLeaves = leaveRequests.filter(req => 
+      req.staff?._id === s._id && 
+      req.status === 'Approved'
+    )
+    let leaveDaysCount = 0
+    staffLeaves.forEach(req => {
+      const start = new Date(req.startDate)
+      const end = new Date(req.endDate)
+      const monthStart = new Date(year, month - 1, 1)
+      const monthEnd = new Date(year, month, 0)
+      const overlapStart = start < monthStart ? monthStart : start
+      const overlapEnd = end > monthEnd ? monthEnd : end
+      if (overlapStart <= overlapEnd) {
+        const diffTime = Math.abs(overlapEnd - overlapStart)
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+        leaveDaysCount += diffDays
+      }
+    })
+
+    const absentCount = Math.max(0, workingDays - presentCount - leaveDaysCount)
+    const percent = workingDays > 0 ? parseFloat(((presentCount / workingDays) * 100).toFixed(2)) : 0
+
+    let statusText = 'Good'
+    if (percent >= 95) statusText = 'Excellent'
+    else if (percent >= 85) statusText = 'Good'
+    else if (percent >= 70) statusText = 'Average'
+    else statusText = 'Poor'
+
+    return {
+      staff: s,
+      present: presentCount,
+      late: lateCount,
+      leave: leaveDaysCount,
+      absent: absentCount,
+      workingDays,
+      percent,
+      status: statusText
+    }
+  }).filter(row => {
+    const q = search.toLowerCase()
+    const matchesSearch = !q || row.staff.fullName.toLowerCase().includes(q) || (row.staff.employeeId && row.staff.employeeId.toLowerCase().includes(q))
+    const matchesDept = selectedDept === 'All' || row.staff.department === selectedDept
+    const matchesStatus = selectedStatus === 'All' || row.status === selectedStatus
+    return matchesSearch && matchesDept && matchesStatus
+  })
+
+  const resetFilters = () => {
+    setSearch('')
+    setSelectedDept('All')
+    setSelectedStatus('All')
+    setSelectedMonthYear(`${now.getMonth() + 1}-${now.getFullYear()}`)
+  }
+
+  const getStatusBadgeStyle = (status) => {
+    if (status === 'Excellent') return { background: '#dcfce7', color: '#15803d' }
+    if (status === 'Good') return { background: '#e0f2fe', color: '#0369a1' }
+    if (status === 'Average') return { background: '#ffedd5', color: '#c2410c' }
+    return { background: '#fee2e2', color: '#b91c1c' }
+  }
+
   return (
     <div>
-      {/* View mode toggle */}
-      <div style={{ display:'flex', gap:12, marginBottom:16, flexWrap:'wrap', alignItems:'center', justifyContent:'space-between' }}>
-        <div className="la-tabs" style={{ marginBottom:0 }}>
-          <button className={`la-tab${viewMode === 'day' ? ' active' : ''}`} onClick={() => setViewMode('day')}>
-            <Clock size={13} style={{ display:'inline', marginRight:5, verticalAlign:'middle' }} />
-            Day View
-          </button>
-          <button className={`la-tab${viewMode === 'month' ? ' active' : ''}`} onClick={() => setViewMode('month')}>
-            <Calendar size={13} style={{ display:'inline', marginRight:5, verticalAlign:'middle' }} />
-            Month View
-          </button>
-        </div>
-
-        {/* Day filter quick buttons */}
-        {viewMode === 'day' && (
-          <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
-            {[
-              { key:'today',     label:'Today' },
-              { key:'yesterday', label:'Yesterday' },
-              { key:'custom',    label:'Custom Date' },
-            ].map(({ key, label }) => (
-              <button key={key} className="la-filter-btn"
-                onClick={() => setDayFilter(key)}
-                style={{ background: dayFilter === key ? 'var(--primary)' : 'var(--surface)', color: dayFilter === key ? '#fff' : 'var(--text-muted)' }}>
-                {label}
-              </button>
-            ))}
-            {dayFilter === 'custom' && (
-              <input
-                type="date"
-                className="la-month-select"
-                value={customDate}
-                max={toLocalDateStr(now)}
-                onChange={e => setCustomDate(e.target.value)}
-                style={{ padding:'7px 10px', fontSize:13 }}
-              />
-            )}
-          </div>
-        )}
-
-        {/* Month view controls */}
-        {viewMode === 'month' && (
-          <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:4, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, padding:'3px 6px' }}>
-              <button onClick={prevMonth} style={{ border:'none', background:'none', cursor:'pointer', padding:'4px 6px', borderRadius:6, color:'var(--text)' }}>
-                <ChevronLeft size={16} />
-              </button>
-              <span style={{ fontSize:14, fontWeight:700, color:'var(--text)', minWidth:110, textAlign:'center' }}>
-                {MONTHS[month - 1]} {year}
-              </span>
-              <button onClick={nextMonth} disabled={isCurrentMonth}
-                style={{ border:'none', background:'none', cursor: isCurrentMonth ? 'default' : 'pointer', padding:'4px 6px', borderRadius:6, color: isCurrentMonth ? 'var(--text-light)' : 'var(--text)', opacity: isCurrentMonth ? 0.4 : 1 }}>
-                <ChevronRight size={16} />
-              </button>
-            </div>
-            <select className="la-month-select" value={year} onChange={e => setYear(Number(e.target.value))}>
-              {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
-        )}
-      </div>
-
-      {/* Search + Export bar */}
-      <div style={{ display:'flex', gap:12, marginBottom:20, flexWrap:'wrap', alignItems:'center' }}>
-        {/* Search */}
-        <div className="la-search" style={{ flex:'1 1 200px' }}>
+      {/* Filter panel */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="la-search" style={{ flex: '1 1 200px' }}>
           <Search size={14} />
-          <input placeholder="Search employee…" value={search} onChange={e => setSearch(e.target.value)} />
+          <input 
+            placeholder="Search by name or ID..." 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+            style={{ fontSize: 12, height: 32, paddingLeft: 38 }}
+          />
         </div>
 
-        {/* Export PDF */}
-        <button className="la-export-btn" onClick={exportPDF} disabled={filtered.length === 0}>
-          <FileText size={15} />
-          Export PDF
+        <select 
+          className="la-month-select" 
+          value={selectedMonthYear} 
+          onChange={e => setSelectedMonthYear(e.target.value)}
+          style={{ height: 32, fontSize: 12 }}
+        >
+          {monthOptions.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+
+        <select 
+          className="la-month-select" 
+          value={selectedDept} 
+          onChange={e => setSelectedDept(e.target.value)}
+          style={{ height: 32, fontSize: 12 }}
+        >
+          {departments.map(d => (
+            <option key={d} value={d}>{d === 'All' ? 'All Departments' : d}</option>
+          ))}
+        </select>
+
+        <select 
+          className="la-month-select" 
+          value={selectedStatus} 
+          onChange={e => setSelectedStatus(e.target.value)}
+          style={{ height: 32, fontSize: 12 }}
+        >
+          <option value="All">All Status</option>
+          <option value="Excellent">Excellent</option>
+          <option value="Good">Good</option>
+          <option value="Average">Average</option>
+          <option value="Poor">Poor</option>
+        </select>
+
+        <button 
+          onClick={resetFilters} 
+          className="la-filter-btn" 
+          style={{ height: 32, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--surface)', fontWeight: 700 }}
+        >
+          <RotateCcw size={13} /> Reset
         </button>
       </div>
 
-      {/* Summary stats */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', gap:12, marginBottom:20 }}>
-        {[
-          { icon: ClipboardList, label:'Total Records', value: totalRecords,           iconBg:'#eff6ff', iconColor:'#1d4ed8' },
-          { icon: UserCheck,     label:'Full Days',     value: fullDays,               iconBg:'#e5ebdd', iconColor:'#58833b' },
-          { icon: Clock,         label:'Half Days',     value: halfDays,               iconBg:'#fefce8', iconColor:'#854d0e' },
-          { icon: AlertTriangle, label:'Late Arrivals', value: lateArrivals,           iconBg:'#fff7ed', iconColor:'#c2410c' },
-          { icon: TrendingUp,    label:'Avg Hrs/Day',   value: `${avgHrs.toFixed(1)}h`,iconBg:'#faf5ff', iconColor:'#6b21a8' },
-        ].map(({ icon: Icon, label, value, iconBg, iconColor }) => (
-          <div key={label} className="la-stat">
-            <div style={{ width:38, height:38, borderRadius:10, background:iconBg, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-              <Icon size={18} color={iconColor} />
-            </div>
-            <div>
-              <div style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px' }}>{label}</div>
-              <div style={{ fontSize:22, fontWeight:800, color:'var(--text)', lineHeight:1.15, marginTop:2 }}>{value}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Table */}
       {loading ? (
-        <div style={{ display:'flex', justifyContent:'center', padding:60 }}>
-          <Loader2 size={30} className="animate-spin" style={{ color:'var(--primary)' }} />
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
+          <Loader2 size={30} className="animate-spin" style={{ color: 'var(--primary)' }} />
         </div>
-      ) : filtered.length === 0 ? (
-        <div style={{ textAlign:'center', padding:64, background:'var(--surface)', borderRadius:12, border:'1px dashed var(--border)' }}>
-          <ClipboardList size={40} color="var(--text-light)" style={{ marginBottom:12 }} />
-          <div style={{ fontWeight:700, color:'var(--text)', marginBottom:6 }}>No attendance records</div>
-          <div style={{ color:'var(--text-muted)', fontSize:13 }}>
-            {viewMode === 'day'
-              ? `No records found for ${dayFilter === 'today' ? 'today' : dayFilter === 'yesterday' ? 'yesterday' : customDate}.`
-              : `No data found for ${MONTHS[month - 1]} ${year}.`}
-          </div>
+      ) : rows.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 64, background: 'var(--surface)', borderRadius: 12, border: '1px dashed var(--border)' }}>
+          <ClipboardList size={40} color="var(--text-light)" style={{ marginBottom: 12 }} />
+          <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>No records found</div>
+          <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Try changing the filters or selected month.</div>
         </div>
       ) : (
-        <div className="la-card">
-          {/* Head */}
-          <div className="la-table-head" style={{ gridTemplateColumns:'40px 1.7fr 110px 90px 90px 90px 80px 92px' }}>
-            {['','Employee','Date','Login','Punch Out','Worked','Status','Export'].map((h, i) => (
-              <div key={i} style={{ fontSize:11, fontWeight:700, color:'var(--text-light)', textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</div>
-            ))}
-          </div>
-
-          {/* Rows */}
-          <div style={{ maxHeight:500, overflowY:'auto' }}>
-            <div style={{ '--scrollbar-w':'4px' }}>
-              {filtered.map((record, idx) => {
-                const lateInfo = getLateInfo(record.punchIn)
-                const late = lateInfo.isLate
-                const recordDate = new Date(record.date)
-                const active = !record.punchOut &&
-                  recordDate.getFullYear() === now.getFullYear() &&
-                  recordDate.getMonth() === now.getMonth() &&
-                  recordDate.getDate() === now.getDate()
-                const avatarBg = late ? '#fff7ed' : active ? '#eff6ff' : '#e5ebdd'
-                const avatarColor = late ? '#c2410c' : active ? '#1d4ed8' : '#58833b'
-
-                return (
-                  <motion.div key={record._id} initial={{ opacity:0 }} animate={{ opacity:1 }}
-                    className="la-row" style={{ gridTemplateColumns:'40px 1.7fr 110px 90px 90px 90px 80px 92px' }}>
-
-                    {/* Row number */}
-                    <div style={{ fontSize:11, color:'var(--text-light)', fontWeight:500 }}>{idx + 1}</div>
-
+        <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'visible' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13, fontFamily: 'var(--font-display), sans-serif' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employee</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>ID</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Department</th>
+                  <th style={{ padding: '12px 16px', color: '#16a34a', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Present</th>
+                  <th style={{ padding: '12px 16px', color: '#dc2626', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Absent</th>
+                  <th style={{ padding: '12px 16px', color: '#2563eb', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Leave</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Working Days</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Attendance %</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.staff._id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.1s' }} className="table-row-hover">
                     {/* Employee */}
-                    <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
-                      <Avatar name={record.staff?.fullName} size={34} bg={avatarBg} color={avatarColor} />
-                      <div style={{ minWidth:0 }}>
-                        <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                          {record.staff?.fullName || 'Unknown'}
-                        </div>
-                        <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:1 }}>
-                          {record.staff?.designation || 'Team Member'} · {record.staff?.employeeId || '—'}
-                        </div>
+                    <td style={{ padding: '10px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Avatar name={row.staff.fullName} size={30} />
+                        <span style={{ fontWeight: 700, color: 'var(--text)', fontSize: 13 }}>{row.staff.fullName}</span>
                       </div>
-                    </div>
+                    </td>
 
-                    {/* Date */}
-                    <div style={{ fontSize:12, fontWeight:600, color:'var(--text)' }}>
-                      {fmtDateShort(record.date)}
-                    </div>
+                    {/* ID */}
+                    <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontWeight: 600, fontSize: 12.5 }}>
+                      {row.staff.employeeId || '—'}
+                    </td>
 
-                    {/* Login + location */}
-                    <div>
-                      <div style={{ fontSize:13, fontWeight:700, color: late ? '#c2410c' : 'var(--text)' }}>
-                        {fmtTime(record.punchIn)}
+                    {/* Department */}
+                    <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontWeight: 600, fontSize: 12.5 }}>
+                      {row.staff.department || '—'}
+                    </td>
+
+                    {/* Present */}
+                    <td style={{ padding: '10px 16px', fontWeight: 700, color: '#16a34a', fontSize: 13 }}>
+                      {row.present}
+                    </td>
+
+                    {/* Absent */}
+                    <td style={{ padding: '10px 16px', fontWeight: 700, color: '#dc2626', fontSize: 13 }}>
+                      {row.absent}
+                    </td>
+
+                    {/* Leave */}
+                    <td style={{ padding: '10px 16px', fontWeight: 700, color: '#2563eb', fontSize: 13 }}>
+                      {row.leave}
+                    </td>
+
+                    {/* Working Days */}
+                    <td style={{ padding: '10px 16px', fontWeight: 700, color: 'var(--text-muted)', fontSize: 13 }}>
+                      {row.workingDays}
+                    </td>
+
+                    {/* Attendance % with progress bar */}
+                    <td style={{ padding: '10px 16px' }}>
+                      <span style={{ fontWeight: 700, color: 'var(--text)', fontSize: 13 }}>{row.percent}%</span>
+                      <div style={{ width: '100%', maxWidth: 75, height: 4, background: 'var(--bg)', borderRadius: 100, marginTop: 4, overflow: 'hidden' }}>
+                        <div style={{
+                          width: `${Math.min(100, row.percent)}%`,
+                          height: '100%',
+                          background: row.status === 'Excellent' || row.status === 'Good' ? '#22c55e' : row.status === 'Average' ? '#f97316' : '#ef4444',
+                          borderRadius: 100
+                        }} />
                       </div>
-                      {late && <div style={{ fontSize:10, color:'#c2410c', fontWeight:500, marginTop:1 }}>Late</div>}
-                      {record.locationIn?.lat && record.locationIn?.lng ? (
-                        <a
-                          className="la-map-link"
-                          href={`https://www.google.com/maps?q=${record.locationIn.lat},${record.locationIn.lng}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <MapPin size={10} />
-                          {Number(record.locationIn.lat).toFixed(4)}, {Number(record.locationIn.lng).toFixed(4)}
-                        </a>
-                      ) : (
-                        <div style={{ fontSize:10, color:'var(--text-light)', marginTop:2 }}>No location</div>
-                      )}
-                    </div>
+                    </td>
 
-                    {/* Punch out + location */}
-                    <div>
-                      {active
-                        ? <span className="la-pill la-pill-blue" style={{ fontSize:10 }}>Active</span>
-                        : (
-                          <>
-                            <div style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>{fmtTime(record.punchOut)}</div>
-                            {record.locationOut?.lat && record.locationOut?.lng ? (
-                              <a
-                                className="la-map-link"
-                                href={`https://www.google.com/maps?q=${record.locationOut.lat},${record.locationOut.lng}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                <MapPin size={10} />
-                                {Number(record.locationOut.lat).toFixed(4)}, {Number(record.locationOut.lng).toFixed(4)}
-                              </a>
-                            ) : (
-                              <div style={{ fontSize:10, color:'var(--text-light)', marginTop:2 }}>No location</div>
-                            )}
-                          </>
-                        )
-                      }
-                    </div>
-
-                    {/* Worked */}
-                    <div style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>
-                      {record.totalHours ? fmtHours(record.totalHours) : active ? <span style={{ fontSize:11, color:'var(--text-muted)' }}>In progress</span> : '—'}
-                    </div>
-
-                    {/* Status */}
-                    <StatusPill status={record.status} workStatus={active ? 'Active' : (record.workStatus || record.status)} />
-
-                    {/* Export staff-wise PDF */}
-                    <div>
-                      <button
-                        onClick={() => exportStaffPDF(record.staff)}
-                        disabled={exportingStaffId === record.staff?._id}
-                        className="la-export-btn"
-                        style={{ fontSize:11, padding:'4px 10px', minHeight: 28, width: '100%' }}
+                    {/* Status badge */}
+                    <td style={{ padding: '10px 16px' }}>
+                      <span 
+                        className="la-pill" 
+                        style={{ 
+                          fontWeight: 700, 
+                          fontSize: 10.5,
+                          padding: '2.5px 7px',
+                          ...getStatusBadgeStyle(row.status)
+                        }}
                       >
-                        {exportingStaffId === record.staff?._id ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
-                        Export
-                      </button>
-                    </div>
-                  </motion.div>
-                )
-              })}
-            </div>
-          </div>
+                        {row.status}
+                      </span>
+                    </td>
 
-          {/* Footer */}
-          <div style={{ padding:'11px 20px', borderTop:'1px solid var(--border)', display:'flex', gap:20, flexWrap:'wrap', alignItems:'center' }}>
-              <span style={{ fontSize:12, color:'var(--text-muted)' }}>Total: <strong style={{ color:'var(--text)' }}>{filtered.length} records</strong></span>
-              <span style={{ fontSize:12, color:'var(--text-muted)' }}>Hours: <strong style={{ color:'var(--text)' }}>{totalHrsAll.toFixed(1)}h</strong></span>
-              {lateArrivals > 0 && <span style={{ fontSize:12, color:'var(--text-muted)' }}>Late: <strong style={{ color:'#c2410c' }}>{lateArrivals}</strong></span>}
+                    {/* Actions Dropdown */}
+                    <td style={{ padding: '10px 16px', position: 'relative', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuId(activeMenuId === row.staff._id ? null : row.staff._id);
+                          }}
+                          className="btn-icon btn-hover"
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 6,
+                            color: 'var(--text-light)',
+                            background: 'transparent',
+                            border: '1px solid var(--border)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <span style={{ fontSize: 14, lineHeight: 1, fontWeight: 700 }}>⋮</span>
+                        </button>
+
+                        {activeMenuId === row.staff._id && (
+                          <>
+                            <div 
+                              style={{ position: 'fixed', inset: 0, zIndex: 110 }} 
+                              onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} 
+                            />
+                            <div style={{
+                              position: 'absolute',
+                              right: 20,
+                              top: '80%',
+                              width: 140,
+                              background: 'var(--surface)',
+                              border: '1px solid var(--border)',
+                              borderRadius: 8,
+                              boxShadow: 'var(--shadow-lg)',
+                              zIndex: 120,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              padding: '4px 0',
+                              textAlign: 'left'
+                            }}>
+                              <DropdownItem onClick={() => { setActiveMenuId(null); navigate(`/staff/${row.staff._id}`); }}>
+                                <Briefcase size={12} style={{ marginRight: 6 }} /> View Profile
+                              </DropdownItem>
+                              <DropdownItem onClick={() => { setActiveMenuId(null); exportStaffPDF(row.staff); }}>
+                                <FileText size={12} style={{ marginRight: 6 }} /> Export PDF
+                              </DropdownItem>
+                              <DropdownItem onClick={() => { setActiveMenuId(null); exportStaffExcel(row.staff); }}>
+                                <Download size={12} style={{ marginRight: 6 }} /> Export Excel
+                              </DropdownItem>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -787,7 +799,6 @@ function AttendanceTab() {
   )
 }
 
-// ─── Working Days Tab ─────────────────────────────────────────────────────────
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const DAY_FULL   = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -797,19 +808,30 @@ function DayCheckboxes({ value, onChange, disabled }) {
     onChange(value.includes(d) ? value.filter(x => x !== d) : [...value, d].sort((a,b)=>a-b))
   }
   return (
-    <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
       {DAY_LABELS.map((label, i) => {
         const active = value.includes(i)
         const isWeekend = i === 0 || i === 6
         return (
-          <button key={i} type="button" onClick={() => toggle(i)} disabled={disabled}
+          <button 
+            key={i} 
+            type="button" 
+            onClick={() => toggle(i)} 
+            disabled={disabled}
             style={{
-              padding:'5px 10px', borderRadius:7, border:'1.5px solid',
+              padding: '4px 10px', 
+              borderRadius: 6, 
+              border: '1.5px solid',
               borderColor: active ? (isWeekend ? '#7c3aed' : 'var(--primary)') : 'var(--border)',
-              background: active ? (isWeekend ? '#f5f3ff' : '#eff6ff') : 'var(--surface)',
+              background: active ? (isWeekend ? '#f5f3ff' : 'rgba(88, 131, 59, 0.08)') : 'var(--surface)',
               color: active ? (isWeekend ? '#6d28d9' : 'var(--primary)') : 'var(--text-muted)',
-              fontWeight: 700, fontSize: 12, cursor: disabled ? 'default' : 'pointer', transition:'all 0.15s'
-            }}>
+              fontWeight: 700, 
+              fontSize: 11.5, 
+              cursor: disabled ? 'default' : 'pointer', 
+              transition: 'all 0.15s',
+              fontFamily: 'var(--font-display), sans-serif'
+            }}
+          >
             {label}
           </button>
         )
@@ -827,7 +849,6 @@ function WorkingDaysTab() {
   const [savingStaff, setSavingStaff]     = useState(null)
   const [search, setSearch]               = useState('')
 
-  // per-staff draft edits: { [staffId]: { workingDays, clientAssignment } }
   const [drafts, setDrafts] = useState({})
 
   const fetchData = useCallback(async () => {
@@ -879,7 +900,6 @@ function WorkingDaysTab() {
         clientAssignment: draft.clientAssignment
       })
       toast.success('Team schedule updated')
-      // refresh to get saved values
       const res = await api.get('/attendance/admin/working-days')
       const updated = (res.data.staff || []).find(s => s._id === staffId)
       if (updated) {
@@ -916,142 +936,162 @@ function WorkingDaysTab() {
   const hasWeekend = (days) => days && (days.includes(0) || days.includes(6))
 
   return (
-    <div>
-      {/* ── Company Default ────────────────────────── */}
-      <div className="la-card" style={{ marginBottom:24, padding:20 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16 }}>
-          <div style={{ width:36, height:36, borderRadius:10, background:'#eff6ff', display:'flex', alignItems:'center', justifyContent:'center' }}>
+    <div style={{ fontFamily: 'var(--font-display), sans-serif' }}>
+      {/* Company Default Panel */}
+      <div className="panel" style={{ marginBottom: 24, padding: 20, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(88, 131, 59, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Briefcase size={17} color="var(--primary)" />
           </div>
           <div>
-            <div style={{ fontWeight:700, fontSize:15, color:'var(--text)' }}>Company Default Working Days</div>
-            <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:1 }}>Applies to all staff who don't have a custom schedule</div>
+            <div style={{ fontWeight: 800, fontSize: 14.5, color: 'var(--text)' }}>Company Default Working Days</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Applies to all staff without custom schedules</div>
           </div>
         </div>
 
-        <div style={{ display:'flex', gap:12, alignItems:'center', flexWrap:'wrap' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <DayCheckboxes value={editDefault} onChange={setEditDefault} />
-          <button className="la-export-btn" onClick={saveDefault} disabled={savingDefault}
-            style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
-            {savingDefault ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+          <button 
+            className="la-export-btn" 
+            onClick={saveDefault} 
+            disabled={savingDefault}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, fontSize: 12, padding: '0 16px', borderRadius: 8 }}
+          >
+            {savingDefault ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
             Save Default
           </button>
         </div>
 
-        {/* Current saved summary */}
-        <div style={{ marginTop:12, fontSize:12, color:'var(--text-muted)' }}>
-          Current: <strong style={{ color:'var(--text)' }}>{defaultDays.map(d => DAY_FULL[d]).join(', ') || 'None'}</strong>
+        <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>
+          Current: <strong style={{ color: 'var(--text)' }}>{defaultDays.map(d => DAY_FULL[d]).join(', ') || 'None'}</strong>
         </div>
       </div>
 
-      {/* ── Staff-wise ─────────────────────────────── */}
-      <div style={{ display:'flex', gap:12, marginBottom:16, alignItems:'center' }}>
-        <div style={{ flex:1, fontWeight:700, fontSize:15, color:'var(--text)' }}>Staff-wise Schedule</div>
-        <div className="la-search" style={{ width:240 }}>
-          <Search size={14} />
-          <input placeholder="Search staff…" value={search} onChange={e => setSearch(e.target.value)} />
+      {/* Staff-wise Schedule Panel */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+        <div style={{ fontWeight: 800, fontSize: 14.5, color: 'var(--text)' }}>Staff-wise Schedule</div>
+        <div className="la-search" style={{ width: 220 }}>
+          <Search size={13} />
+          <input 
+            placeholder="" 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+            style={{ height: 32, fontSize: 12, paddingLeft: 38 }}
+          />
         </div>
       </div>
 
       {loading ? (
-        <div style={{ display:'flex', justifyContent:'center', padding:60 }}>
-          <Loader2 size={28} className="animate-spin" style={{ color:'var(--primary)' }} />
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
+          <Loader2 size={28} className="animate-spin" style={{ color: 'var(--primary)' }} />
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign:'center', padding:60, background:'var(--surface)', borderRadius:12, border:'1px dashed var(--border)' }}>
-          <Briefcase size={36} color="var(--text-light)" style={{ marginBottom:10 }} />
-          <div style={{ fontWeight:700, color:'var(--text)', marginBottom:4 }}>No staff found</div>
+        <div style={{ textAlign: 'center', padding: 60, background: 'var(--surface)', borderRadius: 12, border: '1px dashed var(--border)' }}>
+          <Briefcase size={36} color="var(--text-light)" style={{ marginBottom: 10 }} />
+          <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>No staff found</div>
         </div>
       ) : (
-        <div className="la-card">
-          {/* Head */}
-          <div className="la-table-head" style={{ gridTemplateColumns:'1.6fr 2fr 1.6fr 120px' }}>
-            {['Employee', 'Working Days', 'Client Assignment', 'Actions'].map(h => (
-              <div key={h} style={{ fontSize:11, fontWeight:700, color:'var(--text-light)', textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</div>
-            ))}
+        <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employee</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Working Days</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(s => {
+                  const draft = drafts[s._id] || { workingDays: null, clientAssignment: '' }
+                  const isCustom = draft.workingDays !== null
+                  const displayDays = isCustom ? draft.workingDays : editDefault
+                  const weekendWork = hasWeekend(displayDays)
+                  const isDirty = JSON.stringify(draft.workingDays) !== JSON.stringify(s.workingDays && s.workingDays.length ? s.workingDays : null)
+                    || draft.clientAssignment !== (s.clientAssignment || '')
+
+                  return (
+                    <tr key={s._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      {/* Employee */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <Avatar name={s.fullName} size={32} />
+                          <div>
+                            <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: 13 }}>{s.fullName}</div>
+                            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{s.employeeId || '—'} · {s.designation || 'Team Member'}</div>
+                            <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                              {weekendWork && (
+                                <span style={{ fontSize: 10, fontWeight: 700, color: '#6d28d9', background: '#f5f3ff', border: '1px solid #e9d5ff', borderRadius: 4, padding: '1px 6px' }}>
+                                  Weekend
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Working Days */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <DayCheckboxes
+                          value={displayDays}
+                          onChange={(days) => setDraftDays(s._id, days)}
+                        />
+                      </td>
+
+                      {/* Actions */}
+                      <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <button
+                            onClick={() => saveStaff(s._id)}
+                            disabled={savingStaff === s._id || !isDirty}
+                            className="btn-icon btn-hover"
+                            style={{ 
+                              width: 28, 
+                              height: 28, 
+                              borderRadius: 6, 
+                              color: isDirty ? '#16a34a' : 'var(--text-light)',
+                              background: isDirty ? 'rgba(22, 163, 74, 0.08)' : 'transparent',
+                              border: isDirty ? 'none' : '1px solid var(--border)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: isDirty ? 'pointer' : 'default',
+                              opacity: isDirty ? 1 : 0.5
+                            }}
+                            title="Save Changes"
+                          >
+                            {savingStaff === s._id ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                          </button>
+                          
+                          {isDirty && (
+                            <button
+                              onClick={() => resetStaff(s._id)}
+                              className="btn-icon btn-hover"
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 6,
+                                color: 'var(--text-light)',
+                                background: 'transparent',
+                                border: '1px solid var(--border)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer'
+                              }}
+                              title="Reset Changes"
+                            >
+                              <RotateCcw size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
-
-          <AnimatePresence initial={false}>
-            {filtered.map(s => {
-              const draft = drafts[s._id] || { workingDays: null, clientAssignment: '' }
-              const isCustom = draft.workingDays !== null
-              const displayDays = isCustom ? draft.workingDays : editDefault
-              const weekendWork = hasWeekend(displayDays)
-              const isDirty = JSON.stringify(draft.workingDays) !== JSON.stringify(s.workingDays && s.workingDays.length ? s.workingDays : null)
-                || draft.clientAssignment !== (s.clientAssignment || '')
-
-              return (
-                <motion.div key={s._id} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}
-                  className="la-row" style={{ gridTemplateColumns:'1.6fr 2fr 1.6fr 120px', alignItems:'start', paddingTop:16, paddingBottom:16 }}>
-
-                  {/* Employee */}
-                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                    <Avatar name={s.fullName} size={36} />
-                    <div>
-                      <div style={{ fontSize:13, fontWeight:700, color:'var(--text)' }}>{s.fullName}</div>
-                      <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:1 }}>{s.employeeId} · {s.designation || 'Team Member'}</div>
-                      {!isCustom && (
-                        <span style={{ fontSize:10, color:'#1d4ed8', background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:5, padding:'1px 6px', marginTop:4, display:'inline-block' }}>
-                          Using Default
-                        </span>
-                      )}
-                      {weekendWork && (
-                        <span style={{ fontSize:10, color:'#6d28d9', background:'#f5f3ff', border:'1px solid #e9d5ff', borderRadius:5, padding:'1px 6px', marginTop:4, marginLeft:4, display:'inline-block' }}>
-                          Weekend Work
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Working days checkboxes */}
-                  <div>
-                    <DayCheckboxes
-                      value={displayDays}
-                      onChange={(days) => setDraftDays(s._id, days)}
-                    />
-                    {!isCustom && (
-                      <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:6 }}>
-                        Click a day to create a custom schedule for this staff
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Client assignment */}
-                  <div>
-                    <input
-                      placeholder={weekendWork ? 'e.g. Acme Corp (optional)…' : 'N/A'}
-                      value={draft.clientAssignment}
-                      onChange={e => setDraftClient(s._id, e.target.value)}
-                      disabled={!weekendWork}
-                      className="la-month-select"
-                      style={{ width:'100%', fontSize:12, opacity: weekendWork ? 1 : 0.4 }}
-                    />
-                    {weekendWork && (
-                      <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:4 }}>Shows on staff portal (optional)</div>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                    <button
-                      onClick={() => saveStaff(s._id)}
-                      disabled={savingStaff === s._id}
-                      className="la-export-btn"
-                      style={{ fontSize:11, padding:'5px 10px', justifyContent:'center' }}>
-                      {savingStaff === s._id ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                      Save
-                    </button>
-                    {isDirty && (
-                      <button onClick={() => resetStaff(s._id)}
-                        style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', gap:4, padding:'5px 10px', fontSize:11, fontWeight:600, border:'1px solid var(--border)', borderRadius:7, background:'var(--surface)', color:'var(--text-muted)', cursor:'pointer' }}>
-                        <RotateCcw size={11} /> Reset
-                      </button>
-                    )}
-                  </div>
-                </motion.div>
-              )
-            })}
-          </AnimatePresence>
         </div>
       )}
     </div>
@@ -1060,7 +1100,13 @@ function WorkingDaysTab() {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function LeaveRequests() {
-  const [activeTab, setActiveTab] = useState('leave')
+  const location = useLocation()
+  const isLeave = location.pathname.startsWith('/leave')
+  const [activeTab, setActiveTab] = useState(isLeave ? 'leave' : 'attendance')
+
+  useEffect(() => {
+    setActiveTab(isLeave ? 'leave' : 'attendance')
+  }, [location.pathname, isLeave])
 
   useEffect(() => {
     const id = 'la-page-styles'
@@ -1074,33 +1120,36 @@ export default function LeaveRequests() {
   }, [])
 
   return (
-    <PageShell>
-
-      {/* Page header */}
-      <div style={{ marginBottom:22 }}>
-        <h2 style={{ margin:0, fontSize:21, fontWeight:700, color:'var(--text)' }}>Attendance & Leave</h2>
-        <div style={{ fontSize:13, color:'var(--text-muted)', marginTop:3 }}>
-          Review attendance records and leave applications.
-        </div>
-      </div>
-
+    <PageShell style={{ maxWidth: 'none' }}>
       {/* Tabs */}
       <div className="la-tabs" style={{ marginBottom:22 }}>
-        <button className={`la-tab${activeTab === 'leave' ? ' active' : ''}`} onClick={() => setActiveTab('leave')}>
-          <Calendar size={14} style={{ display:'inline', marginRight:6, verticalAlign:'middle' }} />
-          Leave Requests
-        </button>
-        <button className={`la-tab${activeTab === 'attendance' ? ' active' : ''}`} onClick={() => setActiveTab('attendance')}>
-          <ClipboardList size={14} style={{ display:'inline', marginRight:6, verticalAlign:'middle' }} />
-          Attendance
-        </button>
-        <button className={`la-tab${activeTab === 'workingdays' ? ' active' : ''}`} onClick={() => setActiveTab('workingdays')}>
-          <Briefcase size={14} style={{ display:'inline', marginRight:6, verticalAlign:'middle' }} />
-          Working Days
-        </button>
+        {isLeave ? (
+          <>
+            <button className={`la-tab${activeTab === 'leave' ? ' active' : ''}`} onClick={() => setActiveTab('leave')}>
+              <Calendar size={14} style={{ display:'inline', marginRight:6, verticalAlign:'middle' }} />
+              Leave Requests
+            </button>
+            <button className={`la-tab${activeTab === 'policy' ? ' active' : ''}`} onClick={() => setActiveTab('policy')}>
+              <ShieldCheck size={14} style={{ display:'inline', marginRight:6, verticalAlign:'middle' }} />
+              Leave Policy
+            </button>
+          </>
+        ) : (
+          <>
+            <button className={`la-tab${activeTab === 'attendance' ? ' active' : ''}`} onClick={() => setActiveTab('attendance')}>
+              <ClipboardList size={14} style={{ display:'inline', marginRight:6, verticalAlign:'middle' }} />
+              Attendance
+            </button>
+            <button className={`la-tab${activeTab === 'workingdays' ? ' active' : ''}`} onClick={() => setActiveTab('workingdays')}>
+              <Briefcase size={14} style={{ display:'inline', marginRight:6, verticalAlign:'middle' }} />
+              Working Days
+            </button>
+          </>
+        )}
       </div>
 
       {activeTab === 'leave'        && <LeaveTab />}
+      {activeTab === 'policy'       && <LeavePolicy />}
       {activeTab === 'attendance'   && <AttendanceTab />}
       {activeTab === 'workingdays'  && <WorkingDaysTab />}
     </PageShell>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   Headphones, RefreshCw, CheckCircle, XCircle, Clock, Loader2,
-  Eye, LogIn, LogOut, AlertCircle, Filter
+  LogIn, LogOut, AlertCircle, Filter, MoreVertical
 } from 'lucide-react'
 import api from '../api'
 import { toast } from 'react-hot-toast'
@@ -220,6 +220,7 @@ export default function StaffSupport() {
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('All')
+  const [activeMenuId, setActiveMenuId] = useState(null)
 
   // Confirm action modal
   const [actionModal, setActionModal] = useState(null) // { id, action, requestType }
@@ -447,19 +448,117 @@ export default function StaffSupport() {
                     </td>
 
                     {/* Actions */}
-                    <td style={{ padding: '13px 18px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <IconBtn onClick={() => openView(req)} title="View Details">
-                          <Eye size={13} />
-                        </IconBtn>
-                        {req.status === 'Pending' && (
+                    <td style={{ padding: '13px 18px', position: 'relative' }}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setActiveMenuId(activeMenuId === req._id ? null : req._id)
+                          }}
+                          style={{
+                            width: 30,
+                            height: 30,
+                            borderRadius: 8,
+                            color: 'var(--text-light)',
+                            background: 'transparent',
+                            border: 'none',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer'
+                          }}
+                          title="Actions"
+                        >
+                          <MoreVertical size={14} />
+                        </button>
+
+                        {activeMenuId === req._id && (
                           <>
-                            <IconBtn onClick={() => openAction(req._id, 'approve', req.requestType)} title="Approve" variant="green">
-                              <CheckCircle size={13} />
-                            </IconBtn>
-                            <IconBtn onClick={() => openAction(req._id, 'reject', req.requestType)} title="Reject" variant="red">
-                              <XCircle size={13} />
-                            </IconBtn>
+                            <div 
+                              style={{ position: 'fixed', inset: 0, zIndex: 110 }} 
+                              onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} 
+                            />
+                            <div style={{
+                              position: 'absolute',
+                              right: 18,
+                              top: '80%',
+                              width: 150,
+                              background: 'var(--surface)',
+                              border: '1px solid var(--border)',
+                              borderRadius: 10,
+                              boxShadow: 'var(--shadow-lg)',
+                              zIndex: 120,
+                              overflow: 'hidden',
+                              padding: '4px 0'
+                            }}>
+                              <button
+                                onClick={() => { setActiveMenuId(null); openView(req); }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                style={{
+                                  width: '100%',
+                                  textAlign: 'left',
+                                  padding: '8px 12px',
+                                  background: 'none',
+                                  border: 'none',
+                                  color: 'var(--text)',
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  transition: 'background 0.15s'
+                                }}
+                              >
+                                📄 View Details
+                              </button>
+                              {req.status === 'Pending' && (
+                                <>
+                                  <button
+                                    onClick={() => { setActiveMenuId(null); openAction(req._id, 'approve', req.requestType); }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                    style={{
+                                      width: '100%',
+                                      textAlign: 'left',
+                                      padding: '8px 12px',
+                                      background: 'none',
+                                      border: 'none',
+                                      color: '#58833b',
+                                      fontSize: '12px',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 6,
+                                      transition: 'background 0.15s'
+                                    }}
+                                  >
+                                    ✅ Approve
+                                  </button>
+                                  <button
+                                    onClick={() => { setActiveMenuId(null); openAction(req._id, 'reject', req.requestType); }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                    style={{
+                                      width: '100%',
+                                      textAlign: 'left',
+                                      padding: '8px 12px',
+                                      background: 'none',
+                                      border: 'none',
+                                      color: '#dc2626',
+                                      fontSize: '12px',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 6,
+                                      transition: 'background 0.15s'
+                                    }}
+                                  >
+                                    ❌ Reject
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </>
                         )}
                       </div>
