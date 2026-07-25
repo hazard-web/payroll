@@ -108,6 +108,16 @@ export default function PortalDashboard() {
   }, [fetchActiveShift])
 
   useEffect(() => {
+    if (activeShift?.date) {
+      const shiftDate = new Date(activeShift.date).toDateString()
+      const currentDate = currentTime.toDateString()
+      if (shiftDate !== currentDate) {
+        fetchActiveShift()
+      }
+    }
+  }, [currentTime, activeShift, fetchActiveShift])
+
+  useEffect(() => {
     if (staffUser && staffUser.profileCompleted === false) {
       setShowProfilePopup(true)
     } else {
@@ -301,7 +311,22 @@ export default function PortalDashboard() {
   const clientName = staffUser?.clientAssignment || ''
 
   const sessions = Array.isArray(activeShift?.sessions) ? activeShift.sessions : []
-  const workedHours = Number(activeShift?.totalHours || 0)
+  const workedHours = useMemo(() => {
+    if (!activeShift?.date) return 0
+    const shiftDate = new Date(activeShift.date).toDateString()
+    const currentDate = currentTime.toDateString()
+    if (shiftDate !== currentDate) return 0
+
+    let totalMs = 0
+    sessions.forEach(s => {
+      const start = new Date(s.startTime)
+      const end = s.endTime ? new Date(s.endTime) : currentTime
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        totalMs += Math.max(0, end - start)
+      }
+    })
+    return totalMs / (1000 * 3600)
+  }, [activeShift, sessions, currentTime])
   const remainingHours = Math.max(0, 8 - workedHours)
   const sessionCount = activeShift?.sessionCount ?? sessions.length
   const completedTasks = Array.isArray(activeShift?.tasks) ? activeShift.tasks.filter(task => task.status === 'Completed').length : 0

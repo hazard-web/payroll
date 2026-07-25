@@ -19,7 +19,6 @@ const navItems = [
   { to: '/portal/leave', label: 'Leave', icon: CalendarDays },
   { to: '/portal/payslips', label: 'Payslip', icon: FileText },
   { to: '/portal/announcements', label: 'Announcements', icon: Bell },
-  { to: '/portal/settings', label: 'Settings', icon: Settings },
 ]
 
 function useMediaQuery(query) {
@@ -309,45 +308,32 @@ export default function PortalLayout() {
         <div style={{ padding: '0 14px 14px', borderTop: '1px solid var(--border)', paddingTop: 12 }}>
           {sidebarOpen ? (
             <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 10,
               background: 'var(--surface)',
               border: '1px solid var(--border)',
               borderRadius: 12,
-              overflow: 'hidden',
+              padding: '8px 10px',
             }}>
               <div style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '11px 12px', cursor: 'pointer', transition: 'background 0.2s'
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                <div style={{
-                  width: 34, height: 34, borderRadius: 9, flexShrink: 0,
-                  background: 'var(--primary)', color: 'white',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontWeight: 800, fontSize: 14,
-                }}>
-                  {(staffUser?.fullName || 'E').charAt(0).toUpperCase()}
-                </div>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {staffUser?.fullName}
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {staffUser?.designation || 'Team Member'}
-                  </div>
-                </div>
+                width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+                background: 'var(--primary)', color: 'white',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 800, fontSize: 14,
+              }} title={staffUser?.fullName}>
+                {(staffUser?.fullName || 'E').charAt(0).toUpperCase()}
               </div>
-
-              <div style={{ height: '1px', background: 'var(--border)', margin: '0' }} />
 
               <button
                 onClick={logout}
                 style={{
-                  width: '100%', background: 'none', border: 'none', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '9px 12px', color: 'var(--text-muted)',
-                  fontSize: 12, fontWeight: 600, transition: 'all 0.2s',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '6px 10px', color: 'var(--text-muted)',
+                  fontSize: 12, fontWeight: 600, borderRadius: 8,
+                  transition: 'all 0.2s',
                 }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'; e.currentTarget.style.color = '#ef4444'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-muted)'; }}

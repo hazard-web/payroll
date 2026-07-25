@@ -276,20 +276,6 @@ export default function PortalAttendance() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* Fix button — shown when any record might be corrupted */}
-          <button
-            className="pa-fix-btn"
-            onClick={handleFixData}
-            disabled={fixing}
-            title="Auto-close any attendance records that were never punched out and recalculate hours correctly"
-          >
-            {fixing
-              ? <Loader2 size={13} className="animate-spin" />
-              : <Wrench size={13} />
-            }
-            {fixing ? 'Fixing…' : 'Fix Attendance Data'}
-          </button>
-
           {/* Month nav */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '3px 6px' }}>
             <button onClick={prevMonth} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px 6px', color: 'var(--text)' }}>
@@ -472,7 +458,6 @@ export default function PortalAttendance() {
                     <td style={{ color: 'var(--text-muted)' }}>{punchOutDisplay}</td>
                     <td style={{ fontWeight: 600, color: hoursWarn ? '#c2410c' : 'var(--text)' }}>
                       {dispHours ? `${dispHours.toFixed(1)}h` : '—'}
-                      {hoursWarn && <span title="Data needs fixing — click 'Fix Attendance Data'" style={{ marginLeft: 4, color: '#c2410c' }}>⚠</span>}
                     </td>
                     <td style={{ color: 'var(--text)', fontWeight: 700 }}>{taskCount ? `${completed}/${taskCount}` : '—'}</td>
                     <td>

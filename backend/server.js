@@ -169,7 +169,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Connect to MongoDB then start server
+// Connect to MongoDB then start server (updated URI database path)
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/payslip_generator';
 console.log('🔍 MONGODB_URI =', process.env.MONGODB_URI);
 const { runShiftCheck, runOfficeClosingCheck } = require('./utils/cronJobs');

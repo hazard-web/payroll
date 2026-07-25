@@ -52,6 +52,14 @@ function getProductionBaseUrl() {
   const envFrontendUrl = cleanUrl(process.env.FRONTEND_URL);
   const envAppUrl = cleanUrl(process.env.APP_URL);
 
+  // If in development/local mode, prioritize local URL for testing
+  const isDev = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
+  if (isDev || isLocalUrl(envFrontendUrl) || isLocalUrl(envAppUrl)) {
+    if (envFrontendUrl && isLocalUrl(envFrontendUrl)) return envFrontendUrl;
+    if (envAppUrl && isLocalUrl(envAppUrl)) return envAppUrl;
+    return 'http://localhost:5173'; // Default frontend dev server URL (Vite)
+  }
+
   if (envFrontendUrl && !isLocalUrl(envFrontendUrl) && !isPreviewOrDeadUrl(envFrontendUrl)) {
     return envFrontendUrl;
   }

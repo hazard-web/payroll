@@ -563,7 +563,7 @@ export default function Dashboard() {
   const [loadError, setLoadError] = useState('')
   const [attendanceMonth, setAttendanceMonth] = useState(() => monthValue(new Date()))
   const [performancePeriod, setPerformancePeriod] = useState('month')
-  const [performanceStats, setPerformanceStats] = useState({ averageScore: 85, topPerformerName: 'Vikash Kumar', topPerformerScore: 92, teamEfficiency: 80 })
+  const [performanceStats, setPerformanceStats] = useState({ averageScore: 0, topPerformerName: '—', topPerformerScore: 0, teamEfficiency: 0 })
   const [leaveMonth, setLeaveMonth] = useState(() => monthValue(new Date()))
   const [monthlyAttendance, setMonthlyAttendance] = useState([])
   const [previousMonthlyAttendance, setPreviousMonthlyAttendance] = useState([])
@@ -646,6 +646,24 @@ export default function Dashboard() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useEffect(() => {
+    if (staffData.length === 0) {
+      setPerformanceStats({
+        averageScore: 0,
+        topPerformerName: '—',
+        topPerformerScore: 0,
+        teamEfficiency: 0
+      })
+    } else {
+      setPerformanceStats({
+        averageScore: 85,
+        topPerformerName: staffData[0]?.fullName || 'Vikash Kumar',
+        topPerformerScore: 92,
+        teamEfficiency: 80
+      })
+    }
+  }, [staffData])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -1063,10 +1081,12 @@ export default function Dashboard() {
             <div style={{ flex: 1, borderRight: '1px solid var(--border)', paddingRight: 20 }}>
               <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Average Score</div>
               <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text)', lineHeight: 1.1 }}>{performanceStats.averageScore}%</div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#22c55e', marginTop: 4, display: 'flex', alignItems: 'center', gap: 3 }}>
-                <span>▲ 8%</span>
-                <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>from last period</span>
-              </div>
+              {performanceStats.averageScore > 0 && (
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#22c55e', marginTop: 4, display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <span>▲ 8%</span>
+                  <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>from last period</span>
+                </div>
+              )}
             </div>
             {/* Right Col: Top Performer & Team Efficiency */}
             <div style={{ flex: 1.2, display: 'flex', flexDirection: 'column', gap: 14 }}>

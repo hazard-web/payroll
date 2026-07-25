@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Radio, Bell, AlertTriangle, Zap, Calendar, Loader2, BellOff, BellRing
+  Radio, Bell, AlertTriangle, Zap, Loader2, BellOff
 } from 'lucide-react'
 import api from '../../api'
-import PageShell from '../../components/PageShell'
-import { PRIORITY_CONFIG } from '../../components/AnnouncementPreviewWidget'
+import PageShell, { PageHeader } from '../../components/PageShell'
+import { StatCard } from '../../components/UI'
 
-const PRIORITY_ICONS = { Normal: Bell, Important: AlertTriangle, Urgent: Zap }
+const priorityConfig = {
+  Normal:    { icon: Bell,     badge: 'pill--green',  color: '#58833b', bg: '#e5ebdd', border: 'rgba(88,131,59,0.25)' },
+  Important: { icon: AlertTriangle, badge: 'pill--amber', color: '#b45309', bg: '#fef3c7', border: 'rgba(180,83,9,0.25)' },
+  Urgent:    { icon: Zap,      badge: 'pill--red',    color: '#dc2626', bg: '#fee2e2', border: 'rgba(220,38,38,0.25)' },
+}
 
 const priorityOrder = { Urgent: 0, Important: 1, Normal: 2 }
 
@@ -37,12 +41,14 @@ export default function PortalAnnouncements() {
     fetchAnnouncements()
   }, [])
 
-  const fmtDate = (d) =>
-    new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  const fmtDate = (d) => {
+    if (!d) return null
+    return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
 
   if (loading) {
     return (
-      <PageShell narrow>
+      <PageShell style={{ maxWidth: 'none' }}>
         <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
           <Loader2 size={36} className="animate-spin" style={{ color: 'var(--primary)' }} />
         </div>
@@ -53,59 +59,22 @@ export default function PortalAnnouncements() {
   const urgentCount = announcements.filter(a => a.priority === 'Urgent').length
 
   return (
-    <PageShell narrow>
+    <PageShell style={{ maxWidth: 'none' }}>
       {/* ── Page header ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
-        <div
-          style={{
-            width: 48, height: 48, borderRadius: 12,
-            background: 'rgba(88,131,59,0.1)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <Radio size={22} color="var(--primary)" />
-        </div>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', margin: 0 }}>
-            Announcements
-          </h1>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>
-            Company-wide updates and notices from your HR team
-          </p>
-        </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 24 }}>
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: 'var(--primary)', letterSpacing: '-0.02em' }}>
+          Announcements
+        </h1>
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
+          Company-wide updates and notices from your HR team
+        </p>
       </div>
 
       {/* ── Stats bar ── */}
       {announcements.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 24 }}>
-          {[
-            { label: 'Active', value: announcements.length, icon: Radio, accent: '#58833b' },
-            { label: 'Urgent', value: urgentCount, icon: Zap, accent: '#dc2626' },
-          ].map(stat => (
-            <div
-              key={stat.label}
-              style={{
-                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
-                padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12,
-              }}
-            >
-              <div
-                style={{
-                  width: 36, height: 36, borderRadius: 9,
-                  background: `${stat.accent}15`, color: stat.accent,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <stat.icon size={16} />
-              </div>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', lineHeight: 1.1 }}>{stat.value}</div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{stat.label}</div>
-              </div>
-            </div>
-          ))}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
+          <StatCard icon={Radio} label="ACTIVE ANNOUNCEMENTS" value={announcements.length} color="#58833b" />
+          <StatCard icon={Zap} label="URGENT" value={urgentCount} color="#dc2626" />
         </div>
       )}
 
@@ -137,10 +106,9 @@ export default function PortalAnnouncements() {
         </motion.div>
       ) : (
         /* ── Announcement cards ── */
-        <div style={{ display: 'grid', gap: 14 }}>
+        <div style={{ display: 'grid', gap: 16 }}>
           {announcements.map((item, i) => {
-            const cfg = PRIORITY_CONFIG[item.priority] || PRIORITY_CONFIG.Normal
-            const PriorityIcon = PRIORITY_ICONS[item.priority] || Bell
+            const config = priorityConfig[item.priority] || priorityConfig.Normal
 
             return (
               <motion.div
@@ -150,92 +118,49 @@ export default function PortalAnnouncements() {
                 transition={{ delay: i * 0.05 }}
                 style={{
                   background: 'var(--surface)',
-                  border: `1px solid ${cfg.border}`,
-                  borderRadius: 14,
+                  border: '1px solid var(--border)',
+                  borderRadius: 12,
                   overflow: 'hidden',
-                  boxShadow: '0 1px 6px rgba(0,0,0,0.05)',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
                 }}
               >
-                {/* Priority header bar */}
-                <div style={{
-                  height: 3,
-                  background: `linear-gradient(90deg, ${cfg.strip} 0%, ${cfg.strip}99 60%, transparent 100%)`,
-                }} />
-
-                <div style={{ padding: '18px 20px' }}>
-                  {/* Row 1: priority badge + date */}
+                <div style={{ display: 'flex', alignItems: 'stretch', gap: 14, padding: '18px 20px', height: '100%', boxSizing: 'border-box' }}>
+                  {/* Priority indicator strip */}
                   <div style={{
-                    display: 'flex', alignItems: 'center',
-                    justifyContent: 'space-between', gap: 12, marginBottom: 12,
-                    flexWrap: 'wrap',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{
-                        width: 28, height: 28, borderRadius: 7,
-                        background: cfg.bg, color: cfg.color,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0,
-                      }}>
-                        <PriorityIcon size={13} />
+                    width: 4, borderRadius: 4,
+                    background: config.color, flexShrink: 0,
+                  }} />
+
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12 }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                        <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>{item.title}</h3>
+                        <span className={`pill ${config.badge}`} style={{ background: config.bg, color: config.color, border: `1px solid ${config.border}` }}>
+                          {item.priority}
+                        </span>
                       </div>
-                      <span
-                        style={{
-                          fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
-                          letterSpacing: '0.07em',
-                          padding: '3px 10px', borderRadius: 999,
-                          background: cfg.bg, color: cfg.color,
-                          border: `1px solid ${cfg.border}`,
-                        }}
-                      >
-                        {item.priority}
-                      </span>
+
+                      <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>
+                        {item.message}
+                      </p>
                     </div>
 
-                    <span style={{
-                      fontSize: 11, color: 'var(--text-light)', fontWeight: 600,
-                      display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap',
-                      flexShrink: 0,
-                    }}>
-                      <Calendar size={11} />
-                      {fmtDate(item.createdAt)}
-                    </span>
-                  </div>
-
-                  {/* Title */}
-                  <h3 style={{
-                    fontSize: 15, fontWeight: 700, color: 'var(--text)',
-                    margin: '0 0 10px', lineHeight: 1.4,
-                  }}>
-                    {item.title}
-                  </h3>
-
-                  {/* Full message */}
-                  <p style={{
-                    fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.7,
-                    margin: 0, whiteSpace: 'pre-wrap',
-                  }}>
-                    {item.message}
-                  </p>
-
-                  {/* Date range (if set) */}
-                  {(item.startDate || item.endDate) && (
-                    <div style={{
-                      marginTop: 12, paddingTop: 12,
-                      borderTop: '1px solid var(--border)',
-                      display: 'flex', gap: 16, flexWrap: 'wrap',
-                    }}>
+                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
                       {item.startDate && (
-                        <span style={{ fontSize: 11, color: 'var(--text-light)', fontWeight: 600 }}>
+                        <span style={{ fontSize: 10, color: 'var(--text-light)', fontWeight: 600 }}>
                           From: {fmtDate(item.startDate)}
                         </span>
                       )}
                       {item.endDate && (
-                        <span style={{ fontSize: 11, color: 'var(--text-light)', fontWeight: 600 }}>
+                        <span style={{ fontSize: 10, color: 'var(--text-light)', fontWeight: 600 }}>
                           Until: {fmtDate(item.endDate)}
                         </span>
                       )}
+                      <span style={{ fontSize: 10, color: 'var(--text-light)', fontWeight: 600, marginLeft: 'auto' }}>
+                        {fmtDate(item.createdAt)}
+                      </span>
                     </div>
-                  )}
+                  </div>
                 </div>
               </motion.div>
             )
