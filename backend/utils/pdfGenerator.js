@@ -552,7 +552,7 @@ function drawPayslip(doc, payslip) {
 
   // Large amount on the right
   doc.font(fB).fontSize(16).fillColor(C.white)
-     .text(formatINR(payslip.netSalary), M + CW - 8, netY + 16, { width: CW * 0.40, align: 'right' });
+     .text(formatINR(payslip.netSalary), M + CW - (CW * 0.40) - 18, netY + 16, { width: CW * 0.40, align: 'right' });
 
   y += netH + 18;
 

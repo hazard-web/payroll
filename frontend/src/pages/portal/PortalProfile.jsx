@@ -36,7 +36,8 @@ const emptyForm = {
     branch: ''
   },
   salaryDetails: {
-    annualCtc: ''
+    annualCtc: '',
+    baseSalary: ''
   }
 }
 
@@ -330,7 +331,8 @@ export default function PortalProfile() {
           branch: staffUser.bankDetails?.branch || ''
         },
         salaryDetails: {
-          annualCtc: staffUser.salaryDetails?.annualCtc || ''
+          annualCtc: staffUser.salaryDetails?.annualCTC || staffUser.salaryDetails?.annualCtc || '',
+          baseSalary: staffUser.salaryDetails?.baseSalary || ''
         }
       })
       hasInitializedForm.current = true
@@ -473,7 +475,10 @@ export default function PortalProfile() {
         address: { ...form.address, pincode: form.address.pincode.trim() },
         emergencyContact: { ...form.emergencyContact, phone: form.emergencyContact.phone.replace(/\D/g, '') },
         bankDetails: { ...form.bankDetails, ifscCode: form.bankDetails.ifscCode.toUpperCase().trim() },
-        salaryDetails: { annualCtc: Number(form.salaryDetails?.annualCtc || 0) }
+        salaryDetails: { 
+          annualCTC: Number(form.salaryDetails?.annualCtc || staffUser.salaryDetails?.annualCTC || 0),
+          baseSalary: Number(form.salaryDetails?.baseSalary || staffUser.salaryDetails?.baseSalary || 0)
+        }
       }
       await api.put('/portal/me', payload)
 
@@ -921,6 +926,7 @@ export default function PortalProfile() {
                   value={form.employeeId}
                   onChange={(e) => updateField('employeeId', e.target.value)}
                   icon={FileDigit}
+                  disabled
                 />
                 <InputField
                   label="Date of Joining"
@@ -928,18 +934,21 @@ export default function PortalProfile() {
                   onChange={(e) => updateField('joiningDate', e.target.value)}
                   type="date"
                   icon={Calendar}
+                  disabled
                 />
                 <InputField
                   label="Department"
                   value={form.department}
                   onChange={(e) => updateField('department', e.target.value)}
                   icon={Landmark}
+                  disabled
                 />
                 <InputField
                   label="Designation"
                   value={form.designation}
                   onChange={(e) => updateField('designation', e.target.value)}
                   icon={Briefcase}
+                  disabled
                 />
                 <SelectField
                   label="Employment Type"
@@ -949,6 +958,7 @@ export default function PortalProfile() {
                     { value: 'Employee', label: 'Employee' },
                     { value: 'Intern', label: 'Intern' }
                   ]}
+                  disabled
                 />
                 <SelectField
                   label="Work Location"
@@ -1148,13 +1158,11 @@ export default function PortalProfile() {
                   icon={MapPin}
                 />
                 <InputField
-                  label="Annual CTC Structure (₹)"
-                  value={form.salaryDetails?.annualCtc}
-                  onChange={(e) => updateField('salaryDetails.annualCtc', e.target.value)}
+                  label={isIntern ? "Monthly Stipend Structure (₹)" : "Annual CTC Structure (₹)"}
+                  value={isIntern ? form.salaryDetails?.baseSalary : form.salaryDetails?.annualCtc}
                   type="number"
                   icon={CreditCard}
-                  required
-                  placeholder="e.g. 280000"
+                  disabled
                 />
               </div>
             </Section>
