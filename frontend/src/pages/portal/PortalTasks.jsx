@@ -1309,7 +1309,7 @@ export default function PortalTasks() {
                         </span>
                       </div>
                       {task.description && (
-                        <div style={{ fontSize: 11, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 }}>
+                        <div style={{ fontSize: 11, color: '#94a3b8', wordBreak: 'break-word', marginTop: 4, lineHeight: 1.4, maxWidth: 500 }}>
                           {task.description}
                         </div>
                       )}
