@@ -4,12 +4,13 @@ const { auth: authAdmin } = require('./auth');
 const { authStaff } = require('./staffPortal');
 const AssignedTask = require('../models/AssignedTask');
 const Staff = require('../models/Staff');
+const { uploadBase64 } = require('../utils/cloudinary');
 
 // GET /api/assigned-tasks/admin — Get all assigned tasks (for Admin)
 router.get('/admin', authAdmin, async (req, res) => {
   try {
     const tasks = await AssignedTask.find()
-      .populate('staff', 'fullName employeeId department designation')
+      .populate('staff', 'fullName employeeId department designation documents.profileImage')
       .sort({ createdAt: -1 });
     res.json({ success: true, tasks });
   } catch (err) {
@@ -20,7 +21,7 @@ router.get('/admin', authAdmin, async (req, res) => {
 // POST /api/assigned-tasks/admin — Assign a new task (for Admin)
 router.post('/admin', authAdmin, async (req, res) => {
   try {
-    const { staffId, title, description, priority, dueDate } = req.body;
+    const { staffId, title, description, priority, dueDate, projectUrl, attachment } = req.body;
     if (!staffId || !title) {
       return res.status(400).json({ success: false, message: 'Staff and Title are required' });
     }
@@ -28,17 +29,32 @@ router.post('/admin', authAdmin, async (req, res) => {
     if (!staff) {
       return res.status(404).json({ success: false, message: 'Staff member not found' });
     }
+    let taskAttachment = attachment;
+    if (attachment && attachment.url && process.env.CLOUDINARY_CLOUD_NAME) {
+      try {
+        const cloudinaryUrl = await uploadBase64(attachment.url, `payroll_portal/tasks/${staffId}`);
+        taskAttachment = {
+          ...attachment,
+          url: cloudinaryUrl,
+        };
+      } catch (uploadErr) {
+        return res.status(500).json({ success: false, message: `Cloudinary upload failed: ${uploadErr.message}` });
+      }
+    }
+
     const newTask = new AssignedTask({
       staff: staffId,
       title,
       description,
+      projectUrl,
+      attachment: taskAttachment,
       priority,
       dueDate: dueDate ? new Date(dueDate) : undefined
     });
     await newTask.save();
     
     const populated = await AssignedTask.findById(newTask._id)
-      .populate('staff', 'fullName employeeId department designation');
+      .populate('staff', 'fullName employeeId department designation documents.profileImage');
     
     res.status(201).json({ success: true, task: populated });
   } catch (err) {
@@ -76,7 +92,7 @@ router.patch('/admin/:id/status', authAdmin, async (req, res) => {
       req.params.id,
       { $set: updateData },
       { new: true }
-    ).populate('staff', 'fullName employeeId department designation');
+    ).populate('staff', 'fullName employeeId department designation documents.profileImage');
 
     if (!task) {
       return res.status(404).json({ success: false, message: 'Task not found' });

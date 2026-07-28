@@ -4,6 +4,7 @@ const Attendance = require('../models/Attendance');
 const Notification = require('../models/Notification');
 const Staff = require('../models/Staff');
 const User = require('../models/User');
+const AssignedTask = require('../models/AssignedTask');
 const { authStaff } = require('./staffPortal');
 const { auth: authAdmin } = require('./auth');
 const { logActivity } = require('../utils/logger');
@@ -142,7 +143,7 @@ router.get('/admin/monthly', authAdmin, async (req, res) => {
       admin: req.user._id,
       date: { $gte: startDate, $lt: endDate }
     })
-      .populate('staff', 'fullName employeeId designation department')
+      .populate('staff', 'fullName employeeId designation department documents.profileImage')
       .sort({ date: -1 })
       .lean();
 
@@ -290,7 +291,7 @@ router.get('/admin/daily', authAdmin, async (req, res) => {
       admin: req.user._id,
       date: { $gte: targetDate, $lt: nextDate }
     })
-      .populate('staff', 'fullName employeeId designation department')
+      .populate('staff', 'fullName employeeId designation department documents.profileImage')
       .sort({ punchIn: -1 })
       .lean();
 
@@ -309,7 +310,7 @@ router.get('/admin/today-punchins', authAdmin, async (req, res) => {
       admin: req.user._id,
       date: today
     })
-      .populate('staff', 'fullName employeeId designation department')
+      .populate('staff', 'fullName employeeId designation department documents.profileImage')
       .sort({ punchIn: -1 })
       .lean();
 
@@ -414,10 +415,10 @@ router.get('/admin/performance-stats', authAdmin, async (req, res) => {
     res.json({
       success: true,
       data: {
-        averageScore: averageScore || 85,
-        topPerformerName: topPerformerName !== '—' ? topPerformerName : 'Vikash Kumar',
-        topPerformerScore: topPerformerScore || 92,
-        teamEfficiency: teamEfficiency || 80
+        averageScore: averageScore,
+        topPerformerName: topPerformerName,
+        topPerformerScore: topPerformerScore,
+        teamEfficiency: teamEfficiency
       }
     });
   } catch (err) {
@@ -437,7 +438,7 @@ router.get('/admin/performance', authAdmin, async (req, res) => {
       admin: req.user._id,
       date: { $gte: targetDate, $lt: nextDate }
     })
-      .populate('staff', 'fullName employeeId designation department')
+      .populate('staff', 'fullName employeeId designation department documents.profileImage')
       .sort({ punchIn: -1 })
       .lean();
 
@@ -483,7 +484,7 @@ router.get('/admin/performance', authAdmin, async (req, res) => {
   }
 });
 
-// GET /api/attendance/admin/staff/:id/tasks — Task history for a specific staff member with filters
+// GET /api/attendance/admin/staff/:id/tasks — Task history for a specific staff member with filters (assigned + self-reported)
 router.get('/admin/staff/:id/tasks', authAdmin, async (req, res) => {
   try {
     const { id } = req.params;
@@ -495,48 +496,77 @@ router.get('/admin/staff/:id/tasks', authAdmin, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Staff not found' });
     }
 
-    // Build date range based on filter
-    let dateQuery = {};
+    // Build date queries based on filter
+    let attendanceDateQuery = {};
+    let assignedTaskDateQuery = {};
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
     if (filter === 'today') {
-      dateQuery = { date: { $gte: today, $lt: new Date(today.getTime() + 86400000) } };
+      const nextDay = new Date(today.getTime() + 86400000);
+      attendanceDateQuery = { date: { $gte: today, $lt: nextDay } };
+      assignedTaskDateQuery = { assignedDate: { $gte: today, $lt: nextDay } };
     } else if (filter === 'yesterday') {
       const yesterday = new Date(today.getTime() - 86400000);
-      dateQuery = { date: { $gte: yesterday, $lt: today } };
+      attendanceDateQuery = { date: { $gte: yesterday, $lt: today } };
+      assignedTaskDateQuery = { assignedDate: { $gte: yesterday, $lt: today } };
     } else if (filter === 'week') {
       const weekStart = new Date(today);
       weekStart.setUTCDate(today.getUTCDate() - today.getUTCDay());
-      dateQuery = { date: { $gte: weekStart, $lt: new Date(today.getTime() + 86400000) } };
+      const nextDay = new Date(today.getTime() + 86400000);
+      attendanceDateQuery = { date: { $gte: weekStart, $lt: nextDay } };
+      assignedTaskDateQuery = { assignedDate: { $gte: weekStart, $lt: nextDay } };
     } else if (filter === 'month') {
       const monthStart = new Date(today.getUTCFullYear(), today.getUTCMonth(), 1);
-      dateQuery = { date: { $gte: monthStart, $lt: new Date(today.getTime() + 86400000) } };
+      const nextDay = new Date(today.getTime() + 86400000);
+      attendanceDateQuery = { date: { $gte: monthStart, $lt: nextDay } };
+      assignedTaskDateQuery = { assignedDate: { $gte: monthStart, $lt: nextDay } };
     } else if (filter === 'custom' && startDate && endDate) {
       const start = new Date(startDate);
       start.setUTCHours(0, 0, 0, 0);
       const end = new Date(endDate);
       end.setUTCHours(23, 59, 59, 999);
-      dateQuery = { date: { $gte: start, $lte: end } };
-    } else {
-      // Default: show all records
-      dateQuery = {};
+      attendanceDateQuery = { date: { $gte: start, $lte: end } };
+      assignedTaskDateQuery = { assignedDate: { $gte: start, $lte: end } };
     }
 
-    // Find all attendance records for this staff member
+    // 1. Fetch assigned tasks
+    const assignedTasks = await AssignedTask.find({
+      staff: id,
+      ...assignedTaskDateQuery
+    }).lean();
+
+    // 2. Fetch attendance records containing self-reported tasks
     const records = await Attendance.find({
       staff: id,
       admin: req.user._id,
-      ...dateQuery
-    })
-      .sort({ date: -1, punchIn: -1 })
-      .lean();
+      ...attendanceDateQuery
+    }).lean();
 
-    // Flatten tasks with parent info
     const allTasks = [];
+
+    // Map Assigned Tasks
+    assignedTasks.forEach(task => {
+      let durationMinutes = task.durationMinutes || 0;
+      if (!durationMinutes && task.startedAt && task.completedAt) {
+        const diffMs = new Date(task.completedAt) - new Date(task.startedAt);
+        durationMinutes = Math.round(diffMs / 60000);
+      }
+
+      allTasks.push({
+        ...task,
+        project: task.title,
+        taskDate: task.assignedDate,
+        attendanceId: task._id,
+        sessionStatus: 'Closed',
+        source: 'ASSIGNED',
+        durationMinutes
+      });
+    });
+
+    // Map Self-Reported Tasks
     records.forEach(record => {
       if (Array.isArray(record.tasks)) {
-        // Session status: "Closed" if punchOut exists, "Active" if still punched in
         const sessionStatus = record.punchOut ? 'Closed' : 'Active';
         record.tasks.forEach(task => {
           allTasks.push({
@@ -546,17 +576,27 @@ router.get('/admin/staff/:id/tasks', authAdmin, async (req, res) => {
             punchIn: record.punchIn,
             punchOut: record.punchOut,
             workStatus: record.workStatus,
-            sessionStatus: sessionStatus
+            sessionStatus: sessionStatus,
+            source: 'SELF_REPORTED'
           });
         });
       }
     });
 
+    // Sort combined tasks by date descending
+    allTasks.sort((a, b) => new Date(b.taskDate) - new Date(a.taskDate));
+
     // Calculate stats
     const totalTasks = allTasks.length;
     const pending = allTasks.filter(t => t.status === 'Pending').length;
-    const inProgress = allTasks.filter(t => t.status === 'In Progress').length;
+    const inProgress = allTasks.filter(t => t.status === 'In Progress' || t.status === 'Accepted').length;
     const completed = allTasks.filter(t => t.status === 'Completed').length;
+
+    // Calculate total hours logged from attendance records
+    let totalHours = 0;
+    records.forEach(r => {
+      totalHours += r.totalLoggedHours || 0;
+    });
 
     res.json({
       success: true,
@@ -572,7 +612,8 @@ router.get('/admin/staff/:id/tasks', authAdmin, async (req, res) => {
           totalTasks,
           pending,
           inProgress,
-          completed
+          completed,
+          totalHours
         },
         tasks: allTasks
       }
@@ -583,15 +624,67 @@ router.get('/admin/staff/:id/tasks', authAdmin, async (req, res) => {
   }
 });
 
-// GET /api/attendance/admin/staff-list — Get all staff for Team Performance module
+// GET /api/attendance/admin/staff-list — Get all staff for Team Performance module (combined performance)
 router.get('/admin/staff-list', authAdmin, async (req, res) => {
   try {
-    const staff = await Staff.find({ user: req.user._id })
-      .select('fullName employeeId designation department')
-      .sort({ fullName: 1 })
+    const staffList = await Staff.find({ user: req.user._id })
+      .select('fullName employeeId designation department type documents.profileImage')
       .lean();
 
-    res.json({ success: true, data: staff });
+    const staffIds = staffList.map(s => s._id);
+
+    // Fetch both AssignedTasks and AttendanceRecords
+    const [assignedTasks, attendanceRecords] = await Promise.all([
+      AssignedTask.find({ staff: { $in: staffIds } }).lean(),
+      Attendance.find({ admin: req.user._id }).select('staff tasks').lean()
+    ]);
+
+    // Map staff to their task stats
+    const statsMap = {};
+    staffIds.forEach(id => {
+      statsMap[String(id)] = { total: 0, completed: 0 };
+    });
+    
+    // Add Assigned Tasks to stats
+    assignedTasks.forEach(t => {
+      const sId = String(t.staff);
+      if (statsMap[sId]) {
+        statsMap[sId].total += 1;
+        if (t.status === 'Completed') {
+          statsMap[sId].completed += 1;
+        }
+      }
+    });
+
+    // Add Self-Reported Attendance Tasks to stats
+    attendanceRecords.forEach(r => {
+      const sId = String(r.staff);
+      if (statsMap[sId]) {
+        const tasks = Array.isArray(r.tasks) ? r.tasks : [];
+        tasks.forEach(t => {
+          statsMap[sId].total += 1;
+          if (t.status === 'Completed') {
+            statsMap[sId].completed += 1;
+          }
+        });
+      }
+    });
+
+    // Attach performance score to each staff
+    const data = staffList.map(s => {
+      const stats = statsMap[String(s._id)] || { total: 0, completed: 0 };
+      const score = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+      return {
+        ...s,
+        performanceScore: score,
+        taskStats: stats
+      };
+    });
+
+    // Sort by performanceScore descending (highest score first)
+    data.sort((a, b) => b.performanceScore - a.performanceScore);
+
+    res.json({ success: true, data });
   } catch (err) {
     console.error('Staff list error:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch staff list' });
@@ -1086,7 +1179,7 @@ router.get('/tasks/admin/team', authAdmin, async (req, res) => {
       admin: req.user._id,
       date: { $gte: targetDate, $lt: new Date(targetDate.getTime() + 86400000) }
     })
-      .populate('staff', 'fullName employeeId designation department')
+      .populate('staff', 'fullName employeeId designation department documents.profileImage')
       .lean();
 
     const nowMs = Date.now();

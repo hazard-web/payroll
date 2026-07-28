@@ -215,7 +215,7 @@ export function EmptyState({
 export function Avatar({
   name = '',
   src,
-  size = '', // lg | sm
+  size = '', // lg | sm or number
   className = '',
   style = {},
 }) {
@@ -228,7 +228,24 @@ export function Avatar({
     return name.slice(0, 2).toUpperCase()
   }, [name])
 
+  const isNumericSize = typeof size === 'number' || (typeof size === 'string' && size.trim() !== '' && !isNaN(size))
+  const numericSize = isNumericSize ? Number(size) : null
+
   const sizeClass = size === 'lg' ? 'avatar--lg' : size === 'sm' ? 'avatar--sm' : ''
+  const mergedStyle = numericSize
+    ? {
+        width: numericSize,
+        height: numericSize,
+        minWidth: numericSize,
+        minHeight: numericSize,
+        fontSize: Math.max(10, numericSize * 0.4),
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        ...style
+      }
+    : { flexShrink: 0, ...style }
 
   if (src) {
     return (
@@ -236,13 +253,13 @@ export function Avatar({
         src={src}
         alt={name}
         className={`avatar ${sizeClass} ${className}`}
-        style={{ objectFit: 'cover', ...style }}
+        style={{ objectFit: 'cover', ...mergedStyle }}
       />
     )
   }
 
   return (
-    <div className={`avatar ${sizeClass} ${className}`} style={style}>
+    <div className={`avatar ${sizeClass} ${className}`} style={mergedStyle}>
       {initials}
     </div>
   )

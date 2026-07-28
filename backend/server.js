@@ -24,8 +24,8 @@ const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // ── Global Request Logger ──────────────────────────────────────
 // Logs every incoming HTTP request and its final response code
@@ -193,12 +193,28 @@ function ensureMongoConnection() {
 }
 
 if (!process.env.VERCEL) {
+  // Get local IP address on startup so user knows how to access from mobile
+  const os = require('os');
+  const getLocalIP = () => {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          return iface.address;
+        }
+      }
+    }
+    return 'localhost';
+  };
+
   // Start the HTTP server FIRST so requests get clean error responses
   // even when the database is down. This avoids HTTP 000 / connection-refused.
   const server = http.createServer(app);
   server.listen(PORT, () => {
-    console.log(`🚀 Server running → http://localhost:${PORT}`);
-    console.log(`📋 API Health   → http://localhost:${PORT}/api/health`);
+    const localIP = getLocalIP();
+    console.log(`🚀 Server running locally  → http://localhost:${PORT}`);
+    console.log(`🚀 Server running on network → http://${localIP}:${PORT}`);
+    console.log(`📋 API Health               → http://localhost:${PORT}/api/health`);
   });
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {

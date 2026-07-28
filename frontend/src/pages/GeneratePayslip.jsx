@@ -321,6 +321,49 @@ export default function GeneratePayslip() {
     }
   }
 
+  const handleNextStep = (e) => {
+    e.preventDefault();
+    if (step === 1) {
+      if (!form.employeeName || !form.employeeName.trim()) { toast.error('Employee Name is required'); return; }
+      if (!form.employeeId || !form.employeeId.trim()) { toast.error('ID Code is required'); return; }
+      if (!form.designation || !form.designation.trim()) { toast.error('Designation is required'); return; }
+      if (!form.department || !form.department.trim()) { toast.error('Department is required'); return; }
+      if (!form.employeeEmail || !form.employeeEmail.trim()) { toast.error('Employee Email is required'); return; }
+      if (!form.panNumber || !form.panNumber.trim()) { toast.error('PAN Number is required'); return; }
+      setStep(2);
+    } else if (step === 2) {
+      if (!form.month) { toast.error('Pay Month is required'); return; }
+      if (!form.year) { toast.error('Year is required'); return; }
+      if (!form.dateOfJoining) { toast.error('Date of Joining is required'); return; }
+      if (!form.payDate) { toast.error('Payout Date is required'); return; }
+      if (form.workingDays === undefined || form.workingDays === null || form.workingDays === '' || form.workingDays < 0) {
+        toast.error('Working Days is required and must be 0 or more');
+        return;
+      }
+      if (form.paidDays === undefined || form.paidDays === null || form.paidDays === '' || form.paidDays < 0) {
+        toast.error('Paid Days is required and must be 0 or more');
+        return;
+      }
+      setStep(3);
+    } else if (step === 3) {
+      if (form.employmentType === 'intern') {
+        if (form.baseSalary === undefined || form.baseSalary === null || form.baseSalary === '' || parseFloat(form.baseSalary) < 0) {
+          toast.error('Stipend is required and must be 0 or more');
+          return;
+        }
+      } else {
+        if (form.annualCTC === undefined || form.annualCTC === null || form.annualCTC === '' || parseFloat(form.annualCTC) < 0) {
+          toast.error('Annual CTC is required and must be 0 or more');
+          return;
+        }
+      }
+      if (!form.bankAccount || !form.bankAccount.trim()) { toast.error('Bank Account (Masked) is required'); return; }
+      if (!form.bankName || !form.bankName.trim()) { toast.error('Bank Name is required'); return; }
+      handleSubmit();
+    }
+  };
+
+
   return (
     <PageShell className="page-shell--flush">
     <motion.div
@@ -335,8 +378,7 @@ export default function GeneratePayslip() {
       >
         <div style={{ maxWidth: 540, margin: '0 auto' }}>
           <header style={{ marginBottom: 'var(--space-8)' }}>
-            <div className="badge badge-navy" style={{ marginBottom: 12 }}>Statutory v2.6</div>
-            <h1 className="page-title" style={{ marginBottom: 12 }}>Payroll Engine</h1>
+            <h1 className="page-title" style={{ marginBottom: 12 }}>Payroll Control Center</h1>
             <p className="page-subtitle">Generate localized Indian payslips with 2026 tax standards.</p>
           </header>
 
@@ -346,7 +388,7 @@ export default function GeneratePayslip() {
             <StepLabel num={3} label="Payroll" active={step === 3} completed={step > 3} />
           </div>
 
-          <form onSubmit={e => { e.preventDefault(); step < 3 ? setStep(s => s + 1) : handleSubmit() }}>
+          <form onSubmit={handleNextStep}>
             <AnimatePresence mode="wait">
               {step === 1 && (
                 <motion.div key="s1" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}>
@@ -423,7 +465,7 @@ export default function GeneratePayslip() {
                   <InputField label="Employee Email" required type="email" value={form.employeeEmail} onChange={e => setForm({...form, employeeEmail: e.target.value})} placeholder="email@company.com" icon={Send} />
                   <div className="form-grid-2">
                     <InputField label="PAN Number" required value={form.panNumber} onChange={e => setForm({...form, panNumber: e.target.value})} placeholder="ABCDE1234F" />
-                    <InputField label="PF Number" required={form.employmentType === 'regular'} value={form.pfNumber} onChange={e => setForm({...form, pfNumber: e.target.value})} placeholder="XX/XXX/0000000" />
+                    <InputField label="PF Number" value={form.pfNumber} onChange={e => setForm({...form, pfNumber: e.target.value})} placeholder="XX/XXX/0000000 (Optional)" />
                   </div>
                 </motion.div>
               )}
@@ -458,15 +500,17 @@ export default function GeneratePayslip() {
                         type="number"
                         min="0"
                         max="31"
+                        disabled={!!selectedStaffId}
                         value={form.workingDays}
                         onChange={e => setForm({...form, workingDays: Math.max(0, parseInt(e.target.value) || 0)})}
                       />
                       <InputField
-                        label={attendanceLoading ? 'Paid Days (calculating…)' : selectedStaffId ? 'Paid Days (auto)' : 'Paid Days'}
+                        label={attendanceLoading ? 'Paid Days (calculating…)' : selectedStaffId ? 'Paid Days (auto-calculated)' : 'Paid Days'}
                         required
                         type="number"
                         min="0"
                         max="31"
+                        disabled={!!selectedStaffId}
                         value={form.paidDays}
                         onChange={e => setForm({...form, paidDays: Math.min(form.workingDays, Math.max(0, parseInt(e.target.value) || 0))})}
                       />
@@ -548,7 +592,7 @@ export default function GeneratePayslip() {
                   )}
                   <div className="form-grid-2">
                     <InputField label="Bank Account (Masked)" required value={form.bankAccount} onChange={e => setForm({...form, bankAccount: e.target.value})} placeholder="Account No" icon={Landmark} />
-                    <InputField label="Bank Name" value={form.bankName} onChange={e => setForm({...form, bankName: e.target.value})} placeholder="e.g. Union Bank of India" />
+                    <InputField label="Bank Name" required value={form.bankName} onChange={e => setForm({...form, bankName: e.target.value})} placeholder="e.g. Union Bank of India" />
                   </div>
                 </motion.div>
               )}

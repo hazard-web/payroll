@@ -34,37 +34,37 @@ const RecentRow = React.memo(({ log, navigate }) => {
       }}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '16px 24px',
-        borderRadius: 12,
+        padding: '10px 16px',
+        borderRadius: 8,
         cursor: (log.metadata?.payslipId || log.metadata?.staffId) ? 'pointer' : 'default',
         transition: 'all 0.2s',
-        marginBottom: 10,
+        marginBottom: 8,
         background: 'var(--surface)',
         border: '1px solid var(--border)'
       }}
       className="btn-hover"
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{
-          width: 44, height: 44,
-          borderRadius: 12,
+          width: 32, height: 32,
+          borderRadius: 8,
           background: 'var(--bg)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: config.color, flexShrink: 0
         }}>
-          <Icon size={20} />
+          <Icon size={14} />
         </div>
         <div>
-          <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--primary)', marginBottom: 2 }}>{log.details}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-             <span style={{ color: config.color, fontWeight: 800, textTransform: 'uppercase', fontSize: 10 }}>{config.label}</span>
+          <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)', marginBottom: 2 }}>{log.details}</div>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+             <span style={{ color: config.color, fontWeight: 700, textTransform: 'uppercase', fontSize: 9 }}>{config.label}</span>
              <span>•</span>
              {formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })}
           </div>
         </div>
       </div>
       {(log.metadata?.payslipId || log.metadata?.staffId) && (
-        <ChevronRight size={18} color="var(--text-light)" />
+        <ChevronRight size={14} color="var(--text-light)" />
       )}
     </div>
   )
@@ -101,13 +101,13 @@ export default function AuditLogs({ isSettings }) {
       <div className="fade-in glass" style={{ animationDelay: '100ms', overflow: 'hidden' }}>
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '24px 32px',
+          padding: '16px 20px',
           borderBottom: '1px solid var(--border)',
           background: 'var(--bg)'
         }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 17, color: 'var(--primary)' }}>Comprehensive Activity Timeline</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>Tracking every workspace action and system event</div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>Comprehensive Activity Timeline</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Tracking every workspace action and system event</div>
           </div>
         </div>
 

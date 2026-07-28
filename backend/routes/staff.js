@@ -121,7 +121,7 @@ router.get('/', protect, async (req, res) => {
     const staff = await Staff.find({ user: req.user._id })
       .sort({ createdAt: -1 })
       .lean()
-      .select('-documents -financials -address -emergencyContact -bankDetails');
+      .select('-financials -address -emergencyContact -bankDetails');
     res.json({ success: true, data: staff });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

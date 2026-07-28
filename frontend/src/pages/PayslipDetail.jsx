@@ -177,8 +177,15 @@ export default function PayslipDetail() {
         <div className="page-header">
           <div className="page-header__main">
             <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-              {p.companyLogo && (
-                <img src={p.companyLogo} alt="Company Logo" style={{ height: 60, width: 'auto', borderRadius: 12, objectFit: 'contain', background: 'white', padding: 4, border: '1px solid var(--border)' }} />
+              {p.employeeImage ? (
+                <img src={p.employeeImage} alt="Employee Avatar" style={{ height: 60, width: 60, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--border)' }} />
+              ) : (
+                <div style={{
+                  height: 60, width: 60, borderRadius: '50%', background: 'var(--primary)', color: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 22
+                }}>
+                  {p.employeeName ? p.employeeName[0].toUpperCase() : 'E'}
+                </div>
               )}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>

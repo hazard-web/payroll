@@ -225,7 +225,11 @@ export default function PayslipList() {
                   <th key={h} style={{
                     textAlign: i === 4 ? 'right' : 'left',
                     color: 'var(--primary-text)',
-                    padding: 'var(--space-4) var(--space-5)',
+                    padding: '10px 16px',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
                   }}>
                     {h}
                   </th>
@@ -237,7 +241,7 @@ export default function PayslipList() {
                 [...Array(5)].map((_, i) => (
                   <tr key={i}>
                     {[...Array(5)].map((_, j) => (
-                      <td key={j}>
+                      <td key={j} style={{ padding: '10px 16px' }}>
                         <div className="skeleton" style={{ height: 18, width: '80%', borderRadius: 6 }} />
                       </td>
                     ))}
@@ -245,7 +249,7 @@ export default function PayslipList() {
                 ))
               ) : payslips.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={5} style={{ padding: '10px 16px' }}>
                     <div style={{ padding: '60px 24px' }}>
                       <EmptyState
                         icon={FileText}
@@ -263,38 +267,38 @@ export default function PayslipList() {
                     style={{ cursor: 'pointer' }}
                   >
                     {/* Employee Identity */}
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                        <Avatar name={p.employeeName} size="lg" style={{ width: 42, height: 42, fontSize: 15, borderRadius: 12, background: 'var(--primary)' }} />
+                    <td style={{ padding: '10px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Avatar name={p.employeeName} size="lg" style={{ width: 32, height: 32, fontSize: 11, borderRadius: 8, background: 'var(--primary)' }} />
                         <div style={{ overflow: 'hidden' }}>
-                          <div style={{ fontWeight: 800, fontSize: 14.5, color: 'var(--text)', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{p.employeeName}</div>
-                          <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>{p.employeeId} · <span style={{ color: 'var(--primary)' }}>{p.department}</span></div>
+                          <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{p.employeeName}</div>
+                          <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 500 }}>{p.employeeId} · <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{p.department}</span></div>
                         </div>
                       </div>
                     </td>
 
-                    {/* Timeline */}
-                    <td>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--primary)' }}>{p.month}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-light)', fontWeight: 600 }}>CY {p.year}</div>
+                    {/* Period */}
+                    <td style={{ padding: '10px 16px' }}>
+                      <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--primary)' }}>{p.month}</div>
+                      <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 600 }}>CY {p.year}</div>
                     </td>
 
                     {/* Salary */}
-                    <td>
-                      <div style={{ fontWeight: 900, color: 'var(--primary)', fontSize: 15 }}>{fmt(p.netSalary)}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Statutory Net</div>
+                    <td style={{ padding: '10px 16px' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: 12.5 }}>{fmt(p.netSalary)}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600 }}>Statutory Net</div>
                     </td>
 
                     {/* Status */}
-                    <td>
+                    <td style={{ padding: '10px 16px' }}>
                       {p.emailSent
-                        ? <span className="badge badge-green">✓ Dispatched</span>
-                        : <span className="badge" style={{ background: 'var(--bg)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>Draft Only</span>
+                        ? <span className="badge badge-green" style={{ fontSize: 10, padding: '3px 8px' }}>✓ Dispatched</span>
+                        : <span className="badge" style={{ background: 'var(--bg)', color: 'var(--text-muted)', border: '1px solid var(--border)', fontSize: 10, padding: '3px 8px' }}>Draft Only</span>
                       }
                     </td>
 
                     {/* Actions */}
-                    <td style={{ textAlign: 'right', position: 'relative' }}>
+                    <td style={{ padding: '10px 16px', textAlign: 'right', position: 'relative' }}>
                       <button
                         onClick={(e) => {
                           e.stopPropagation()

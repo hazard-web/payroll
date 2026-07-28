@@ -75,8 +75,23 @@ const TaskRow = ({ task }) => {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>
-            {task.project || '—'}
+          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span>{task.project || '—'}</span>
+            {task.source === 'ASSIGNED' ? (
+              <span style={{
+                fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 6,
+                background: 'rgba(59, 130, 246, 0.08)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.15)'
+              }}>
+                Assigned by Admin
+              </span>
+            ) : (
+              <span style={{
+                fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 6,
+                background: 'rgba(88, 131, 59, 0.08)', color: 'var(--primary)', border: '1px solid rgba(88, 131, 59, 0.15)'
+              }}>
+                Self-Reported (Punch)
+              </span>
+            )}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
             {task.description || 'No description'}
@@ -127,11 +142,6 @@ const TaskRow = ({ task }) => {
 
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 11, color: 'var(--text-muted)' }}>
         <div>Assigned: {formatDate(task.taskDate)}</div>
-        {task.punchIn && <div>Punch In: {formatTime(task.punchIn)}</div>}
-        {task.punchOut && <div>Punch Out: {formatTime(task.punchOut)}</div>}
-        <div style={{ fontWeight: 600, color: task.sessionStatus === 'Closed' ? '#58833b' : '#c2410c' }}>
-          Session: {task.sessionStatus || 'Active'}
-        </div>
       </div>
     </div>
   )
@@ -208,6 +218,7 @@ export default function StaffPerformanceDetail() {
           <StatCard icon={MoreHorizontal} label="Pending" value={summary.pending} color="#475569" />
           <StatCard icon={Clock} label="In Progress" value={summary.inProgress} color="#c2410c" />
           <StatCard icon={CheckCircle2} label="Completed" value={summary.completed} color="#58833b" />
+          <StatCard icon={Timer} label="Total Hours" value={summary.totalHours !== undefined ? `${summary.totalHours.toFixed(1)}h` : '—'} color="#7c3aed" />
         </div>
       </div>
 

@@ -143,6 +143,13 @@ export default function PortalAnnouncements() {
                       <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>
                         {item.message}
                       </p>
+                      {item.meetingLink && (
+                        <div style={{ marginTop: 12 }}>
+                          <a href={item.meetingLink} target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', fontSize: 12, height: 'auto', textDecoration: 'none', background: 'rgba(124, 58, 237, 0.08)', color: '#7c3aed', border: '1px solid rgba(124, 58, 237, 0.15)', borderRadius: 8, fontWeight: 700 }}>
+                            📹 Join Meeting Link
+                          </a>
+                        </div>
+                      )}
                     </div>
 
                     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', paddingTop: 8, borderTop: '1px solid var(--border)' }}>

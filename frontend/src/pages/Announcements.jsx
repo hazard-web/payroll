@@ -29,6 +29,7 @@ const emptyForm = () => ({
   startDate: '',
   endDate: '',
   isActive: true,
+  meetingLink: '',
 })
 
 export default function Announcements({ isSettings }) {
@@ -69,6 +70,7 @@ export default function Announcements({ isSettings }) {
       startDate: item.startDate ? item.startDate.split('T')[0] : '',
       endDate: item.endDate ? item.endDate.split('T')[0] : '',
       isActive: item.isActive,
+      meetingLink: item.meetingLink || '',
     })
     setShowModal(true)
   }
@@ -93,6 +95,7 @@ export default function Announcements({ isSettings }) {
         isActive: formData.isActive,
         startDate: formData.startDate || undefined,
         endDate: formData.endDate || undefined,
+        meetingLink: formData.meetingLink ? formData.meetingLink.trim() : '',
       }
 
       let res
@@ -201,71 +204,78 @@ export default function Announcements({ isSettings }) {
                   opacity: item.isActive ? 1 : 0.7,
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '18px 22px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 16px', flexWrap: 'wrap' }}>
                   {/* Priority indicator strip */}
                   <div style={{
                     width: 4, borderRadius: 4, alignSelf: 'stretch',
-                    background: config.color, flexShrink: 0, minHeight: 40,
+                    background: config.color, flexShrink: 0, minHeight: 32,
                   }} />
 
                   <div style={{ flex: 1, minWidth: 220 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
-                      <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>{item.title}</h3>
-                      <span className={`pill ${config.badge}`} style={{ background: config.bg, color: config.color, border: `1px solid ${config.border}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                      <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', margin: 0 }}>{item.title}</h3>
+                      <span className={`pill ${config.badge}`} style={{ background: config.bg, color: config.color, border: `1px solid ${config.border}`, fontSize: 9.5, padding: '2px 6px' }}>
                         {item.priority}
                       </span>
                       {!item.isActive && (
-                        <span className="pill pill--slate" style={{ background: 'var(--bg)', color: 'var(--text-muted)' }}>
+                        <span className="pill pill--slate" style={{ background: 'var(--bg)', color: 'var(--text-muted)', fontSize: 9.5, padding: '2px 6px' }}>
                           Inactive
                         </span>
                       )}
                     </div>
-                    <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 10px' }}>
+                    <p style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.5, margin: '0 0 8px' }}>
                       {item.message.length > 180 ? item.message.slice(0, 180) + '…' : item.message}
                     </p>
-                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                    {item.meetingLink && (
+                      <div style={{ marginTop: 8, marginBottom: 8 }}>
+                        <a href={item.meetingLink} target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', fontSize: 11, height: 'auto', textDecoration: 'none', background: 'rgba(124, 58, 237, 0.08)', color: '#7c3aed', border: '1px solid rgba(124, 58, 237, 0.15)', borderRadius: 6, fontWeight: 700 }}>
+                          📹 Join Meeting
+                        </a>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                       {item.startDate && (
-                        <span style={{ fontSize: 11, color: 'var(--text-light)', fontWeight: 600 }}>
+                        <span style={{ fontSize: 10, color: 'var(--text-light)', fontWeight: 600 }}>
                           From: {fmtDate(item.startDate)}
                         </span>
                       )}
                       {item.endDate && (
-                        <span style={{ fontSize: 11, color: 'var(--text-light)', fontWeight: 600 }}>
+                        <span style={{ fontSize: 10, color: 'var(--text-light)', fontWeight: 600 }}>
                           Until: {fmtDate(item.endDate)}
                         </span>
                       )}
                       {!item.startDate && !item.endDate && (
-                        <span style={{ fontSize: 11, color: 'var(--text-light)', fontWeight: 600 }}>
+                        <span style={{ fontSize: 10, color: 'var(--text-light)', fontWeight: 600 }}>
                           No date restriction
                         </span>
                       )}
-                      <span style={{ fontSize: 11, color: 'var(--text-light)', fontWeight: 600, marginLeft: 'auto' }}>
+                      <span style={{ fontSize: 10, color: 'var(--text-light)', fontWeight: 600, marginLeft: 'auto' }}>
                         {new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </span>
                     </div>
                   </div>
 
                   {/* Actions */}
-                  <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
                     <button
                       onClick={() => handleToggle(item._id)}
                       className="btn-hover"
                       style={{
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)',
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        padding: '5px 10px', borderRadius: 6, border: '1px solid var(--border)',
                         background: item.isActive ? 'rgba(88,131,59,0.08)' : 'var(--bg)',
                         color: item.isActive ? 'var(--primary)' : 'var(--text-muted)',
-                        cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+                        cursor: 'pointer', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
                       }}
                     >
-                      {item.isActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                      {item.isActive ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
                       {item.isActive ? 'Active' : 'Inactive'}
                     </button>
-                    <button onClick={() => openEdit(item)} className="btn-icon" style={{ width: 36, height: 36 }}>
-                      <Edit3 size={15} />
+                    <button onClick={() => openEdit(item)} className="btn-icon" style={{ width: 28, height: 28 }}>
+                      <Edit3 size={13} />
                     </button>
-                    <button onClick={() => handleDelete(item._id)} className="btn-icon btn-danger" style={{ width: 36, height: 36 }}>
-                      <Trash2 size={15} />
+                    <button onClick={() => handleDelete(item._id)} className="btn-icon btn-danger" style={{ width: 28, height: 28 }}>
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 </div>
@@ -367,6 +377,16 @@ export default function Announcements({ isSettings }) {
               />
             </div>
           </div>
+          
+          <div style={{ marginTop: 16, marginBottom: 16 }}>
+            <InputField
+              label="Meeting Link"
+              value={formData.meetingLink}
+              onChange={(e) => setFormData({ ...formData, meetingLink: e.target.value })}
+              placeholder="e.g. https://meet.google.com/abc-defg-hij"
+            />
+          </div>
+          
           <p className="text-muted" style={{ fontSize: 12 }}>
             Leave dates blank for announcements with no time restriction. Active announcements are shown on the Team Portal and Dashboard.
           </p>

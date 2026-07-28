@@ -55,6 +55,43 @@ export default function Layout() {
     return matched ? matched.label : 'Payroll'
   }
 
+  const getBreadcrumbs = () => {
+    const path = location.pathname
+    const segments = path.split('/').filter(Boolean)
+    const crumbs = [{ label: 'Home', to: '/' }]
+    let currentPath = ''
+    segments.forEach((seg) => {
+      currentPath += `/${seg}`
+      let label = seg
+      if (seg === 'staff') {
+        label = 'Team Management'
+      } else if (seg === 'attendance') {
+        label = 'Attendance'
+      } else if (seg === 'leave') {
+        label = 'Leave'
+      } else if (seg === 'performance') {
+        label = 'Performance'
+      } else if (seg === 'tasks') {
+        label = 'Work Management'
+      } else if (seg === 'payslips') {
+        label = 'All payslip'
+      } else if (seg === 'settings') {
+        label = 'Settings'
+      } else if (seg === 'generate') {
+        label = 'Generate Payslip'
+      } else if (seg === 'staff-support') {
+        label = 'Staff Support'
+      } else if (/^[a-f\d]{24}$/i.test(seg)) {
+        label = 'Detail'
+      } else {
+        label = seg.charAt(0).toUpperCase() + seg.slice(1)
+      }
+      crumbs.push({ label, to: currentPath })
+    })
+    if (path === '/') return [{ label: 'Dashboard', to: '/' }]
+    return crumbs
+  }
+
   const [deferredPrompt, setDeferredPrompt] = useState(null)
   const [notifications, setNotifications] = useState([])
   const [notifOpen, setNotifOpen] = useState(false)
@@ -210,19 +247,25 @@ export default function Layout() {
         backdropFilter: 'blur(8px)',
       }}>
         {/* Brand Logo & Name Container (with separator border on right) */}
+        {/* Brand Logo & Name Container (with separator border on right) */}
         <div style={{
           width: isMobile ? 'auto' : (sidebarOpen ? 'var(--sidebar-w)' : 'var(--sidebar-mini-w)'),
           height: '100%',
-          padding: sidebarOpen ? '0 24px' : '0 12px',
+          padding: sidebarOpen ? '0 16px 0 24px' : '0 12px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: sidebarOpen ? 'space-between' : 'center',
           borderRight: isMobile ? 'none' : '1px solid var(--border)',
           transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
           boxSizing: 'border-box',
-          flexShrink: 0
+          flexShrink: 0,
+          position: 'relative'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div 
+            onClick={!sidebarOpen ? toggleSidebar : undefined}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: !sidebarOpen ? 'pointer' : 'default' }}
+            title={!sidebarOpen ? "Expand sidebar" : ""}
+          >
             {/* SVG Logo */}
             <svg width="26" height="26" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
               <rect x="4" y="6" width="16" height="18" rx="3" fill="var(--primary)" opacity="0.35" transform="rotate(-5 12 15)" />
@@ -250,19 +293,73 @@ export default function Layout() {
               </span>
             )}
           </div>
+          {sidebarOpen && (
+            <button 
+              onClick={toggleSidebar} 
+              style={{ 
+                background: 'none', border: 'none', color: 'var(--text-muted)', 
+                cursor: 'pointer', padding: 4, borderRadius: 4,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+              title="Collapse sidebar"
+            >
+              <ChevronLeft size={16} />
+            </button>
+          )}
+          {!sidebarOpen && !isMobile && (
+            <button
+              onClick={toggleSidebar}
+              title="Expand sidebar"
+              style={{
+                position: 'absolute',
+                left: 'calc(var(--sidebar-mini-w) - 1px)',
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: '50%',
+                width: 18,
+                height: 18,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+                boxShadow: 'var(--shadow-sm)',
+                zIndex: 140
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+            >
+              <ChevronRight size={12} />
+            </button>
+          )}
         </div>
 
-        {/* Dynamic Page Header Title */}
-        <div style={{ display: 'flex', alignItems: 'center', flex: 1, paddingLeft: 24 }}>
-          <span style={{ 
-            fontSize: 15, 
-            fontWeight: 700, 
-            color: 'var(--text)',
-            letterSpacing: '-0.01em',
-            textTransform: 'capitalize'
-          }}>
-            {getActiveTitle()}
-          </span>
+        {/* Breadcrumb Navigation Header */}
+        <div style={{ display: 'flex', alignItems: 'center', flex: 1, paddingLeft: 24, fontSize: 13, fontWeight: 600 }}>
+          {getBreadcrumbs().map((crumb, idx, arr) => {
+            const isLast = idx === arr.length - 1
+            return (
+              <div key={crumb.to} style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text)' }}>
+                {idx > 0 && <span style={{ color: 'var(--text-light)', opacity: 0.5, fontSize: 11 }}>/</span>}
+                {isLast ? (
+                  <span style={{ color: 'var(--text)', fontWeight: 700 }}>{crumb.label}</span>
+                ) : (
+                  <span 
+                    onClick={() => navigate(crumb.to)}
+                    className="hover-primary"
+                    style={{ cursor: 'pointer', color: 'var(--text-muted)', transition: 'color 0.15s' }}
+                  >
+                    {crumb.label}
+                  </span>
+                )}
+              </div>
+            )
+          })}
         </div>
 
         {/* Right side of header: Actions */}
@@ -542,53 +639,22 @@ export default function Layout() {
           overflow: 'hidden'
         }}>
           {/* Navigation Sidebar */}
-          <nav style={{ padding: '24px 16px', flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-            <div style={{ 
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: sidebarOpen ? '0 12px 16px' : '0 0 16px',
-              borderBottom: '1px solid var(--border)',
-              marginBottom: 16
-            }}>
-              {sidebarOpen ? (
-                <>
-                  <span style={{ 
-                    fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', 
-                    letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap'
-                  }}>
-                    Workspace
-                  </span>
-                  <button 
-                    onClick={toggleSidebar} 
-                    style={{ 
-                      background: 'none', border: 'none', color: 'var(--text-muted)', 
-                      cursor: 'pointer', padding: 4, borderRadius: 4,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
-                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-                    title="Collapse sidebar"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={toggleSidebar}
-                  title="Expand sidebar"
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '4px 0', borderRadius: 4, transition: 'all 0.2s',
-                    color: 'var(--text-muted)',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
-                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-                >
-                  <ChevronRight size={16} />
-                </button>
-              )}
-            </div>
+          <nav style={{ padding: '12px 12px', flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+            {sidebarOpen && (
+              <div style={{ 
+                display: 'flex', alignItems: 'center',
+                padding: '0 8px 8px',
+                borderBottom: '1px solid var(--border)',
+                marginBottom: 10
+              }}>
+                <span style={{ 
+                  fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', 
+                  letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap'
+                }}>
+                  Workspace
+                </span>
+              </div>
+            )}
             {navItems.map(({ to, label, icon: Icon, end }) => (
               <NavLink
                 key={to}
@@ -602,12 +668,12 @@ export default function Layout() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                    gap: 12,
-                    padding: '12px 16px',
+                    gap: 10,
+                    padding: '9px 12px',
                     borderRadius: 6,
-                    marginBottom: 6,
+                    marginBottom: 4,
                     textDecoration: 'none',
-                    fontSize: 14,
+                    fontSize: 12.5,
                     fontWeight: active ? 600 : 500,
                     color: active ? 'white' : 'var(--text-muted)',
                     background: active ? 'var(--sidebar-active)' : 'transparent',
@@ -616,7 +682,7 @@ export default function Layout() {
                   };
                 }}
               >
-                <Icon size={20} opacity={0.8} style={{ flexShrink: 0 }} />
+                <Icon size={17} opacity={0.8} style={{ flexShrink: 0 }} />
                 {sidebarOpen && <span>{label}</span>}
               </NavLink>
             ))}
@@ -642,14 +708,22 @@ export default function Layout() {
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   title="Company Profile"
                 >
-                  <div style={{
-                    width: 34, height: 34, borderRadius: 9, flexShrink: 0,
-                    background: 'var(--primary)', color: 'white',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 800, fontSize: 14,
-                  }}>
-                    {(user?.companyName || 'A').charAt(0).toUpperCase()}
-                  </div>
+                  {user?.companyLogo ? (
+                    <img
+                      src={user.companyLogo}
+                      alt="Company Logo"
+                      style={{ width: 34, height: 34, borderRadius: 9, flexShrink: 0, objectFit: 'contain', background: 'white', padding: 2, border: '1px solid var(--border)' }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+                      background: 'var(--primary)', color: 'white',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 800, fontSize: 14,
+                    }}>
+                      {(user?.companyName || 'A').charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {user?.companyName || 'Company'}

@@ -242,7 +242,17 @@ const AttentionRequired = ({ notActiveStaff = [], approvedOnLeaveToday = [], pen
               </div>
 
               {/* Status Badge */}
-              <div>
+              <div 
+                onClick={() => {
+                  if (item.type === 'pending' || item.type === 'leave') {
+                    navigate('/leave')
+                  } else if (item.type === 'absent') {
+                    navigate('/attendance')
+                  }
+                }}
+                style={{ cursor: 'pointer' }}
+                title={item.type === 'pending' ? 'Go to Leave Requests to approve/reject' : 'View records'}
+              >
                 {item.type === 'pending' && (
                   <span style={{
                     background: '#fffbeb', color: '#d97706', border: '1px solid #fcd34d',
@@ -270,7 +280,17 @@ const AttentionRequired = ({ notActiveStaff = [], approvedOnLeaveToday = [], pen
               </div>
 
               {/* Details / Reason */}
-              <div style={{ minWidth: 0 }}>
+              <div 
+                onClick={() => {
+                  if (item.type === 'pending' || item.type === 'leave') {
+                    navigate('/leave')
+                  } else if (item.type === 'absent') {
+                    navigate('/attendance')
+                  }
+                }}
+                style={{ minWidth: 0, cursor: 'pointer' }}
+                title={item.type === 'pending' ? 'Go to Leave Requests to approve/reject' : 'View records'}
+              >
                 {item.type === 'absent' ? (
                   <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Not active today</span>
                 ) : (
@@ -370,6 +390,30 @@ const AttentionRequired = ({ notActiveStaff = [], approvedOnLeaveToday = [], pen
                         }}
                       >
                         📧 Send Email
+                      </button>
+                      <button
+                        onClick={() => {
+                          setOpenDropdownId(null)
+                          navigate(`/tasks?staffId=${staff._id}`)
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '8px 12px',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text)',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          transition: 'background 0.15s'
+                        }}
+                      >
+                        📋 Assign Task
                       </button>
                     </div>
                   </>
@@ -476,7 +520,7 @@ const getLatestAttendanceSession = (record) => {
 }
 
 const formatAttendanceLogout = (session, active) => {
-  if (active) return 'Active'
+  if (active) return '—'
   if (!session?.endTime) return '—'
 
   const endTime = new Date(session.endTime)
@@ -520,7 +564,7 @@ const AttendanceRow = ({ record, now }) => {
         style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, cursor: 'pointer' }}
         title="View employee profile"
       >
-        <Avatar name={record.staff?.fullName} style={{ background: avatarBg, color: avatarColor, width: 28, height: 28, fontSize: 11 }} />
+        <Avatar name={record.staff?.fullName} src={record.staff?.documents?.profileImage?.url} style={{ background: avatarBg, color: avatarColor, width: 28, height: 28, fontSize: 11 }} />
         <div style={{ minWidth: 0 }}>
           <div className="hover-primary" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 0.15s' }}>
             {record.staff?.fullName || 'Unknown'}
@@ -599,24 +643,9 @@ export default function Dashboard() {
       
       if (announcementsRes && announcementsRes.status === 'fulfilled') {
         const all = announcementsRes.value.data.data || []
-        const now = new Date()
-        const active = all.filter((a) => {
-          if (!a.isActive) return false
-          const now = new Date()
-          if (a.startDate) {
-            const start = new Date(a.startDate)
-            start.setHours(0, 0, 0, 0)
-            if (start > now) return false
-          }
-          if (a.endDate) {
-            const end = new Date(a.endDate)
-            end.setHours(23, 59, 59, 999)
-            if (end < now) return false
-          }
-          return true
-        })
-        active.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        setAnnouncements(active.slice(0, 3))
+        // Sort by newest created first
+        all.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        setAnnouncements(all.slice(0, 3))
       }
 
       const firstError = requests.find((result) => result.status === 'rejected')
@@ -646,24 +675,6 @@ export default function Dashboard() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
-
-  useEffect(() => {
-    if (staffData.length === 0) {
-      setPerformanceStats({
-        averageScore: 0,
-        topPerformerName: '—',
-        topPerformerScore: 0,
-        teamEfficiency: 0
-      })
-    } else {
-      setPerformanceStats({
-        averageScore: 85,
-        topPerformerName: staffData[0]?.fullName || 'Vikash Kumar',
-        topPerformerScore: 92,
-        teamEfficiency: 80
-      })
-    }
-  }, [staffData])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -1041,7 +1052,7 @@ export default function Dashboard() {
       <div className="dashboard-bottom-grid" style={{ marginBottom: 'var(--space-6)', marginTop: 'var(--space-6)' }}>
         {/* 1. Team Performance Card */}
         <div className="section-card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Team Performance</span>
             <select
               value={performancePeriod}
@@ -1076,7 +1087,7 @@ export default function Dashboard() {
               </optgroup>
             </select>
           </div>
-          <div style={{ padding: '20px', flex: 1, display: 'flex', gap: 24, alignItems: 'center' }}>
+          <div style={{ padding: '12px 20px 14px', flex: 1, display: 'flex', gap: 24, alignItems: 'flex-start' }}>
             {/* Left Col: Average Score */}
             <div style={{ flex: 1, borderRight: '1px solid var(--border)', paddingRight: 20 }}>
               <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Average Score</div>
@@ -1116,7 +1127,7 @@ export default function Dashboard() {
 
         {/* 2. Leave Overview Card */}
         <div className="section-card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Leave Overview</span>
             <select
               value={leaveMonth}
@@ -1142,20 +1153,32 @@ export default function Dashboard() {
               ))}
             </select>
           </div>
-          <div style={{ padding: '20px', flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+          <div style={{ padding: '12px 20px 14px', flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
             {/* Left Col: Legend */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div>
+              <div
+                onClick={() => navigate('/leave', { state: { filterStatus: 'All' } })}
+                style={{ cursor: 'pointer' }}
+                title="View all leaves"
+              >
                 <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Total Leaves</div>
                 <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>{selectedMonthLeaves.total}</div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div
+                  onClick={() => navigate('/leave', { state: { filterStatus: 'Approved' } })}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+                  title="View approved leaves"
+                >
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
                   <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Approved:</span>
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#22c55e' }}>{selectedMonthLeaves.approved.length}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div
+                  onClick={() => navigate('/leave', { state: { filterStatus: 'Pending' } })}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+                  title="View pending leaves"
+                >
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
                   <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Pending:</span>
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b' }}>{selectedMonthLeaves.pending.length}</span>
@@ -1163,17 +1186,21 @@ export default function Dashboard() {
               </div>
             </div>
             {/* Right Col: Donut SVG */}
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <svg width="74" height="74" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
+            <div
+              onClick={() => navigate('/leave', { state: { filterStatus: 'All' } })}
+              style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer' }}
+              title="View all leaves"
+            >
+              <svg width="90" height="90" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
                 {/* Gray Background circle */}
-                <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#f1f5f9" strokeWidth="4" />
+                <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#f1f5f9" strokeWidth="5" />
                 {selectedMonthLeaves.total > 0 && (
                   <>
                     {selectedMonthLeaves.approvedPct > 0 && (
-                      <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#22c55e" strokeWidth="4" strokeDasharray={`${selectedMonthLeaves.approvedPct} ${100 - selectedMonthLeaves.approvedPct}`} strokeDashoffset="0" />
+                      <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#22c55e" strokeWidth="5" strokeDasharray={`${selectedMonthLeaves.approvedPct} ${100 - selectedMonthLeaves.approvedPct}`} strokeDashoffset="0" />
                     )}
                     {selectedMonthLeaves.pendingPct > 0 && (
-                      <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#f59e0b" strokeWidth="4" strokeDasharray={`${selectedMonthLeaves.pendingPct} ${100 - selectedMonthLeaves.pendingPct}`} strokeDashoffset={`-${selectedMonthLeaves.approvedPct}`} />
+                      <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#f59e0b" strokeWidth="5" strokeDasharray={`${selectedMonthLeaves.pendingPct} ${100 - selectedMonthLeaves.pendingPct}`} strokeDashoffset={`-${selectedMonthLeaves.approvedPct}`} />
                     )}
                   </>
                 )}
@@ -1184,7 +1211,7 @@ export default function Dashboard() {
 
         {/* 3. Recent Announcements Card */}
         <div className="section-card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Recent Announcements</span>
               <button 
@@ -1197,7 +1224,7 @@ export default function Dashboard() {
             </div>
             <span onClick={() => navigate('/settings?tab=announcements')} style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', cursor: 'pointer' }}>View all</span>
           </div>
-          <div style={{ padding: '10px 16px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ padding: '12px 20px 14px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
             {announcements.length === 0 ? (
               <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 11, color: 'var(--text-muted)' }}>No announcements.</div>
             ) : (

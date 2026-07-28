@@ -33,7 +33,7 @@ router.get('/', auth, async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 router.post('/', auth, async (req, res) => {
   try {
-    const { title, message, priority, startDate, endDate, isActive } = req.body;
+    const { title, message, priority, startDate, endDate, isActive, meetingLink } = req.body;
 
     if (!title || !title.trim()) {
       return res.status(400).json({ success: false, message: 'Title is required' });
@@ -64,6 +64,7 @@ router.post('/', auth, async (req, res) => {
       startDate: parsedStartDate,
       endDate: parsedEndDate,
       isActive: isActive !== undefined ? isActive : true,
+      meetingLink: meetingLink !== undefined ? meetingLink.trim() : '',
     });
 
     await announcement.save();
@@ -91,7 +92,7 @@ router.post('/', auth, async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 router.put('/:id', auth, async (req, res) => {
   try {
-    const { title, message, priority, startDate, endDate, isActive } = req.body;
+    const { title, message, priority, startDate, endDate, isActive, meetingLink } = req.body;
 
     const announcement = await Announcement.findOne({
       _id: req.params.id,
@@ -105,6 +106,7 @@ router.put('/:id', auth, async (req, res) => {
     if (message !== undefined) announcement.message = message.trim();
     if (priority !== undefined) announcement.priority = priority;
     if (isActive !== undefined) announcement.isActive = isActive;
+    if (meetingLink !== undefined) announcement.meetingLink = meetingLink.trim();
 
     if (startDate !== undefined) {
       announcement.startDate = startDate ? new Date(startDate) : null;

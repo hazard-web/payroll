@@ -129,7 +129,7 @@ router.get('/admin/pending', authAdmin, async (req, res) => {
     // If staffId is provided but no status, we return ALL leaves for that staff member
     
     const requests = await LeaveRequest.find(query)
-      .populate('staff', 'fullName employeeId leaveBalance')
+      .populate('staff', 'fullName employeeId leaveBalance documents.profileImage')
       .sort({ createdAt: -1 });
     res.json({ success: true, data: requests });
   } catch (err) {
@@ -196,7 +196,7 @@ router.get('/admin/notifications', authAdmin, async (req, res) => {
       recipientType: 'admin',
       isArchived: false 
     })
-      .populate('staff', 'fullName employeeId')
+      .populate('staff', 'fullName employeeId documents.profileImage')
       .sort({ createdAt: -1 });
     res.json({ success: true, data: notifications });
   } catch (err) {

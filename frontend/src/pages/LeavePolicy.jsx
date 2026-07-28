@@ -288,41 +288,37 @@ export default function LeavePolicyPage() {
   if (!policy) return null
 
   return (
-    <PageShell>
-      <PageHeader
-        title="Leave Policy"
-        subtitle="Configure leave rules, manually adjust balances, and view adjustment history"
-        actions={
-          <div style={{ display:'flex', gap:10 }}>
-            <button onClick={handleReset} className="btn-secondary"
-              style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'9px 16px', fontSize:13, borderRadius:8 }}>
-              <RefreshCw size={14} /> Reset Balances
+    <PageShell style={{ maxWidth: 'none' }}>
+      {/* Tab switcher & Actions */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+        <div style={{ display:'flex', gap:4, padding:4, background:'var(--bg)', border:'1px solid var(--border)', borderRadius:10, width:'fit-content', flexWrap:'wrap' }}>
+          {[
+            { key:'policy',  label:'Leave Rules' },
+            { key:'lwp',     label:'LWP & Deductions' },
+            { key:'balance', label:'Staff Balances' },
+            { key:'history', label:'Adjustment History' },
+          ].map(t => (
+            <button key={t.key} onClick={() => setActiveTab(t.key)}
+              style={{ padding:'8px 20px', borderRadius:7, fontSize:13, fontWeight:600, cursor:'pointer', border:'none', transition:'all .18s',
+                background: activeTab === t.key ? 'var(--surface)' : 'transparent',
+                color: activeTab === t.key ? 'var(--text)' : 'var(--text-muted)',
+                boxShadow: activeTab === t.key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none'
+              }}>
+              {t.label}
             </button>
-            <button onClick={handleSave} disabled={saving} className="btn-primary"
-              style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'9px 20px', fontSize:13, borderRadius:8 }}>
-              {saving ? <Loader2 size={15} className="animate-spin" /> : <><Save size={14} /> Save Policy</>}
-            </button>
-          </div>
-        }
-      />
+          ))}
+        </div>
 
-      {/* Tab switcher */}
-      <div style={{ display:'flex', gap:4, padding:4, background:'var(--bg)', border:'1px solid var(--border)', borderRadius:10, width:'fit-content', marginBottom:22, flexWrap:'wrap' }}>
-        {[
-          { key:'policy',  label:'Leave Rules' },
-          { key:'lwp',     label:'LWP & Deductions' },
-          { key:'balance', label:'Staff Balances' },
-          { key:'history', label:'Adjustment History' },
-        ].map(t => (
-          <button key={t.key} onClick={() => setActiveTab(t.key)}
-            style={{ padding:'8px 20px', borderRadius:7, fontSize:13, fontWeight:600, cursor:'pointer', border:'none', transition:'all .18s',
-              background: activeTab === t.key ? 'var(--surface)' : 'transparent',
-              color: activeTab === t.key ? 'var(--text)' : 'var(--text-muted)',
-              boxShadow: activeTab === t.key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none'
-            }}>
-            {t.label}
+        <div style={{ display:'flex', gap:10 }}>
+          <button onClick={handleReset} className="btn-secondary"
+            style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'9px 16px', fontSize:13, borderRadius:8 }}>
+            <RefreshCw size={14} /> Reset Balances
           </button>
-        ))}
+          <button onClick={handleSave} disabled={saving} className="btn-primary"
+            style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'9px 20px', fontSize:13, borderRadius:8 }}>
+            {saving ? <Loader2 size={15} className="animate-spin" /> : <><Save size={14} /> Save Policy</>}
+          </button>
+        </div>
       </div>
 
       {/* ── TAB 1: Leave Rules ── */}
@@ -428,7 +424,27 @@ export default function LeavePolicyPage() {
                       <button key={i} type="button" onClick={() => {
                         const current = policy.weekendDays || []
                         const next = current.includes(i) ? current.filter(d => d !== i) : [...current, i].sort((a,b)=>a-b)
-                        updateTopLevel('weekendDays', next)
+                        
+                        // Auto calculate exact working days based on the current calendar month
+                        const now = new Date()
+                        const year = now.getFullYear()
+                        const month = now.getMonth()
+                        const daysInMonth = new Date(year, month + 1, 0).getDate()
+                        
+                        let nextWorkingDays = 0
+                        for (let day = 1; day <= daysInMonth; day++) {
+                          const date = new Date(year, month, day)
+                          const dayOfWeek = date.getDay()
+                          if (!next.includes(dayOfWeek)) {
+                            nextWorkingDays++
+                          }
+                        }
+
+                        setPolicy(prev => ({
+                          ...prev,
+                          weekendDays: next,
+                          workingDaysPerMonth: nextWorkingDays
+                        }))
                       }} style={{
                         padding:'5px 10px', borderRadius:7, border:'1.5px solid',
                         borderColor: (policy.weekendDays || []).includes(i) ? 'var(--primary)' : 'var(--border)',

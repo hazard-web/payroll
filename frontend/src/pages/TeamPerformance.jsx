@@ -59,7 +59,7 @@ export default function TeamPerformance() {
   if (loading) return <PageShell><PageLoading label="Loading team…" /></PageShell>
 
   return (
-    <PageShell wide>
+    <PageShell style={{ maxWidth: 'none' }}>
       <style>{`
         /* ── Team Performance ─────────────────────────────── */
         .tp-search-wrap { position: relative; max-width: 280px; }
@@ -88,16 +88,16 @@ export default function TeamPerformance() {
           font-family: var(--font-display), sans-serif;
         }
 
-        /* Grid: avatar | name | id | role | dept | action */
+        /* Grid: avatar | name | id | role | dept | score | action */
         .tp-grid {
           display: grid;
-          grid-template-columns: 40px minmax(140px,2fr) minmax(110px,1fr) minmax(140px,1.5fr) minmax(110px,1fr) 90px;
+          grid-template-columns: 40px minmax(140px,2fr) minmax(90px,0.8fr) minmax(120px,1.2fr) minmax(100px,0.9fr) minmax(90px,0.8fr) 90px;
           align-items: center;
           padding: 0 20px;
           gap: 0 16px;
         }
         .tp-thead-row {
-          padding-top: 10px; padding-bottom: 10px;
+          padding-top: 8px; padding-bottom: 8px;
           background: var(--bg);
           border-bottom: 1.5px solid var(--border);
         }
@@ -108,7 +108,7 @@ export default function TeamPerformance() {
         .tp-th:last-child { text-align: right; }
 
         .tp-data-row {
-          padding-top: 12px; padding-bottom: 12px;
+          padding-top: 8px; padding-bottom: 8px;
           border-bottom: 1px solid var(--border);
           transition: background .12s;
         }
@@ -118,18 +118,18 @@ export default function TeamPerformance() {
 
         /* Avatar */
         .tp-avatar {
-          width: 36px; height: 36px; border-radius: 9px;
+          width: 32px; height: 32px; border-radius: 8px;
           display: flex; align-items: center; justify-content: center;
-          font-size: 12px; font-weight: 800; color: #fff; flex-shrink: 0;
+          font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0;
         }
 
         /* Cells */
         .tp-name {
-          font-size: 14px; font-weight: 700; color: var(--text);
+          font-size: 12px; font-weight: 600; color: var(--text);
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .tp-cell {
-          font-size: 13px; font-weight: 500; color: var(--text);
+          font-size: 10.5px; font-weight: 500; color: var(--text);
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
 
@@ -164,7 +164,7 @@ export default function TeamPerformance() {
             grid-column: 2; grid-row: 2;
             display: flex; flex-wrap: wrap; gap: 5px;
           }
-          .tp-col-id, .tp-col-role, .tp-col-dept { display: none; }
+          .tp-col-id, .tp-col-role, .tp-col-dept, .tp-col-score { display: none; }
           .tp-tag {
             font-size: 10px; font-weight: 600; color: var(--text-muted);
             background: var(--bg); border: 1px solid var(--border);
@@ -204,37 +204,58 @@ export default function TeamPerformance() {
           <div className="tp-grid tp-thead-row">
             <div />
             <div className="tp-th">Employee</div>
-            <div className="tp-th tp-col-id">Employee ID</div>
-            <div className="tp-th tp-col-role">Job Role</div>
-            <div className="tp-th tp-col-dept">Department</div>
-            <div className="tp-th" style={{ textAlign: 'right' }}>Action</div>
+            <div className="tp-th tp-col-id" style={{ textAlign: 'left' }}>Employee ID</div>
+            <div className="tp-th tp-col-role" style={{ textAlign: 'left' }}>Job Role</div>
+            <div className="tp-th tp-col-dept" style={{ textAlign: 'left' }}>Department</div>
+            <div className="tp-th tp-col-score" style={{ textAlign: 'left' }}>Performance</div>
+            <div className="tp-th" style={{ textAlign: 'left' }}>Action</div>
           </div>
 
           {/* Rows */}
           {filteredStaff.map(staff => (
             <div className="tp-grid tp-data-row" key={staff._id}>
 
-              <div
-                className="tp-avatar"
-                style={{ background: staff.type === 'Intern' ? '#1e40af' : 'var(--primary)' }}
+              {staff.documents?.profileImage?.url ? (
+                <img
+                  src={staff.documents.profileImage.url}
+                  alt={staff.fullName}
+                  className="tp-avatar"
+                  style={{ objectFit: 'cover', borderRadius: '50%', width: 40, height: 40 }}
+                />
+              ) : (
+                <div
+                  className="tp-avatar"
+                  style={{ background: staff.type === 'Intern' ? '#1e40af' : 'var(--primary)' }}
+                >
+                  {initials(staff.fullName)}
+                </div>
+              )}
+
+              <div 
+                className="tp-name hover-primary"
+                onClick={() => navigate(`/performance/${staff._id}`)}
+                style={{ cursor: 'pointer', transition: 'color 0.15s' }}
+                title="View Performance Detail"
               >
-                {initials(staff.fullName)}
+                {staff.fullName}
               </div>
 
-              <div className="tp-name">{staff.fullName}</div>
-
-              <div className="tp-cell tp-col-id">{staff.employeeId || '—'}</div>
-              <div className="tp-cell tp-col-role">{staff.designation || '—'}</div>
-              <div className="tp-cell tp-col-dept">{staff.department || '—'}</div>
+              <div className="tp-cell tp-col-id" style={{ textAlign: 'left' }}>{staff.employeeId || '—'}</div>
+              <div className="tp-cell tp-col-role" style={{ textAlign: 'left' }}>{staff.designation || '—'}</div>
+              <div className="tp-cell tp-col-dept" style={{ textAlign: 'left' }}>{staff.department || '—'}</div>
+              <div className="tp-cell tp-col-score" style={{ fontWeight: 700, color: 'var(--primary)', fontSize: 11, textAlign: 'left' }}>
+                {staff.performanceScore > 0 ? `${staff.performanceScore}%` : '—'}
+              </div>
 
               {/* Mobile collapsed meta */}
               <div className="tp-mobile-meta">
                 {staff.employeeId  && <span className="tp-tag">{staff.employeeId}</span>}
                 {staff.designation && <span className="tp-tag">{staff.designation}</span>}
                 {staff.department  && <span className="tp-tag">{staff.department}</span>}
+                {staff.performanceScore > 0 && <span className="tp-tag" style={{ color: 'var(--primary)', fontWeight: 700 }}>Perf: {staff.performanceScore}%</span>}
               </div>
 
-              <div className="tp-action-col" style={{ position: 'relative' }}>
+              <div className="tp-action-col" style={{ position: 'relative', justifyContent: 'flex-start' }}>
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
@@ -242,9 +263,9 @@ export default function TeamPerformance() {
                   }}
                   className="btn-icon btn-hover"
                   style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: 8,
+                    width: 28,
+                    height: 28,
+                    borderRadius: 6,
                     color: 'var(--text-light)',
                     background: 'transparent',
                     border: 'none',

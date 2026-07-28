@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, X, CheckCircle2, Clock, Loader2,
   ChevronDown, Trash2, FolderOpen, ArrowRight,
@@ -26,7 +27,12 @@ const STATUS_META = {
 const STATUSES = ['Pending', 'Accepted', 'In Progress', 'Completed']
 
 // ─── Avatar ──────────────────────────────────────────────────
-function Avatar({ name, size = 36 }) {
+function Avatar({ name, src, size = 36 }) {
+  if (src) {
+    return (
+      <img src={src} alt={name} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+    )
+  }
   const palette = ['#6366f1','#2563eb','#0891b2','#059669','#d97706','#dc2626','#7c3aed']
   const color   = palette[(name?.charCodeAt(0) || 0) % palette.length]
   return (
@@ -72,7 +78,7 @@ function StaffPicker({ staffList, value, onChange }) {
           background: 'var(--bg)', cursor: 'pointer', transition: 'border-color .15s', minHeight: 46
         }}
       >
-        {selected ? <Avatar name={selected.fullName} size={28} /> : (
+        {selected ? <Avatar name={selected.fullName} src={selected.documents?.profileImage?.url} size={28} /> : (
           <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
           </div>
@@ -111,7 +117,7 @@ function StaffPicker({ staffList, value, onChange }) {
                   onMouseEnter={e => { if (value !== s._id) e.currentTarget.style.background = 'var(--bg)' }}
                   onMouseLeave={e => { if (value !== s._id) e.currentTarget.style.background = 'transparent' }}
                 >
-                  <Avatar name={s.fullName} size={36} />
+                  <Avatar name={s.fullName} src={s.documents?.profileImage?.url} size={36} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{s.fullName}</div>
                     <div style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>
@@ -130,11 +136,63 @@ function StaffPicker({ staffList, value, onChange }) {
 
 // ─── Assign Modal ────────────────────────────────────────────
 function AssignModal({ open, onClose, staffList, onSaved }) {
-  const EMPTY = { staffId: '', projectName: '', description: '', priority: 'Medium', dueDate: '' }
+  const [searchParams, setSearchParams] = useSearchParams()
+  const staffIdFromQuery = searchParams.get('staffId')
+
+  const EMPTY = { staffId: staffIdFromQuery || '', projectName: '', description: '', projectUrl: '', attachment: null, priority: 'Medium', dueDate: '' }
   const [form,   setForm]   = useState(EMPTY)
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+
+  const handleFileChange = e => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.size > 20 * 1024 * 1024) {
+      return toast.error('File size must be under 20MB')
+    }
+    setUploading(true)
+    const reader = new FileReader()
+    reader.onload = () => {
+      setForm(prev => ({
+        ...prev,
+        attachment: {
+          fileName: `${Date.now()}_${file.name}`,
+          originalName: file.name,
+          url: reader.result
+        }
+      }))
+      setUploading(false)
+      toast.success('Document attached!')
+    }
+    reader.onerror = () => {
+      setUploading(false)
+      toast.error('Failed to read file')
+    }
+    reader.readAsDataURL(file)
+  }
+
+  useEffect(() => {
+    if (open) {
+      setForm({
+        staffId: staffIdFromQuery || '',
+        projectName: '',
+        description: '',
+        projectUrl: '',
+        attachment: null,
+        priority: 'Medium',
+        dueDate: ''
+      })
+    }
+  }, [open, staffIdFromQuery])
 
   if (!open) return null
+
+  const handleClose = () => {
+    if (staffIdFromQuery) {
+      setSearchParams({})
+    }
+    onClose()
+  }
 
   const submit = async e => {
     e.preventDefault()
@@ -146,6 +204,8 @@ function AssignModal({ open, onClose, staffList, onSaved }) {
         staffId:     form.staffId,
         title:       form.projectName,
         description: form.description,
+        projectUrl:  form.projectUrl,
+        attachment:  form.attachment || undefined,
         priority:    form.priority,
         dueDate:     form.dueDate || undefined,
       })
@@ -153,7 +213,7 @@ function AssignModal({ open, onClose, staffList, onSaved }) {
         toast.success('Project assigned!')
         onSaved(res.data.task)
         setForm(EMPTY)
-        onClose()
+        handleClose()
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to assign project')
@@ -169,7 +229,7 @@ function AssignModal({ open, onClose, staffList, onSaved }) {
       position: 'fixed', inset: 0, zIndex: 2000,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', padding: 16
-    }} onClick={onClose}>
+    }} onClick={handleClose}>
       <div onClick={e => e.stopPropagation()} style={{
         width: '100%', maxWidth: 520, background: 'var(--surface)',
         borderRadius: 20, border: '1px solid var(--border)',
@@ -184,35 +244,35 @@ function AssignModal({ open, onClose, staffList, onSaved }) {
             </div>
             <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: 'var(--text)' }}>Assign Project</h2>
           </div>
-          <button onClick={onClose} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', padding: 7, display: 'flex', color: 'var(--text-muted)' }}>
+          <button onClick={handleClose} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', padding: 7, display: 'flex', color: 'var(--text-muted)' }}>
             <X size={18} />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={submit} style={{ padding: '22px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <form onSubmit={submit} style={{ padding: '16px 20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
           {/* Employee */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
-              👤 Assign To  <span style={{ color: '#dc2626' }}>*</span>
+            <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>
+              👤 Assign To <span style={{ color: '#dc2626' }}>*</span>
             </label>
             <StaffPicker staffList={staffList} value={form.staffId} onChange={id => setForm({ ...form, staffId: id })} />
           </div>
 
           {/* Project name */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
-              📁 Project Name  <span style={{ color: '#dc2626' }}>*</span>
+            <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>
+              📁 Project Name <span style={{ color: '#dc2626' }}>*</span>
             </label>
             <input
               autoFocus={false}
               required
               value={form.projectName}
               onChange={e => setForm({ ...form, projectName: e.target.value })}
-              placeholder="e.g. Website Redesign, Mobile App MVP, Q3 Sales Report…"
+              placeholder="e.g. Website Redesign, Mobile App MVP…"
               style={{
-                width: '100%', padding: '11px 14px', borderRadius: 10, fontSize: 14,
+                width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 12.5,
                 border: '1.5px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
                 outline: 'none', fontWeight: 500, boxSizing: 'border-box'
               }}
@@ -223,16 +283,16 @@ function AssignModal({ open, onClose, staffList, onSaved }) {
 
           {/* Description */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
-              📝 Description <span style={{ fontSize: 12, fontWeight: 400, color: '#94a3b8' }}>(optional)</span>
+            <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>
+              📝 Description <span style={{ fontSize: 11, fontWeight: 400, color: '#94a3b8' }}>(optional)</span>
             </label>
             <textarea
               value={form.description}
               onChange={e => setForm({ ...form, description: e.target.value })}
               placeholder="Add scope, requirements, deliverables, notes…"
-              rows={3}
+              rows={2}
               style={{
-                width: '100%', padding: '11px 14px', borderRadius: 10, fontSize: 13, lineHeight: 1.55,
+                width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 12.5, lineHeight: 1.45,
                 border: '1.5px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
                 outline: 'none', resize: 'vertical', boxSizing: 'border-box'
               }}
@@ -241,32 +301,99 @@ function AssignModal({ open, onClose, staffList, onSaved }) {
             />
           </div>
 
+          {/* Project URL */}
+          <div>
+            <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>
+              🔗 Project Link <span style={{ fontSize: 11, fontWeight: 400, color: '#94a3b8' }}>(optional)</span>
+            </label>
+            <input
+              type="url"
+              value={form.projectUrl}
+              onChange={e => setForm({ ...form, projectUrl: e.target.value })}
+              placeholder="e.g. Google Doc, Figma link, GitHub repository URL…"
+              style={{
+                width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 12.5,
+                border: '1.5px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
+                outline: 'none', boxSizing: 'border-box'
+              }}
+              onFocus={e => e.target.style.borderColor = '#2563eb'}
+              onBlur={e => e.target.style.borderColor = 'var(--border)'}
+            />
+          </div>
+
+          {/* File Attachment Upload */}
+          <div>
+            <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>
+              📁 Attachment / Document <span style={{ fontSize: 11, fontWeight: 400, color: '#94a3b8' }}>(optional, max 20MB)</span>
+            </label>
+            {form.attachment ? (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: 'var(--bg)', border: '1.5px solid var(--border)', borderRadius: 8,
+                padding: '8px 12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+                  <span style={{ fontSize: 14 }}>📄</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 280 }}>
+                    {form.attachment.originalName}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setForm(prev => ({ ...prev, attachment: null }))}
+                  style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <label style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                border: '1.5px dashed var(--border)', borderRadius: 8, padding: '10px 14px',
+                cursor: 'pointer', transition: 'border-color .15s, background .15s',
+                background: 'var(--bg)'
+              }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = '#2563eb'; e.currentTarget.style.background = 'rgba(37,99,235,0.02)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg)' }}
+              >
+                <span style={{ fontSize: 18, marginBottom: 2 }}>📤</span>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text)' }}>
+                  {uploading ? 'Processing file...' : 'Choose document from Desktop/Folders'}
+                </span>
+                <span style={{ fontSize: 9.5, color: '#94a3b8', marginTop: 1 }}>PDF, DOCX, Images, etc. (Max 20MB)</span>
+                <input
+                  type="file"
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
+                  disabled={uploading}
+                />
+              </label>
+            )}
+          </div>
+
           {/* Priority + Due date */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>🎯 Priority</label>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {PRIORITIES.map(p => {
-                  const m = PRIORITY_META[p]; const active = form.priority === p
-                  return (
-                    <button type="button" key={p} onClick={() => setForm({ ...form, priority: p })}
-                      style={{
-                        padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                        border: `2px solid ${active ? m.color : 'var(--border)'}`,
-                        background: active ? m.bg : 'transparent',
-                        color: active ? m.color : '#94a3b8', transition: 'all .12s'
-                      }}>
-                      {p}
-                    </button>
-                  )
-                })}
-              </div>
+              <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>🎯 Priority</label>
+              <select
+                value={form.priority}
+                onChange={e => setForm({ ...form, priority: e.target.value })}
+                style={{
+                  width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 12.5,
+                  border: '1.5px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
+                  outline: 'none', fontWeight: 600, boxSizing: 'border-box', height: 38, cursor: 'pointer'
+                }}
+              >
+                {PRIORITIES.map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>📅 Due Date</label>
+              <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>📅 Due Date</label>
               <input type="date" value={form.dueDate} min={new Date().toISOString().split('T')[0]}
                 onChange={e => setForm({ ...form, dueDate: e.target.value })}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, border: '1.5px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 12.5, border: '1.5px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box', height: 38 }}
                 onFocus={e => e.target.style.borderColor = '#2563eb'}
                 onBlur={e => e.target.style.borderColor = 'var(--border)'}
               />
@@ -277,23 +404,22 @@ function AssignModal({ open, onClose, staffList, onSaved }) {
           {(form.staffId || form.projectName) && (() => {
             const emp = staffList.find(s => s._id === form.staffId)
             return (
-              <div style={{ padding: '14px 16px', background: pm.bg, borderRadius: 12, border: `1.5px solid ${pm.color}30` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: pm.color, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Assignment Preview</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+              <div style={{ padding: '10px 12px', background: pm.bg, borderRadius: 8, border: `1.5px solid ${pm.color}30` }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: pm.color, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Assignment Preview</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                   {emp && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Avatar name={emp.fullName} size={32} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Avatar name={emp.fullName} src={emp.documents?.profileImage?.url} size={24} />
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{emp.fullName}</div>
-                        <div style={{ fontSize: 11, color: '#64748b' }}>{emp.designation || emp.department || ''}</div>
+                        <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text)' }}>{emp.fullName}</div>
                       </div>
                     </div>
                   )}
-                  {emp && form.projectName && <ArrowRight size={18} color={pm.color} />}
+                  {emp && form.projectName && <ArrowRight size={14} color={pm.color} />}
                   {form.projectName && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <FolderOpen size={16} color={pm.color} />
-                      <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{form.projectName}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <FolderOpen size={14} color={pm.color} />
+                      <span style={{ fontWeight: 700, fontSize: 11.5, color: 'var(--text)' }}>{form.projectName}</span>
                     </div>
                   )}
                 </div>
@@ -302,20 +428,20 @@ function AssignModal({ open, onClose, staffList, onSaved }) {
           })()}
 
           {/* Actions */}
-          <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
             <button type="button" onClick={onClose}
-              style={{ flex: 1, height: 48, borderRadius: 12, border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--text)', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+              style={{ flex: 1, height: 38, borderRadius: 8, border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--text)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}>
               Cancel
             </button>
             <button type="submit" disabled={saving}
               style={{
-                flex: 2, height: 48, borderRadius: 12, border: 'none', cursor: saving ? 'not-allowed' : 'pointer',
+                flex: 1.5, height: 38, borderRadius: 8, border: 'none', cursor: saving ? 'not-allowed' : 'pointer',
                 background: saving ? '#93c5fd' : 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
-                color: 'white', fontWeight: 700, fontSize: 14,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                boxShadow: saving ? 'none' : '0 4px 18px rgba(37,99,235,0.35)', transition: 'all .15s'
+                color: 'white', fontWeight: 700, fontSize: 12.5,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                boxShadow: saving ? 'none' : '0 4px 14px rgba(37,99,235,0.25)', transition: 'all .15s'
               }}>
-              {saving ? <><Loader2 size={17} className="animate-spin" /> Assigning…</> : <><Plus size={17} /> Assign Project</>}
+              {saving ? <><Loader2 size={14} className="animate-spin" /> Assigning…</> : <><Plus size={14} /> Assign Project</>}
             </button>
           </div>
         </form>
@@ -326,6 +452,7 @@ function AssignModal({ open, onClose, staffList, onSaved }) {
 
 // ─── Project Row (horizontal, like employee list) ─────────────
 function ProjectCard({ project, onDelete, onStatusChange, submittingId, isLast }) {
+  const [menuOpen, setMenuOpen] = useState(false)
   const pm      = PRIORITY_META[project.priority] || PRIORITY_META.Medium
   const sm      = STATUS_META[project.status]     || STATUS_META.Pending
   const sIdx    = STATUSES.indexOf(project.status)
@@ -338,14 +465,14 @@ function ProjectCard({ project, onDelete, onStatusChange, submittingId, isLast }
       display: 'flex', alignItems: 'center', gap: 12,
       background: 'var(--surface)', borderBottom: isLast ? 'none' : '1px solid var(--border)',
       transition: 'background .15s',
-      padding: '10px 20px',
+      padding: '10px 16px',
     }}
       onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg)' }}
       onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)' }}
     >
       {/* Col 1 — Employee */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 200px', minWidth: 200 }}>
-        <Avatar name={project.staff?.fullName} style={{ width: 28, height: 28, fontSize: 11 }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '0 0 200px', minWidth: 200 }}>
+        <Avatar name={project.staff?.fullName} src={project.staff?.documents?.profileImage?.url} style={{ width: 32, height: 32, fontSize: 11, borderRadius: 8, background: 'var(--primary)' }} />
         <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {project.staff?.fullName || 'Unknown'}
@@ -356,22 +483,45 @@ function ProjectCard({ project, onDelete, onStatusChange, submittingId, isLast }
       {/* Col 2 — Project */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-          <FolderOpen size={13} color={pm.color} />
+          <FolderOpen size={12} color={pm.color} />
           <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {project.title}
           </span>
         </div>
         {project.description && (
-          <div style={{ fontSize: 11, color: '#94a3b8', wordBreak: 'break-word', marginTop: 4, lineHeight: 1.4, maxWidth: 500 }}>
+          <div style={{ fontSize: 11, color: '#94a3b8', wordBreak: 'break-word', marginTop: 3, lineHeight: 1.35, maxWidth: 500 }}>
             {project.description}
+          </div>
+        )}
+        {project.projectUrl && (
+          <div style={{ marginTop: 3 }}>
+            <a 
+              href={project.projectUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{ fontSize: 10.5, color: 'var(--primary)', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            >
+              🔗 View Project Document / Link
+            </a>
+          </div>
+        )}
+        {project.attachment && project.attachment.url && (
+          <div style={{ marginTop: 3 }}>
+            <a 
+              href={project.attachment.url} 
+              download={project.attachment.originalName}
+              style={{ fontSize: 10.5, color: '#16a34a', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            >
+              📄 Download Attachment: {project.attachment.originalName}
+            </a>
           </div>
         )}
       </div>
 
       {/* Col 3 — Priority badge */}
-      <div style={{ width: 100, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
+      <div style={{ width: 90, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
         <span style={{
-          padding: '2px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: '700',
+          padding: '3px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: '700',
           background: pm.bg, color: pm.color, textTransform: 'uppercase', letterSpacing: '0.5px'
         }}>
           {project.priority}
@@ -379,9 +529,9 @@ function ProjectCard({ project, onDelete, onStatusChange, submittingId, isLast }
       </div>
 
       {/* Col 4 — Status badge */}
-      <div style={{ width: 110, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
+      <div style={{ width: 90, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
         <span style={{
-          padding: '2px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: '700',
+          padding: '3px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: '700',
           background: sm.bg, color: sm.color, display: 'flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.5px'
         }}>
           {project.status === 'Completed' && '✓ '}{sm.label}
@@ -389,7 +539,7 @@ function ProjectCard({ project, onDelete, onStatusChange, submittingId, isLast }
       </div>
 
       {/* Col 5 — Due date */}
-      <div style={{ width: 130, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+      <div style={{ width: 110, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
         {project.dueDate ? (
           <div style={{ fontSize: 11, color: isOverdue ? '#dc2626' : 'var(--text-muted)', fontWeight: isOverdue ? 700 : 500, textAlign: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
@@ -404,41 +554,103 @@ function ProjectCard({ project, onDelete, onStatusChange, submittingId, isLast }
       </div>
 
       {/* Col 6 — Action button */}
-      <div style={{ width: 180, flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
-        {project.status === 'Pending' ? (
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', padding: '5px 12px', background: '#f1f5f9', borderRadius: 6 }}>
-            Pending
-          </span>
-        ) : project.status === 'Accepted' ? (
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#2563eb', padding: '5px 12px', background: '#dbeafe', borderRadius: 6 }}>
-            Accepted
-          </span>
-        ) : next ? (
-          <button
-            disabled={loading}
-            onClick={() => onStatusChange(project._id, next)}
-            style={{
-              padding: '5px 12px', borderRadius: 6,
-              border: `1.5px solid ${STATUS_META[next]?.color}60`,
-              background: STATUS_META[next]?.bg, color: STATUS_META[next]?.color,
-              fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
-              display: 'flex', alignItems: 'center', gap: 4
-            }}
-          >
-            {loading ? <Loader2 size={11} className="animate-spin" /> : '✓'}
-            Complete
-          </button>
-        ) : (
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', padding: '5px 12px', background: '#dcfce7', borderRadius: 6 }}>
-            ✓ Completed
-          </span>
-        )}
+      <div style={{ width: 90, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
         <button
-          onClick={() => onDelete(project._id)}
-          style={{ padding: '5px 7px', borderRadius: 6, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenuOpen(!menuOpen);
+          }}
+          className="btn-icon btn-hover"
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 6,
+            color: 'var(--text-light)',
+            background: 'transparent',
+            border: '1px solid var(--border)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer'
+          }}
         >
-          <Trash2 size={12} />
+          <span style={{ fontSize: 14, lineHeight: 1, fontWeight: 700 }}>⋮</span>
         </button>
+
+        {menuOpen && (
+          <>
+            <div 
+              style={{ position: 'fixed', inset: 0, zIndex: 110 }} 
+              onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} 
+            />
+            <div style={{
+              position: 'absolute',
+              right: 0,
+              top: '100%',
+              width: 140,
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              boxShadow: 'var(--shadow-lg)',
+              zIndex: 120,
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '4px 0',
+              textAlign: 'left'
+            }}>
+              {project.status !== 'Completed' && next && (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onStatusChange(project._id, next);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '8px 12px',
+                    border: 'none',
+                    background: 'none',
+                    color: 'var(--text)',
+                    fontSize: 12,
+                    fontWeight: 500,
+                    width: '100%',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'background 0.15s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                >
+                  <CheckCircle2 size={12} style={{ marginRight: 6 }} /> Move Status
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  onDelete(project._id);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '8px 12px',
+                  border: 'none',
+                  background: 'none',
+                  color: 'var(--danger)',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  width: '100%',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'none'}
+              >
+                <Trash2 size={12} style={{ marginRight: 6, color: '#dc2626' }} /> Delete Project
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
@@ -447,11 +659,20 @@ function ProjectCard({ project, onDelete, onStatusChange, submittingId, isLast }
 
 // ─── Main Page ────────────────────────────────────────────────
 export default function WorkManagement() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const staffId = searchParams.get('staffId')
+
   const [projects,     setProjects]     = useState([])
   const [staffList,    setStaffList]    = useState([])
   const [loading,      setLoading]      = useState(true)
   const [submittingId, setSubmittingId] = useState(null)
-  const [modalOpen,    setModalOpen]    = useState(false)
+  const [modalOpen,    setModalOpen]    = useState(staffId ? true : false)
+
+  useEffect(() => {
+    if (staffId) {
+      setModalOpen(true)
+    }
+  }, [staffId])
 
   const [search,       setSearch]       = useState('')
   const [filterStatus, setFilterStatus] = useState('All')
@@ -507,7 +728,7 @@ export default function WorkManagement() {
   const overdue    = projects.filter(p => p.dueDate && new Date(p.dueDate) < new Date() && p.status !== 'Completed').length
 
   return (
-    <PageShell>
+    <PageShell style={{ maxWidth: 'none' }}>
       <AssignModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -515,26 +736,8 @@ export default function WorkManagement() {
         onSaved={task => setProjects(p => [task, ...p])}
       />
 
-      <PageHeader
-        title="Work Management"
-        subtitle="Assign projects to employees and track their progress in real time."
-        actions={
-          <button
-            onClick={() => setModalOpen(true)}
-            style={{
-              height: 46, padding: '0 22px', display: 'flex', alignItems: 'center', gap: 8,
-              borderRadius: 11, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 14, color: 'white',
-              background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
-              boxShadow: '0 4px 18px rgba(37,99,235,0.35)'
-            }}
-          >
-            <Plus size={18} strokeWidth={2.5} /> Assign Project
-          </button>
-        }
-      />
-
       {/* Stats — click any card to filter */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 26 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 16 }}>
         {[
           { label: 'Total',       value: total,      color: '#2563eb', icon: FolderOpen, filter: 'All' },
           { label: 'Pending',     value: pending,    color: pending > 0 ? '#ea580c' : '#64748b', icon: Clock,         filter: 'Pending' },
@@ -570,35 +773,48 @@ export default function WorkManagement() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 22, alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: '1 1 200px', maxWidth: 280 }}>
-          <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14, alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: '1 1 200px', maxWidth: 240 }}>
+          <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
           <input
             value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search project or employee…"
-            style={{ width: '100%', padding: '9px 12px 9px 34px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+            style={{ width: '100%', padding: '8px 10px 8px 30px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
           />
         </div>
 
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-          style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, cursor: 'pointer', outline: 'none', fontWeight: 600 }}>
+          style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, cursor: 'pointer', outline: 'none', fontWeight: 600 }}>
           <option value="All">All Status</option>
           {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
 
         <select value={filterStaff} onChange={e => setFilterStaff(e.target.value)}
-          style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, cursor: 'pointer', outline: 'none', fontWeight: 600 }}>
+          style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, cursor: 'pointer', outline: 'none', fontWeight: 600 }}>
           <option value="All">All Employees</option>
           {staffList.map(s => <option key={s._id} value={s._id}>{s.fullName}</option>)}
         </select>
 
-        <button onClick={load} disabled={loading} style={{ height: 38, width: 38, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-muted)', cursor: 'pointer' }}>
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+        <button onClick={load} disabled={loading} style={{ height: 34, width: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-muted)', cursor: 'pointer' }}>
+          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
         </button>
 
-        <span style={{ marginLeft: 'auto', fontSize: 13, color: '#64748b', fontWeight: 600 }}>
-          {filtered.length} project{filtered.length !== 1 ? 's' : ''}
-        </span>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>
+            {filtered.length} project{filtered.length !== 1 ? 's' : ''}
+          </span>
+          <button
+            onClick={() => setModalOpen(true)}
+            style={{
+              height: 36, padding: '0 16px', display: 'flex', alignItems: 'center', gap: 6,
+              borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: 'white',
+              background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
+              boxShadow: '0 4px 12px rgba(37,99,235,0.25)'
+            }}
+          >
+            <Plus size={16} strokeWidth={2.5} /> Assign Project
+          </button>
+        </div>
       </div>
 
       {/* Content */}
@@ -626,16 +842,16 @@ export default function WorkManagement() {
         <div className="panel" style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', overflow: 'hidden' }}>
           {/* Column header */}
           <div style={{
-            display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px',
-            fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px',
+            display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px',
+            fontSize: 10, fontWeight: 750, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px',
             background: 'var(--bg)', borderBottom: '1px solid var(--border)'
           }}>
             <div style={{ flex: '0 0 200px', minWidth: 200 }}>Employee</div>
             <div style={{ flex: 1 }}>Project</div>
-            <div style={{ width: 100, textAlign: 'center' }}>Priority</div>
-            <div style={{ width: 110, textAlign: 'center' }}>Status</div>
-            <div style={{ width: 130, textAlign: 'center' }}>Due Date</div>
-            <div style={{ width: 180, textAlign: 'right', paddingRight: 10 }}>Actions</div>
+            <div style={{ width: 90, textAlign: 'center' }}>Priority</div>
+            <div style={{ width: 90, textAlign: 'center' }}>Status</div>
+            <div style={{ width: 110, textAlign: 'center' }}>Due Date</div>
+            <div style={{ width: 90, textAlign: 'center' }}>Actions</div>
           </div>
           {filtered.map((project, idx) => (
             <ProjectCard

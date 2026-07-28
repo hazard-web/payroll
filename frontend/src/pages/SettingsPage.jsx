@@ -36,15 +36,7 @@ export default function SettingsPage() {
   }, [])
 
   return (
-    <PageShell>
-      {/* Page Header */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 900, color: 'var(--text)', margin: 0 }}>System Settings</h1>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6, fontWeight: 500 }}>
-          Configure company branding, post announcements, and view comprehensive activity audit logs.
-        </p>
-      </div>
-
+    <PageShell style={{ maxWidth: 'none' }}>
       {/* Tabs */}
       <div className="la-tabs" style={{ marginBottom: 22 }}>
         <button 

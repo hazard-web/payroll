@@ -38,6 +38,11 @@ const announcementSchema = new mongoose.Schema(
       default: true,
       index: true,
     },
+    meetingLink: {
+      type: String,
+      trim: true,
+      default: '',
+    },
   },
   { timestamps: true }
 );

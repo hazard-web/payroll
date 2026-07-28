@@ -20,7 +20,7 @@ const pageStyles = `
   .la-tabs { display:flex; gap:4px; padding:4px; background:var(--bg); border:1px solid var(--border); border-radius:10px; width:fit-content; }
   .la-tab  { padding:8px 20px; border-radius:7px; font-size:13px; font-weight:600; cursor:pointer; border:none; transition:all 0.18s; color:var(--text-muted); background:transparent; }
   .la-tab.active { background:var(--surface); color:var(--text); box-shadow:0 1px 4px rgba(0,0,0,0.10); }
-  .la-pill { display:inline-flex; align-items:center; gap:3px; padding:2px 10px; border-radius:999px; font-size:11px; font-weight:700; white-space:nowrap; }
+  .la-pill { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:999px; font-size:10px; font-weight:700; white-space:nowrap; }
   .la-pill-green  { background:#e5ebdd; color:#58833b; border:1px solid rgba(88,131,59, 0.25); }
   .la-pill-orange { background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; }
   .la-pill-blue   { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
@@ -29,8 +29,8 @@ const pageStyles = `
   .la-pill-slate  { background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
   .la-pill-purple { background:#faf5ff; color:#6b21a8; border:1px solid #e9d5ff; }
   .la-stat { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 20px; display:flex; align-items:center; gap:14px; }
-  .la-table-head { display:grid; gap:8px; padding:11px 20px; background:var(--bg); border-bottom:1px solid var(--border); }
-  .la-row        { display:grid; gap:8px; padding:13px 20px; border-bottom:1px solid var(--border); align-items:center; transition:background 0.13s; }
+  .la-table-head { display:grid; gap:8px; padding:8px 16px; background:var(--bg); border-bottom:1px solid var(--border); }
+  .la-row        { display:grid; gap:8px; padding:8px 16px; border-bottom:1px solid var(--border); align-items:center; transition:background 0.13s; }
   .la-row:last-child  { border-bottom:none; }
   .la-row:hover  { background:rgba(0,0,0,0.018); }
   .la-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
@@ -71,11 +71,18 @@ const fmtHours = h => {
 
 
 
-const Avatar = ({ name, size = 38, bg = 'var(--primary)', color = '#fff' }) => (
-  <div style={{ width: size, height: size, borderRadius: '50%', background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontWeight: 700, fontSize: size * 0.38 }}>
-    {(name || '?').charAt(0).toUpperCase()}
-  </div>
-)
+const Avatar = ({ name, src, size = 38, bg = 'var(--primary)', color = '#fff' }) => {
+  if (src) {
+    return (
+      <img src={src} alt={name} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+    )
+  }
+  return (
+    <div style={{ width: size, height: size, borderRadius: '50%', background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontWeight: 700, fontSize: size * 0.38 }}>
+      {(name || '?').charAt(0).toUpperCase()}
+    </div>
+  )
+}
 
 function StatusPill({ status, workStatus }) {
   const s = workStatus || status || ''
@@ -90,10 +97,10 @@ function StatusPill({ status, workStatus }) {
 }
 
 // ─── Leave Tab ────────────────────────────────────────────────────────────────
-function LeaveTab() {
+function LeaveTab({ initialFilter }) {
   const [requests, setRequests]         = useState([])
   const [loading, setLoading]           = useState(true)
-  const [filterStatus, setFilterStatus] = useState('Pending')
+  const [filterStatus, setFilterStatus] = useState(initialFilter || 'Pending')
   const [search, setSearch]             = useState('')
   const [actionLoading, setActionLoading] = useState(null)
   const [noteModal, setNoteModal]       = useState(null)
@@ -186,38 +193,38 @@ function LeaveTab() {
                   className="la-row" style={{ gridTemplateColumns:'1.6fr 1fr 2fr 100px 90px' }}>
 
                   {/* Employee */}
-                  <div style={{ display:'flex', gap:11, alignItems:'center', minWidth:0 }}>
-                    <Avatar name={req.staff?.fullName} size={38} />
+                  <div style={{ display:'flex', gap:10, alignItems:'center', minWidth:0 }}>
+                    <Avatar name={req.staff?.fullName} src={req.staff?.documents?.profileImage?.url} size={30} />
                     <div style={{ minWidth:0 }}>
-                      <div style={{ fontSize:14, fontWeight:700, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{req.staff?.fullName}</div>
-                      <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>{req.staff?.employeeId || '—'} · <span style={{ color:'var(--primary)', fontWeight:600 }}>{req.type} Leave</span></div>
+                      <div style={{ fontSize:12.5, fontWeight:600, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{req.staff?.fullName}</div>
+                      <div style={{ fontSize:10.5, color:'var(--text-muted)', marginTop:1 }}>{req.staff?.employeeId || '—'} · <span style={{ color:'var(--primary)', fontWeight:600 }}>{req.type} Leave</span></div>
                     </div>
                   </div>
 
                   {/* Dates */}
-                  <div style={{ fontSize:12, color:'var(--text)' }}>
+                  <div style={{ fontSize:11.5, color:'var(--text)' }}>
                     <div style={{ fontWeight:600 }}>{fmtDate(req.startDate)}</div>
-                    <div style={{ color:'var(--text-muted)', marginTop:2 }}>to {fmtDate(req.endDate)}</div>
-                    <div style={{ marginTop:4 }}><span className="la-pill la-pill-slate">{days} day{days !== 1 ? 's' : ''}</span></div>
+                    <div style={{ color:'var(--text-muted)', marginTop:1 }}>to {fmtDate(req.endDate)}</div>
+                    <div style={{ marginTop:3 }}><span className="la-pill la-pill-slate">{days} day{days !== 1 ? 's' : ''}</span></div>
                   </div>
 
                   {/* Reason */}
-                  <div style={{ fontSize:13, color:'var(--text)', lineHeight:1.45, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>
+                  <div style={{ fontSize:11.5, color:'var(--text)', lineHeight:1.4, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>
                     {req.reason || '—'}
                   </div>
 
                   {/* Balances */}
-                  <div style={{ fontSize:11, color:'var(--text-muted)', fontWeight:600 }}>
+                  <div style={{ fontSize:10.5, color:'var(--text-muted)', fontWeight:600 }}>
                     <div>CL: <span style={{ color:'var(--primary)' }}>{req.staff?.leaveBalance?.casual ?? 0}d</span></div>
-                    <div style={{ marginTop:3 }}>SL: <span style={{ color:'var(--primary)' }}>{req.staff?.leaveBalance?.sick ?? 0}d</span></div>
+                    <div style={{ marginTop:2 }}>SL: <span style={{ color:'var(--primary)' }}>{req.staff?.leaveBalance?.sick ?? 0}d</span></div>
                   </div>
 
                   {/* Status / Action */}
-                  <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:8 }}>
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6 }}>
                     {leaveStatusPill(req.status)}
                     {req.status === 'Pending' && (
                       <button onClick={() => setNoteModal(req._id)} className="btn-primary"
-                        style={{ padding:'5px 12px', fontSize:12, borderRadius:7 }}>
+                        style={{ padding:'4px 10px', fontSize:11, borderRadius:6 }}>
                         Review
                       </button>
                     )}
@@ -566,6 +573,70 @@ function AttendanceTab() {
     setSelectedMonthYear(`${now.getMonth() + 1}-${now.getFullYear()}`)
   }
 
+  const downloadAttendancePDF = () => {
+    const doc = new jsPDF()
+    
+    // Header Title block
+    doc.setFillColor(248, 250, 252)
+    doc.rect(0, 0, 210, 38, 'F')
+    
+    doc.setFontSize(18)
+    doc.setFont("helvetica", "bold")
+    doc.setTextColor(30, 41, 59)
+    doc.text("Employee Attendance Report", 14, 20)
+    
+    // Subtitle Info
+    const monthName = monthOptions.find(o => o.value === selectedMonthYear)?.label || selectedMonthYear
+    doc.setFontSize(10)
+    doc.setFont("helvetica", "normal")
+    doc.setTextColor(100, 116, 139)
+    doc.text(`Report Period: ${monthName}  |  Department: ${selectedDept}  |  Generated: ${new Date().toLocaleDateString('en-IN')}`, 14, 28)
+
+    // Table headers and data
+    const headers = [['Employee Name', 'Emp ID', 'Department', 'Total Present', 'Total Absent', 'Leaves', 'Working Days', 'Attendance %', 'Status']]
+    const data = rows.map(r => [
+      r.staff.fullName,
+      r.staff.employeeId || '—',
+      r.staff.department || '—',
+      r.present.toString(),
+      r.absent.toString(),
+      r.leave.toString(),
+      r.workingDays.toString(),
+      `${r.percent}%`,
+      r.status
+    ])
+
+    // Generate table
+    autoTable(doc, {
+      startY: 44,
+      head: headers,
+      body: data,
+      theme: 'striped',
+      headStyles: { fillColor: [88, 131, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8.5, halign: 'center' },
+      bodyStyles: { fontSize: 7.5, textColor: [51, 65, 85] },
+      columnStyles: {
+        0: { cellWidth: 'auto', fontStyle: 'bold' }, // Employee Name
+        1: { cellWidth: 16, halign: 'center' },     // Emp ID
+        2: { cellWidth: 22, halign: 'center' },     // Department
+        3: { cellWidth: 18, halign: 'center' },     // Total Present
+        4: { cellWidth: 18, halign: 'center' },     // Total Absent
+        5: { cellWidth: 12, halign: 'center' },     // Leaves
+        6: { cellWidth: 20, halign: 'center' },     // Working Days
+        7: { cellWidth: 20, halign: 'center' },     // Attendance %
+        8: { cellWidth: 18, halign: 'center' }      // Status
+      },
+      styles: {
+        cellPadding: 3.5,
+        lineColor: [241, 245, 249],
+        lineWidth: 0.2
+      }
+    })
+
+    // Save PDF
+    doc.save(`Attendance_Report_${selectedMonthYear}.pdf`)
+    toast.success('Attendance PDF downloaded successfully!')
+  }
+
   const getStatusBadgeStyle = (status) => {
     if (status === 'Excellent') return { background: '#dcfce7', color: '#15803d' }
     if (status === 'Good') return { background: '#e0f2fe', color: '#0369a1' }
@@ -576,7 +647,7 @@ function AttendanceTab() {
   return (
     <div>
       {/* Filter panel */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
         <div className="la-search" style={{ flex: '1 1 200px' }}>
           <Search size={14} />
           <input 
@@ -629,6 +700,14 @@ function AttendanceTab() {
         >
           <RotateCcw size={13} /> Reset
         </button>
+
+        <button 
+          onClick={downloadAttendancePDF} 
+          className="la-filter-btn" 
+          style={{ height: 32, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, padding: '0 16px', borderRadius: 8, background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)', color: 'white', border: 'none', cursor: 'pointer', marginLeft: 'auto' }}
+        >
+          <Download size={13} /> Download Report (PDF)
+        </button>
       </div>
 
       {loading ? (
@@ -648,62 +727,62 @@ function AttendanceTab() {
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
                   <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employee</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>ID</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Department</th>
-                  <th style={{ padding: '12px 16px', color: '#16a34a', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Present</th>
-                  <th style={{ padding: '12px 16px', color: '#dc2626', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Absent</th>
-                  <th style={{ padding: '12px 16px', color: '#2563eb', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Leave</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Working Days</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Attendance %</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Actions</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>ID</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Department</th>
+                  <th style={{ padding: '12px 16px', color: '#16a34a', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Present</th>
+                  <th style={{ padding: '12px 16px', color: '#dc2626', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Absent</th>
+                  <th style={{ padding: '12px 16px', color: '#2563eb', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Leave</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Working Days</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Attendance %</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Status</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.staff._id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.1s' }} className="table-row-hover">
                     {/* Employee */}
-                    <td style={{ padding: '10px 16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <td style={{ padding: '10px 16px', whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'nowrap' }}>
                         <Avatar name={row.staff.fullName} size={30} />
-                        <span style={{ fontWeight: 700, color: 'var(--text)', fontSize: 13 }}>{row.staff.fullName}</span>
+                        <span style={{ fontWeight: 700, color: 'var(--text)', fontSize: 13, whiteSpace: 'nowrap' }}>{row.staff.fullName}</span>
                       </div>
                     </td>
 
                     {/* ID */}
-                    <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontWeight: 600, fontSize: 12.5 }}>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontWeight: 600, fontSize: 12.5, whiteSpace: 'nowrap', textAlign: 'center' }}>
                       {row.staff.employeeId || '—'}
                     </td>
 
                     {/* Department */}
-                    <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontWeight: 600, fontSize: 12.5 }}>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontWeight: 600, fontSize: 12.5, whiteSpace: 'nowrap', textAlign: 'center' }}>
                       {row.staff.department || '—'}
                     </td>
 
                     {/* Present */}
-                    <td style={{ padding: '10px 16px', fontWeight: 700, color: '#16a34a', fontSize: 13 }}>
+                    <td style={{ padding: '10px 16px', fontWeight: 700, color: '#16a34a', fontSize: 13, whiteSpace: 'nowrap', textAlign: 'center' }}>
                       {row.present}
                     </td>
 
                     {/* Absent */}
-                    <td style={{ padding: '10px 16px', fontWeight: 700, color: '#dc2626', fontSize: 13 }}>
+                    <td style={{ padding: '10px 16px', fontWeight: 700, color: '#dc2626', fontSize: 13, whiteSpace: 'nowrap', textAlign: 'center' }}>
                       {row.absent}
                     </td>
 
                     {/* Leave */}
-                    <td style={{ padding: '10px 16px', fontWeight: 700, color: '#2563eb', fontSize: 13 }}>
+                    <td style={{ padding: '10px 16px', fontWeight: 700, color: '#2563eb', fontSize: 13, whiteSpace: 'nowrap', textAlign: 'center' }}>
                       {row.leave}
                     </td>
 
                     {/* Working Days */}
-                    <td style={{ padding: '10px 16px', fontWeight: 700, color: 'var(--text-muted)', fontSize: 13 }}>
+                    <td style={{ padding: '10px 16px', fontWeight: 700, color: 'var(--text-muted)', fontSize: 13, whiteSpace: 'nowrap', textAlign: 'center' }}>
                       {row.workingDays}
                     </td>
 
                     {/* Attendance % with progress bar */}
-                    <td style={{ padding: '10px 16px' }}>
+                    <td style={{ padding: '10px 16px', whiteSpace: 'nowrap', textAlign: 'center' }}>
                       <span style={{ fontWeight: 700, color: 'var(--text)', fontSize: 13 }}>{row.percent}%</span>
-                      <div style={{ width: '100%', maxWidth: 75, height: 4, background: 'var(--bg)', borderRadius: 100, marginTop: 4, overflow: 'hidden' }}>
+                      <div style={{ width: '100%', maxWidth: 75, height: 4, background: 'var(--bg)', borderRadius: 100, margin: '4px auto 0', overflow: 'hidden' }}>
                         <div style={{
                           width: `${Math.min(100, row.percent)}%`,
                           height: '100%',
@@ -714,13 +793,15 @@ function AttendanceTab() {
                     </td>
 
                     {/* Status badge */}
-                    <td style={{ padding: '10px 16px' }}>
+                    <td style={{ padding: '10px 16px', whiteSpace: 'nowrap', textAlign: 'center' }}>
                       <span 
                         className="la-pill" 
                         style={{ 
                           fontWeight: 700, 
                           fontSize: 10.5,
                           padding: '2.5px 7px',
+                          display: 'inline-block',
+                          whiteSpace: 'nowrap',
                           ...getStatusBadgeStyle(row.status)
                         }}
                       >
@@ -729,8 +810,8 @@ function AttendanceTab() {
                     </td>
 
                     {/* Actions Dropdown */}
-                    <td style={{ padding: '10px 16px', position: 'relative', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                    <td style={{ padding: '10px 16px', position: 'relative', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center' }}>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1103,10 +1184,7 @@ export default function LeaveRequests() {
   const location = useLocation()
   const isLeave = location.pathname.startsWith('/leave')
   const [activeTab, setActiveTab] = useState(isLeave ? 'leave' : 'attendance')
-
-  useEffect(() => {
-    setActiveTab(isLeave ? 'leave' : 'attendance')
-  }, [location.pathname, isLeave])
+  const initialLeaveFilter = location.state?.filterStatus || 'Pending'
 
   useEffect(() => {
     const id = 'la-page-styles'
@@ -1148,7 +1226,7 @@ export default function LeaveRequests() {
         )}
       </div>
 
-      {activeTab === 'leave'        && <LeaveTab />}
+      {activeTab === 'leave'        && <LeaveTab initialFilter={initialLeaveFilter} />}
       {activeTab === 'policy'       && <LeavePolicy />}
       {activeTab === 'attendance'   && <AttendanceTab />}
       {activeTab === 'workingdays'  && <WorkingDaysTab />}

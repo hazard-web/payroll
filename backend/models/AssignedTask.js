@@ -16,6 +16,15 @@ const assignedTaskSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    projectUrl: {
+      type: String,
+      default: ''
+    },
+    attachment: {
+      fileName: { type: String, default: '' },
+      originalName: { type: String, default: '' },
+      url: { type: String, default: '' }
+    },
     priority: {
       type: String,
       enum: ['Low', 'Medium', 'High', 'Urgent'],

@@ -7,6 +7,7 @@ const mongoose = require('mongoose');
 const { ObjectId } = require('mongodb');
 const Staff = require('../models/Staff');
 const User = require('../models/User'); // Required to get company details if needed
+const { uploadBase64 } = require('../utils/cloudinary');
 
 // ── Raw DB helpers ────────────────────────────────────────────
 // The staffs collection has a problematic email index on Atlas M0 that causes
@@ -765,10 +766,19 @@ router.post('/me/documents/:type', authStaff, async (req, res) => {
       req.staff.documents = {};
     }
 
+    let documentUrl = data;
+    if (process.env.CLOUDINARY_CLOUD_NAME) {
+      try {
+        documentUrl = await uploadBase64(data, `payroll_portal/documents/${req.staff._id}`);
+      } catch (uploadErr) {
+        return res.status(500).json({ success: false, message: `Cloudinary upload failed: ${uploadErr.message}` });
+      }
+    }
+
     req.staff.documents[type] = {
       fileName,
       originalName: originalName || fileName,
-      url: data,
+      url: documentUrl,
       uploadedAt: new Date(),
     };
 
@@ -880,19 +890,21 @@ router.get('/announcements', authStaff, async (req, res) => {
   try {
     const userId = req.staff.user?._id || req.staff.user;
     const now = new Date();
+    // Add a 24-hour buffer to now for start date comparisons to prevent timezone/boundary offsets from hiding active announcements
+    const startCompareDate = new Date(now.getTime() + 24 * 3600000);
+
+    console.log(`[Portal] Fetching announcements for staff: ${req.staff.fullName}, admin: ${userId}`);
 
     const announcements = await Announcement.find({
       user: userId,
       isActive: true,
       $or: [
-        { startDate: null, endDate: null },
-        { startDate: { $lte: now }, endDate: null },
-        { startDate: null, endDate: { $gte: now } },
-        { startDate: { $lte: now }, endDate: { $gte: now } },
+        { endDate: null },
+        { endDate: { $gte: now } },
       ],
     }).sort({ createdAt: -1 });
 
-    // Sort: Urgent → Important → Normal, then newest first (already sorted by date above)
+    // Sort: Urgent → Important → Normal, then newest first
     const priorityOrder = { Urgent: 0, Important: 1, Normal: 2 };
     announcements.sort((a, b) => {
       const pDiff = (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99);

@@ -205,7 +205,7 @@ export default function PortalDashboard() {
 
   const openTaskModal = (mode) => {
     setTaskMode(mode)
-    if (mode === 'in') {
+    if (mode === 'in' || mode === 'add') {
       const preset = (staffUser?.clientAssignment || '').trim()
       setTaskItems([{ project: preset, description: '', status: 'Pending' }])
     } else {
@@ -261,7 +261,7 @@ export default function PortalDashboard() {
     try {
       const cleanedTasks = normalizeTasks(taskItems)
       if (cleanedTasks.length === 0) {
-        toast.error('Please add at least one task before Punch In.')
+        toast.error('Please add at least one task.')
         return
       }
       if (cleanedTasks.some(task => !task.project)) {
@@ -269,20 +269,31 @@ export default function PortalDashboard() {
         return
       }
       if (cleanedTasks.some(task => !task.description)) {
-        toast.error('Please add at least one task before Punch In.')
+        toast.error('Please add at least one task description.')
         return
       }
 
-      const coords = await getLocation()
-      const endpoint = taskMode === 'in' ? '/attendance/punch-in' : '/attendance/punch-out'
-      const payload = { tasks: cleanedTasks, ...(coords || {}) }
-      const res = await api.post(endpoint, payload)
-      toast.success(res.data.message)
+      if (taskMode === 'add') {
+        for (const t of cleanedTasks) {
+          await api.post('/attendance/tasks/add', {
+            project: t.project,
+            description: t.description,
+            notes: t.notes || ''
+          })
+        }
+        toast.success('Task(s) added successfully')
+      } else {
+        const coords = await getLocation()
+        const endpoint = taskMode === 'in' ? '/attendance/punch-in' : '/attendance/punch-out'
+        const payload = { tasks: cleanedTasks, ...(coords || {}) }
+        const res = await api.post(endpoint, payload)
+        toast.success(res.data.message)
+      }
       setShowTaskModal(false)
       await fetchActiveShift()
       await fetchSummaryData()
     } catch (err) {
-      toast.error(err.response?.data?.message || err.message || `Failed to ${taskMode === 'in' ? 'punch in' : 'punch out'}`)
+      toast.error(err.response?.data?.message || err.message || `Failed to ${taskMode === 'in' ? 'punch in' : taskMode === 'add' ? 'add task' : 'punch out'}`)
     } finally {
       setTaskSubmitting(false)
     }
@@ -937,7 +948,7 @@ export default function PortalDashboard() {
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Today's Tasks</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <button 
-                  onClick={() => openTaskModal(isPunchedIn ? 'out' : 'in')}
+                  onClick={() => openTaskModal(isPunchedIn ? 'add' : 'in')}
                   style={{ 
                     border: 'none', background: 'rgba(88,131,59,0.08)', color: 'var(--primary)',
                     borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 800, cursor: 'pointer',
@@ -1246,10 +1257,10 @@ export default function PortalDashboard() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.1em' }}>
-                      {taskMode === 'in' ? 'Punch In Task Plan' : 'Punch Out Task Update'}
+                      {taskMode === 'in' ? 'Punch In Task Plan' : taskMode === 'add' ? 'Add Task to Today\'s Session' : 'Punch Out Task Update'}
                     </div>
                     <h2 style={{ margin: '6px 0 0', fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>
-                      {taskMode === 'in' ? 'Plan your tasks before starting' : 'Review and update task statuses'}
+                      {taskMode === 'in' ? 'Plan your tasks before starting' : taskMode === 'add' ? 'Enter project and task details' : 'Review and update task statuses'}
                     </h2>
                   </div>
                   <button onClick={() => setShowTaskModal(false)} style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}>
@@ -1290,7 +1301,7 @@ export default function PortalDashboard() {
                     </div>
                   </div>
                 ))}
-                {taskMode === 'in' && (
+                {(taskMode === 'in' || taskMode === 'add') && (
                   <button
                     type="button"
                     onClick={addTaskItem}
@@ -1315,7 +1326,7 @@ export default function PortalDashboard() {
                     Cancel
                   </button>
                   <button type="button" onClick={handleTaskSubmit} disabled={taskSubmitting} className="btn-primary" style={{ padding: '10px 20px', minWidth: 120, fontSize: 13 }}>
-                    {taskSubmitting ? <Loader2 size={16} className="animate-spin" /> : taskMode === 'in' ? 'Punch In' : 'Punch Out'}
+                    {taskSubmitting ? <Loader2 size={16} className="animate-spin" /> : taskMode === 'in' ? 'Punch In' : taskMode === 'add' ? 'Add Task' : 'Punch Out'}
                   </button>
                 </div>
               </div>

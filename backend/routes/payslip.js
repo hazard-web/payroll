@@ -244,10 +244,17 @@ router.get('/stats/summary', async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
-    const payslip = await Payslip.findOne({ _id: req.params.id, user: req.user._id });
+    const payslip = await Payslip.findOne({ _id: req.params.id, user: req.user._id }).lean();
     if (!payslip) {
       return res.status(404).json({ success: false, message: 'Payslip not found' });
     }
+
+    // Try to find staff record to get profile image
+    const staff = await Staff.findOne({ user: req.user._id, employeeId: payslip.employeeId }).select('documents.profileImage').lean();
+    if (staff && staff.documents?.profileImage?.url) {
+      payslip.employeeImage = staff.documents.profileImage.url;
+    }
+
     res.json({ success: true, data: payslip });
   } catch (err) {
     console.error('Get payslip error:', err);

@@ -209,7 +209,7 @@ export default function StaffList() {
   if (loading) return <PageLoading label="Loading team…" />
 
   return (
-    <PageShell wide>
+    <PageShell style={{ maxWidth: 'none' }}>
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -302,13 +302,20 @@ export default function StaffList() {
               <col style={{ width: '8%' }} />
             </colgroup>
             <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-              <tr>
-                <th>Employee</th>
-                <th>Role</th>
-                <th>Type</th>
-                <th>Profile</th>
-                <th>Compensation</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+              <tr style={{ background: 'var(--primary)' }}>
+                {['Employee', 'Role', 'Type', 'Profile', 'Compensation', 'Actions'].map((h, i) => (
+                  <th key={h} style={{
+                    textAlign: i === 5 ? 'right' : 'left',
+                    color: 'var(--primary-text)',
+                    padding: '10px 16px',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -318,47 +325,50 @@ export default function StaffList() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.03 }}
+                  onClick={() => navigate(`/staff/${person._id}`)}
+                  style={{ cursor: 'pointer' }}
                 >
-                  <td>
+                  <td style={{ padding: '10px 16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <Avatar
                         name={person.fullName}
+                        src={person.documents?.profileImage?.url}
                         className={person.type === 'Intern' ? 'avatar--intern' : 'avatar--employee'}
                         style={{ width: 32, height: 32, fontSize: 11, borderRadius: 8 }}
                       />
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>{person.fullName}</div>
-                        <div className="text-muted" style={{ fontSize: 11 }}>
+                        <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>{person.fullName}</div>
+                        <div className="text-muted" style={{ fontSize: 10.5 }}>
                           {person.employeeId || <em style={{ opacity: 0.7 }}>No ID assigned</em>}
                         </div>
                       </div>
                     </div>
                   </td>
 
-                  <td>
+                  <td style={{ padding: '10px 16px' }}>
                     <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)' }}>{person.designation || 'No Designation'}</div>
-                    <div className="text-muted" style={{ fontSize: 10, fontWeight: 500 }}>{person.department || 'N/A'}</div>
+                    <div className="text-muted" style={{ fontSize: 10.5, fontWeight: 500 }}>{person.department || 'N/A'}</div>
                   </td>
 
-                  <td>
-                    <span className={`badge ${person.type === 'Intern' ? 'badge-navy' : 'badge-emerald'}`}>
+                  <td style={{ padding: '10px 16px' }}>
+                    <span className={`badge ${person.type === 'Intern' ? 'badge-navy' : 'badge-emerald'}`} style={{ fontSize: 10, padding: '3px 8px' }}>
                       {person.type}
                     </span>
                   </td>
 
-                  <td>
+                  <td style={{ padding: '10px 16px' }}>
                     {person.profileCompleted
-                      ? <span className="badge badge-emerald">✓ Profile Complete</span>
-                      : <span className="badge badge-red">Profile Incomplete</span>
+                      ? <span className="badge badge-emerald" style={{ fontSize: 10, padding: '3px 8px' }}>✓ Profile Complete</span>
+                      : <span className="badge badge-red" style={{ fontSize: 10, padding: '3px 8px' }}>Profile Incomplete</span>
                     }
                   </td>
 
-                  <td>
+                  <td style={{ padding: '10px 16px' }}>
                     <div>
-                      <div className="text-muted" style={{ fontSize: 9, fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>
+                      <div className="text-muted" style={{ fontSize: 9.5, fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>
                         {person.type === 'Employee' ? 'Annual CTC' : 'Monthly Stipend'}
                       </div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--primary)' }}>
                         ₹{person.type === 'Employee'
                           ? (person.salaryDetails?.annualCTC?.toLocaleString() || 0)
                           : (person.salaryDetails?.baseSalary?.toLocaleString() || 0)
@@ -367,7 +377,7 @@ export default function StaffList() {
                     </div>
                   </td>
 
-                  <td style={{ position: 'relative', textAlign: 'right' }}>
+                  <td style={{ padding: '10px 16px', position: 'relative', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
                       <button
                         onClick={(e) => { 
@@ -376,9 +386,9 @@ export default function StaffList() {
                         }}
                         className="btn-icon btn-hover"
                         style={{ 
-                          width: 30, 
-                          height: 30, 
-                          borderRadius: 8, 
+                          width: 28, 
+                          height: 28, 
+                          borderRadius: 6, 
                           color: 'var(--primary)',
                           background: 'rgba(88, 131, 59, 0.08)',
                           border: 'none',
