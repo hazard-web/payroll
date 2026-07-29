@@ -616,31 +616,52 @@ export default function Dashboard() {
   const [attendanceSearch, setAttendanceSearch] = useState('')
 
   const [isInitialLoad, setIsInitialLoad] = useState(true)
+  const [kpiLoading, setKpiLoading] = useState(true)
+  const [detailLoading, setDetailLoading] = useState(true)
 
-  // Pull all the parallel fetches into a stable callback so the effect's
-  // dependency array stays minimal and we don't refetch on every render.
+  // ── Phase 1: Fast KPI fetch (counters only, <100ms on Atlas) ─────────────
+  // Renders stat cards immediately. Called first on mount.
+  const fetchKPI = useCallback(async () => {
+    try {
+      setKpiLoading(true)
+      setLoadError('')
+      const res = await api.get('/activities/kpi-summary')
+      const d = res.data
+      // Use server counts for immediate KPI display
+      setActiveCount(d.activeCount || 0)
+      setAnnouncements(d.recentAnnouncements || [])
+      // Approximate totalEmployees from kpi so stat cards show a number
+      setStaffData(Array(d.totalStaff || 0).fill({}))
+    } catch (err) {
+      console.error('KPI load error:', err)
+    } finally {
+      setKpiLoading(false)
+    }
+  }, [])
+
+  // ── Phase 2: Full detail fetch (lists, punch-ins, leaves) ────────────────
+  // Called right after KPI so tables populate progressively.
   const fetchData = useCallback(async () => {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 12000)
+    const timer = setTimeout(() => controller.abort(), 20000)
     try {
-      setLoading(true)
+      setDetailLoading(true)
       setLoadError('')
-      
       const res = await api.get('/activities/dashboard-summary', { signal: controller.signal })
       const d = res.data
-      
+
       setStaffData(d.staff || [])
       setActiveCount(d.activeCount || 0)
       setTodayPunchins(d.todayPunchins || [])
       setApprovedLeaves(d.approvedLeaves || [])
       setPendingLeaves(d.pendingLeaves || [])
-      
+
       if (d.announcements) {
         const all = d.announcements || []
         all.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         setAnnouncements(all.slice(0, 3))
       }
-      
+
       setMonthlyAttendance(d.currentMonthly || [])
       setPreviousMonthlyAttendance(d.prevMonthly || [])
       setIsInitialLoad(false)
@@ -653,6 +674,7 @@ export default function Dashboard() {
       )
     } finally {
       clearTimeout(timer)
+      setDetailLoading(false)
       setLoading(false)
     }
   }, [])
@@ -662,10 +684,11 @@ export default function Dashboard() {
     return () => clearInterval(t)
   }, [])
 
-
+  // On mount: fire KPI first (renders stat cards fast), then detail in parallel
   useEffect(() => {
+    fetchKPI()
     fetchData()
-  }, [fetchData])
+  }, [fetchKPI, fetchData])
 
   useEffect(() => {
     if (isInitialLoad) return
@@ -918,7 +941,7 @@ export default function Dashboard() {
 
 
 
-  if (loading) return <PageLoading label="Loading dashboard…" />
+  if (kpiLoading) return <PageLoading label="Loading dashboard…" />
 
   if (loadError) {
     return (

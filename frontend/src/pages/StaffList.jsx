@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -67,29 +67,65 @@ export default function StaffList() {
     type: 'Employee', joiningDate: '', annualCTC: '', baseSalary: ''
   })
 
-  useEffect(() => { fetchStaff() }, [])
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const sentinelRef = useRef(null)
+  const observerRef = useRef(null)
+  const searchTimer = useRef(null)
 
-  const handleDeleteStaff = async (id) => {
+  const fetchStaff = useCallback(async (pageNum, searchVal, typeVal, reset = false) => {
+    if (pageNum === 1) setLoading(true)
+    else setLoadingMore(true)
     try {
-      await api.delete(`/staff/${id}`)
-      setStaff(staff.filter(s => s._id !== id))
-      toast.success('Team member deactivated/deleted successfully')
-    } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Deletion failed')
-    }
-  }
-
-  const fetchStaff = async () => {
-    try {
-      setLoading(true)
-      const res = await api.get('/staff')
-      setStaff(res.data.data)
+      const params = new URLSearchParams({ page: pageNum, limit: 20 })
+      if (searchVal) params.set('search', searchVal)
+      if (typeVal && typeVal !== 'All') params.set('type', typeVal)
+      const res = await api.get('/staff?' + params.toString())
+      const newStaff = res.data?.data || []
+      const pagination = res.data?.pagination || {}
+      setStaff(prev => (pageNum === 1 || reset) ? newStaff : [...prev, ...newStaff])
+      setHasMore(pageNum < (pagination.totalPages || 1))
     } catch (err) {
       toast.error('Failed to fetch staff data')
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
-  }
+  }, [])
+
+  // Initial load
+  useEffect(() => { fetchStaff(1, search, filterType) }, [])
+
+  // Debounced search + type filter — resets to page 1
+  useEffect(() => {
+    clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => {
+      setPage(1)
+      setHasMore(true)
+      fetchStaff(1, search, filterType)
+    }, 350)
+    return () => clearTimeout(searchTimer.current)
+  }, [search, filterType])
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    if (observerRef.current) observerRef.current.disconnect()
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          setPage(prev => {
+            const next = prev + 1
+            fetchStaff(next, search, filterType)
+            return next
+          })
+        }
+      },
+      { threshold: 0.1 }
+    )
+    if (sentinelRef.current) observerRef.current.observe(sentinelRef.current)
+    return () => observerRef.current?.disconnect()
+  }, [hasMore, loadingMore, loading, fetchStaff, search, filterType])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -179,6 +215,19 @@ export default function StaffList() {
     })
   }
 
+  const handleDeleteStaff = async (id) => {
+    try {
+      await api.delete(`/staff/${id}`)
+      setStaff(prev => prev.filter(s => s._id !== id))
+      toast.success('Team member deactivated/deleted successfully')
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Deletion failed')
+    }
+  }
+
+  // No client-side filter — search/type are sent server-side
+  const displayStaff = staff
+
   const handleEdit = (e, person) => {
     e.stopPropagation()
     setEditingStaff(person)
@@ -196,15 +245,6 @@ export default function StaffList() {
     })
     setShowModal(true)
   }
-
-
-  const filteredStaff = staff.filter(s => {
-    const matchesSearch = (s.fullName?.toLowerCase() || '').includes(search.toLowerCase()) ||
-                          (s.email?.toLowerCase() || '').includes(search.toLowerCase()) ||
-                          (s.designation?.toLowerCase() || '').includes(search.toLowerCase())
-    const matchesType = filterType === 'All' || s.type === filterType
-    return matchesSearch && matchesType
-  })
 
   if (loading) return <PageLoading label="Loading team…" />
 
@@ -279,7 +319,7 @@ export default function StaffList() {
 
       {/* ── Content ── */}
       <div>
-      {filteredStaff.length === 0 ? (
+      {displayStaff.length === 0 && !loadingMore ? (
         <EmptyState
           icon={Briefcase}
           title="No team members found"
@@ -291,7 +331,7 @@ export default function StaffList() {
           }
         />
       ) : (
-        <div className="table-card" style={{ overflowX: 'auto', width: '100%', minHeight: filteredStaff.length <= 2 ? '280px' : 'auto' }}>
+        <div className="table-card" style={{ overflowX: 'auto', width: '100%', minHeight: displayStaff.length <= 2 ? '280px' : 'auto' }}>
           <table className="data-table" style={{ width: '100%', tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: '25%' }} />
@@ -319,7 +359,7 @@ export default function StaffList() {
               </tr>
             </thead>
             <tbody>
-              {filteredStaff.map((person, i) => (
+              {displayStaff.map((person, i) => (
                 <motion.tr
                   key={person._id}
                   initial={{ opacity: 0, y: 10 }}
@@ -411,8 +451,8 @@ export default function StaffList() {
                           <div style={{
                             position: 'absolute',
                             right: 16,
-                            top: (i >= filteredStaff.length - 2 && filteredStaff.length > 2) ? 'auto' : '80%',
-                            bottom: (i >= filteredStaff.length - 2 && filteredStaff.length > 2) ? '80%' : 'auto',
+                            top: (i >= displayStaff.length - 2 && displayStaff.length > 2) ? 'auto' : '80%',
+                            bottom: (i >= displayStaff.length - 2 && displayStaff.length > 2) ? '80%' : 'auto',
                             width: 180,
                             background: 'var(--surface)',
                             border: '1px solid var(--border)',
@@ -457,6 +497,20 @@ export default function StaffList() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Infinite scroll sentinel */}
+      <div ref={sentinelRef} style={{ height: 1 }} />
+      {loadingMore && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0', color: 'var(--text-muted)', fontSize: 13, gap: 8, alignItems: 'center' }}>
+          <Loader2 size={16} className="animate-spin" />
+          Loading more…
+        </div>
+      )}
+      {!hasMore && displayStaff.length > 0 && (
+        <div style={{ textAlign: 'center', padding: '12px 0', fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
+          All {displayStaff.length} team members loaded
         </div>
       )}
       </div>{/* ── end content ── */}

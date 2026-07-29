@@ -115,14 +115,42 @@ async function provisionStaffPortalAccess(staff, req, options = {}) {
 const { logActivity } = require('../utils/logger');
 router.get('/', protect, async (req, res) => {
   try {
-    // .lean() returns plain JS objects (no Mongoose overhead).
-    // Projection drops large embedded fields the list view doesn't use
-    // (documents.* files, full financials, embedded bankDetails blobs).
-    const staff = await Staff.find({ user: req.user._id })
-      .sort({ createdAt: -1 })
-      .lean()
-      .select('-financials -address -emergencyContact -bankDetails');
-    res.json({ success: true, data: staff });
+    const { page = 1, limit = 20, search = '', type = '' } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const filter = { user: req.user._id };
+    if (type && type !== 'All') filter.type = type;
+    if (search) {
+      const s = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.$or = [
+        { fullName: { $regex: s, $options: 'i' } },
+        { email: { $regex: s, $options: 'i' } },
+        { employeeId: { $regex: s, $options: 'i' } },
+        { designation: { $regex: s, $options: 'i' } },
+        { department: { $regex: s, $options: 'i' } },
+      ];
+    }
+
+    const [total, staff] = await Promise.all([
+      Staff.countDocuments(filter),
+      Staff.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .select('-financials -address -emergencyContact -bankDetails')
+        .lean(),
+    ]);
+
+    res.json({
+      success: true,
+      data: staff,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit)),
+      },
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Building2, ChevronRight, Activity, UserPlus, UserMinus, UserCheck, Key, Ban, FileText, Send, Download, LogOut, Clock, AlertTriangle, Zap, CheckCircle2, UserCog } from 'lucide-react'
+import { Building2, ChevronRight, Activity, UserPlus, UserMinus, UserCheck, Key, Ban, FileText, Send, Download, LogOut, Clock, AlertTriangle, Zap, CheckCircle2, UserCog, Loader2 } from 'lucide-react'
 import api from '../api'
 import PageShell, { PageHeader } from '../components/PageShell'
 import { formatDistanceToNow } from 'date-fns'
@@ -70,24 +70,58 @@ const RecentRow = React.memo(({ log, navigate }) => {
   )
 });
 
+const PAGE_LIMIT = 20
+
 export default function AuditLogs({ isSettings }) {
   const navigate = useNavigate()
-  const [recent, setRecent] = useState([])
+  const [logs, setLogs] = useState([])
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const sentinelRef = useRef(null)
+  const observerRef = useRef(null)
 
-  useEffect(() => {
-    const fetchActivities = async () => {
-      try {
-        const res = await api.get('/activities?limit=50')
-        setRecent(res.data?.data || [])
-      } catch (e) {
-        console.error(e)
-      } finally {
-        setLoading(false)
-      }
+  const fetchPage = useCallback(async (pageNum) => {
+    if (pageNum === 1) setLoading(true)
+    else setLoadingMore(true)
+    try {
+      const res = await api.get(`/activities?page=${pageNum}&limit=${PAGE_LIMIT}`)
+      const newLogs = res.data?.data || []
+      const pagination = res.data?.pagination || {}
+      setLogs(prev => pageNum === 1 ? newLogs : [...prev, ...newLogs])
+      setHasMore(pageNum < (pagination.totalPages || 1))
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+      setLoadingMore(false)
     }
-    fetchActivities()
   }, [])
+
+  // Initial load
+  useEffect(() => {
+    fetchPage(1)
+  }, [fetchPage])
+
+  // IntersectionObserver — fires when sentinel enters viewport
+  useEffect(() => {
+    if (observerRef.current) observerRef.current.disconnect()
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          setPage(prev => {
+            const next = prev + 1
+            fetchPage(next)
+            return next
+          })
+        }
+      },
+      { threshold: 0.1 }
+    )
+    if (sentinelRef.current) observerRef.current.observe(sentinelRef.current)
+    return () => observerRef.current?.disconnect()
+  }, [hasMore, loadingMore, loading, fetchPage])
 
   const content = (
     <>
@@ -116,7 +150,7 @@ export default function AuditLogs({ isSettings }) {
             [...Array(6)].map((_, i) => (
               <div key={i} className="skeleton" style={{ height: 76, marginBottom: 12, borderRadius: 12 }} />
             ))
-          ) : recent.length === 0 ? (
+          ) : logs.length === 0 ? (
             <div style={{ padding: 60, textAlign: 'center' }}>
               <Building2 size={48} color="var(--border)" style={{ margin: '0 auto 20px' }} />
               <div style={{ color: 'var(--primary)', fontSize: 18, fontWeight: 700, marginBottom: 8 }}>No recent activity</div>
@@ -133,7 +167,25 @@ export default function AuditLogs({ isSettings }) {
               </button>
             </div>
           ) : (
-            recent.map((log) => <RecentRow key={log._id} log={log} navigate={navigate} />)
+            <>
+              {logs.map((log) => <RecentRow key={log._id} log={log} navigate={navigate} />)}
+
+              {/* Infinite scroll sentinel */}
+              <div ref={sentinelRef} style={{ height: 1 }} />
+
+              {loadingMore && (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0', color: 'var(--text-muted)', fontSize: 13, gap: 8, alignItems: 'center' }}>
+                  <Loader2 size={16} className="animate-spin" />
+                  Loading more…
+                </div>
+              )}
+
+              {!hasMore && logs.length > 0 && (
+                <div style={{ textAlign: 'center', padding: '16px 0', fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
+                  All {logs.length} activities loaded
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -142,3 +194,4 @@ export default function AuditLogs({ isSettings }) {
 
   return isSettings ? content : <PageShell>{content}</PageShell>
 }
+
