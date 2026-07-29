@@ -180,56 +180,43 @@ function DocumentCardRow({ label, document }) {
       gap: 12,
       minHeight: 120
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          {/* Icon Box */}
-          <div style={{
-            width: 40,
-            height: 40,
-            borderRadius: 8,
-            background: isUploaded ? 'rgba(88, 131, 59, 0.08)' : 'var(--bg)',
-            color: isUploaded ? 'var(--primary)' : 'var(--text-light)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
-            {label === 'Profile Picture' ? <User size={18} /> : <FileText size={18} />}
-          </div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{label}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-              {isUploaded ? (
-                <>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', background: 'rgba(88, 131, 59, 0.08)', padding: '2px 6px', borderRadius: 4 }}>
-                    Verified ✓
-                  </span>
-                  {document.uploadedAt && (
-                    <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                      on {new Date(document.uploadedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </span>
-                  )}
-                </>
-              ) : (
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-light)', background: 'var(--bg)', padding: '2px 6px', borderRadius: 4 }}>
-                  Not uploaded
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', width: '100%' }}>
+        {/* Icon Box */}
+        <div style={{
+          width: 40,
+          height: 40,
+          borderRadius: 8,
+          background: isUploaded ? 'rgba(88, 131, 59, 0.08)' : 'var(--bg)',
+          color: isUploaded ? 'var(--primary)' : 'var(--text-light)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0
+        }}>
+          {label === 'Profile Picture' ? <User size={18} /> : <FileText size={18} />}
+        </div>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{label}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+            {isUploaded ? (
+              <>
+                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', background: 'rgba(88, 131, 59, 0.08)', padding: '2px 6px', borderRadius: 4 }}>
+                  Verified ✓
                 </span>
-              )}
-            </div>
+                {document.uploadedAt && (
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                    on {new Date(document.uploadedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-light)', background: 'var(--bg)', padding: '2px 6px', borderRadius: 4 }}>
+                Not uploaded
+              </span>
+            )}
           </div>
         </div>
-
-        {/* Action Button */}
-        <button style={{ border: 'none', background: 'transparent', color: 'var(--text-light)', cursor: 'pointer', padding: 4 }}>
-          <MoreVertical size={16} />
-        </button>
       </div>
-
-      {!isUploaded && (
-        <button className="btn-secondary" style={{ width: '100%', height: 32, borderRadius: 6, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-          <Plus size={12} /> Upload Document
-        </button>
-      )}
       
       {isUploaded && (
         <a 
@@ -271,6 +258,7 @@ export default function StaffDetail() {
 
   const [showEditModal, setShowEditModal] = useState(false)
   const [activeMenuId, setActiveMenuId] = useState(null)
+  const [activePayslipMenuId, setActivePayslipMenuId] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     fullName: '', employeeId: '', email: '', phone: '', designation: '', department: '',
@@ -828,9 +816,6 @@ export default function StaffDetail() {
             <Shield size={16} color="var(--primary)" />
             <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', margin: 0 }}>Identity Document Registry</h3>
           </div>
-          <button className="btn-secondary" style={{ height: 32, borderRadius: 8, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Plus size={14} /> Upload New Document
-          </button>
         </div>
         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 20px 0' }}>Official verification document attachments uploaded by this employee.</p>
         
@@ -878,164 +863,295 @@ export default function StaffDetail() {
           border-bottom: none;
         }
         .info-kv-key {
-          font-size: 11px;
-          color: var(--text-light);
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
+          font-size: 12.5px;
+          color: var(--text-muted);
+          font-weight: 500;
         }
         .info-kv-val {
-          font-size: 13px;
-          font-weight: 700;
+          font-size: 12.5px;
+          font-weight: 600;
           color: var(--text);
           text-align: right;
         }
       `}</style>
 
           {attendance.length > 0 && (
-            <>
-              <div style={{ height: '1px', background: 'var(--border)', margin: '24px 32px' }} />
-              {/* Section: Attendance */}
-              <div id="attendance" style={{ padding: '24px 32px' }}>
-                <h3 style={{ color: 'var(--primary)', marginBottom: 8 }}>Attendance Records</h3>
-                <p style={{ margin: '0 0 24px', fontSize: 13, color: 'var(--text-muted)' }}>
-                  Complete attendance history for {staff.fullName}.
-                </p>
-                <div style={{ overflowX: 'auto', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 14 }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                        <th style={{ padding: 16, color: 'var(--text-muted)', fontWeight: 600 }}>Date</th>
-                        <th style={{ padding: 16, color: 'var(--text-muted)', fontWeight: 600 }}>Check-In</th>
-                        <th style={{ padding: 16, color: 'var(--text-muted)', fontWeight: 600 }}>Check-Out</th>
-                        <th style={{ padding: 16, color: 'var(--text-muted)', fontWeight: 600 }}>Total Hours</th>
-                        <th style={{ padding: 16, color: 'var(--text-muted)', fontWeight: 600 }}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {attendance.map((record) => (
-                        <tr key={record._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: 16, fontWeight: 500, color: 'var(--text)' }}>
-                            {new Date(record.date).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                          </td>
-                          <td style={{ padding: 16, color: 'var(--text-muted)' }}>
-                            {record.punchIn ? new Date(record.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}
-                          </td>
-                          <td style={{ padding: 16, color: 'var(--text-muted)' }}>
-                            {record.punchOut ? new Date(record.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}
-                          </td>
-                          <td style={{ padding: 16, color: 'var(--text-muted)' }}>
-                            {record.totalHours > 0 ? `${record.totalHours.toFixed(2)}h` : '—'}
-                          </td>
-                          <td style={{ padding: 16 }}><AttendanceStatusBadge record={record} /></td>
-                        </tr>
+            <div id="attendance" style={{
+              background: 'var(--surface)',
+              borderRadius: 16,
+              border: '1px solid var(--border)',
+              padding: '24px',
+              marginBottom: 20
+            }}>
+              <h3 style={{ color: 'var(--primary)', fontSize: 14, fontWeight: 800, margin: '0 0 4px 0' }}>Attendance Records</h3>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 20px 0' }}>
+                Complete attendance history for {staff.fullName}.
+              </p>
+              <div style={{ overflowX: 'auto', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'fixed', fontSize: '12.5px' }}>
+                  <colgroup>
+                    <col style={{ width: '35%' }} />
+                    <col style={{ width: '20%' }} />
+                    <col style={{ width: '20%' }} />
+                    <col style={{ width: '12%' }} />
+                    <col style={{ width: '13%' }} />
+                  </colgroup>
+                  <thead>
+                    <tr style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
+                      {['Date', 'Check-In', 'Check-Out', 'Total Hours', 'Status'].map((h, i) => (
+                        <th key={h} style={{
+                          padding: '12px 16px',
+                          color: 'var(--text-muted)',
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          textAlign: i === 4 ? 'right' : 'left'
+                        }}>
+                          {h}
+                        </th>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attendance.map((record) => (
+                      <tr key={record._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text)' }}>
+                          {new Date(record.date).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                        </td>
+                        <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                          {record.punchIn ? new Date(record.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                        </td>
+                        <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                          {record.punchOut ? new Date(record.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                        </td>
+                        <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                          {record.totalHours > 0 ? `${record.totalHours.toFixed(2)}h` : '—'}
+                        </td>
+                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <AttendanceStatusBadge record={record} />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </>
+            </div>
           )}
 
           {leaves.length > 0 && (
-            <>
-              <div style={{ height: '1px', background: 'var(--border)', margin: '24px 32px' }} />
-              {/* Section: Leave */}
-              <div id="leave" style={{ padding: '24px 32px' }}>
-                <h3 style={{ color: 'var(--primary)', marginBottom: 8 }}>Leave History</h3>
-                <p style={{ margin: '0 0 24px', fontSize: 13, color: 'var(--text-muted)' }}>
-                  All leave requests submitted by {staff.fullName}.
-                </p>
-                <div style={{ overflowX: 'auto', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                        <th style={{ padding: 14, color: 'var(--text-muted)', fontWeight: 600 }}>Leave Type</th>
-                        <th style={{ padding: 14, color: 'var(--text-muted)', fontWeight: 600 }}>Applied Date</th>
-                        <th style={{ padding: 14, color: 'var(--text-muted)', fontWeight: 600 }}>Leave Period</th>
-                        <th style={{ padding: 14, color: 'var(--text-muted)', fontWeight: 600 }}>Duration</th>
-                        <th style={{ padding: 14, color: 'var(--text-muted)', fontWeight: 600 }}>Status</th>
-                        <th style={{ padding: 14, color: 'var(--text-muted)', fontWeight: 600 }}>Reason</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {leaves.map((l) => (
-                        <tr key={l._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: 14, fontWeight: 700 }}>{l.type}</td>
-                          <td style={{ padding: 14, color: 'var(--text-muted)' }}>
-                            {new Date(l.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </td>
-                          <td style={{ padding: 14 }}>
-                            {new Date(l.startDate).toLocaleDateString('en-IN')} – {new Date(l.endDate).toLocaleDateString('en-IN')}
-                          </td>
-                          <td style={{ padding: 14, fontWeight: 600 }}>
-                            {leaveDurationDays(l.startDate, l.endDate)} day{leaveDurationDays(l.startDate, l.endDate) !== 1 ? 's' : ''}
-                          </td>
-                          <td style={{ padding: 14 }}><StatusBadge status={l.status} /></td>
-                          <td style={{ padding: 14, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={l.reason}>{l.reason}</td>
-                        </tr>
+            <div id="leave" style={{
+              background: 'var(--surface)',
+              borderRadius: 16,
+              border: '1px solid var(--border)',
+              padding: '24px',
+              marginBottom: 20
+            }}>
+              <h3 style={{ color: 'var(--primary)', fontSize: 14, fontWeight: 800, margin: '0 0 4px 0' }}>Leave History</h3>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 20px 0' }}>
+                All leave requests submitted by {staff.fullName}.
+              </p>
+              <div style={{ overflowX: 'auto', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'fixed', fontSize: '12.5px' }}>
+                  <colgroup>
+                    <col style={{ width: '15%' }} />
+                    <col style={{ width: '15%' }} />
+                    <col style={{ width: '25%' }} />
+                    <col style={{ width: '10%' }} />
+                    <col style={{ width: '15%' }} />
+                    <col style={{ width: '20%' }} />
+                  </colgroup>
+                  <thead>
+                    <tr style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
+                      {['Leave Type', 'Applied Date', 'Leave Period', 'Duration', 'Status', 'Reason'].map((h) => (
+                        <th key={h} style={{
+                          padding: '12px 14px',
+                          color: 'var(--text-muted)',
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
+                        }}>
+                          {h}
+                        </th>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaves.map((l) => (
+                      <tr key={l._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text)' }}>{l.type}</td>
+                        <td style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>
+                          {new Date(l.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </td>
+                        <td style={{ padding: '12px 14px', color: 'var(--text)' }}>
+                          {new Date(l.startDate).toLocaleDateString('en-IN')} – {new Date(l.endDate).toLocaleDateString('en-IN')}
+                        </td>
+                        <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>
+                          {leaveDurationDays(l.startDate, l.endDate)} day{leaveDurationDays(l.startDate, l.endDate) !== 1 ? 's' : ''}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}><StatusBadge status={l.status} /></td>
+                        <td style={{ padding: '12px 14px', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={l.reason}>{l.reason}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </>
+            </div>
           )}
 
           {payslips.length > 0 && (
-            <>
-              <div style={{ height: '1px', background: 'var(--border)', margin: '24px 32px' }} />
-              {/* Section: Salary Slips */}
-              <div id="salary" style={{ padding: '24px 32px' }}>
-                <h3 style={{ color: 'var(--primary)', marginBottom: 8 }}>Salary Slips</h3>
-                <p style={{ margin: '0 0 24px', fontSize: 13, color: 'var(--text-muted)' }}>
-                  All generated payslips for {staff.fullName}.
-                </p>
-                <div style={{ overflowX: 'auto', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 14 }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                        <th style={{ padding: 16, color: 'var(--text-muted)', fontWeight: 600 }}>Month / Year</th>
-                        <th style={{ padding: 16, color: 'var(--text-muted)', fontWeight: 600 }}>Department</th>
-                        <th style={{ padding: 16, color: 'var(--text-muted)', fontWeight: 600 }}>Net Salary</th>
-                        <th style={{ padding: 16, color: 'var(--text-muted)', fontWeight: 600 }}>Generated On</th>
-                        <th style={{ padding: 16, color: 'var(--text-muted)', fontWeight: 600 }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {payslips.map((p) => (
-                        <tr key={p._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: 16, fontWeight: 700, color: 'var(--text)' }}>{p.month} {p.year}</td>
-                          <td style={{ padding: 16, color: 'var(--text-muted)' }}>{p.department || '—'}</td>
-                          <td style={{ padding: 16, fontWeight: 600 }}>₹ {p.netSalary?.toLocaleString('en-IN') || '—'}</td>
-                          <td style={{ padding: 16, color: 'var(--text-muted)' }}>
-                            {new Date(p.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </td>
-                          <td style={{ padding: 16 }}>
-                            <div style={{ display: 'flex', gap: 8 }}>
-                              <button
-                                onClick={() => navigate(`/payslips/${p._id}`)}
-                                style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--primary)', fontWeight: 600, fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                              >
-                                <Eye size={14} /> View
-                              </button>
-                              <button
-                                onClick={() => handleDownloadPayslip(p)}
-                                disabled={downloadLoading[p._id]}
-                                style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                              >
-                                {downloadLoading[p._id] ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                                Download
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+            <div id="salary" style={{
+              background: 'var(--surface)',
+              borderRadius: 16,
+              border: '1px solid var(--border)',
+              padding: '24px',
+              marginBottom: 20
+            }}>
+              <h3 style={{ color: 'var(--primary)', fontSize: 14, fontWeight: 800, margin: '0 0 4px 0' }}>Salary Slips</h3>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 20px 0' }}>
+                All generated payslips for {staff.fullName}.
+              </p>
+              <div style={{ overflowX: 'auto', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'fixed', fontSize: '12.5px' }}>
+                  <colgroup>
+                    <col style={{ width: '25%' }} />
+                    <col style={{ width: '20%' }} />
+                    <col style={{ width: '20%' }} />
+                    <col style={{ width: '20%' }} />
+                    <col style={{ width: '15%' }} />
+                  </colgroup>
+                  <thead>
+                    <tr style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
+                      {['Month / Year', 'Department', 'Net Salary', 'Generated On', 'Actions'].map((h, i) => (
+                        <th key={h} style={{
+                          padding: '12px 16px',
+                          color: 'var(--text-muted)',
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          textAlign: i === 4 ? 'right' : 'left'
+                        }}>
+                          {h}
+                        </th>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payslips.map((p, idx) => (
+                      <tr key={p._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text)' }}>{p.month} {p.year}</td>
+                        <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>{p.department || '—'}</td>
+                        <td style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--primary)' }}>₹ {p.netSalary?.toLocaleString('en-IN') || '—'}</td>
+                        <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
+                          {new Date(p.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </td>
+                        <td style={{ padding: '12px 16px', position: 'relative', textAlign: 'right' }}>
+                          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+                            <button
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                setActivePayslipMenuId(activePayslipMenuId === p._id ? null : p._id); 
+                              }}
+                              className="btn-icon btn-hover"
+                              style={{ 
+                                width: 28, 
+                                height: 28, 
+                                borderRadius: 6, 
+                                color: 'var(--primary)',
+                                background: 'rgba(88, 131, 59, 0.08)',
+                                border: 'none',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer'
+                              }}
+                              title="Actions"
+                            >
+                              <MoreVertical size={14} />
+                            </button>
+
+                            {activePayslipMenuId === p._id && (
+                              <>
+                                <div 
+                                  style={{ position: 'fixed', inset: 0, zIndex: 110 }} 
+                                  onClick={(e) => { e.stopPropagation(); setActivePayslipMenuId(null); }} 
+                                />
+                                <div style={{
+                                  position: 'absolute',
+                                  right: 16,
+                                  top: (idx >= payslips.length - 2 && payslips.length > 2) ? 'auto' : '80%',
+                                  bottom: (idx >= payslips.length - 2 && payslips.length > 2) ? '80%' : 'auto',
+                                  width: 130,
+                                  background: 'var(--surface)',
+                                  border: '1px solid var(--border)',
+                                  borderRadius: 10,
+                                  boxShadow: 'var(--shadow-lg)',
+                                  zIndex: 120,
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  padding: '6px 0',
+                                  textAlign: 'left'
+                                }}>
+                                  <button
+                                    onClick={() => { setActivePayslipMenuId(null); navigate(`/payslips/${p._id}`); }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                    style={{
+                                      width: '100%',
+                                      textAlign: 'left',
+                                      padding: '8px 16px',
+                                      background: 'none',
+                                      border: 'none',
+                                      fontSize: 12,
+                                      fontWeight: 600,
+                                      color: 'var(--text)',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 8,
+                                      transition: 'background 0.15s'
+                                    }}
+                                  >
+                                    <Eye size={12} /> View
+                                  </button>
+                                  <button
+                                    onClick={() => { setActivePayslipMenuId(null); handleDownloadPayslip(p); }}
+                                    disabled={downloadLoading[p._id]}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                    style={{
+                                      width: '100%',
+                                      textAlign: 'left',
+                                      padding: '8px 16px',
+                                      background: 'none',
+                                      border: 'none',
+                                      fontSize: 12,
+                                      fontWeight: 600,
+                                      color: 'var(--text)',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 8,
+                                      transition: 'background 0.15s'
+                                    }}
+                                  >
+                                    {downloadLoading[p._id] ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Download
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </>
+            </div>
           )}
 
       {/* Edit Staff Modal */}
@@ -1068,13 +1184,13 @@ export default function StaffDetail() {
                   </div>
                   <h4 style={{ color: 'var(--primary)', marginBottom: 16 }}>Basic Information</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                    <InputField label="Full Name" name="fullName" value={formData.fullName} onChange={handleInputChange} required />
-                    <InputField label="Employee ID (optional)" name="employeeId" value={formData.employeeId} onChange={handleInputChange} />
-                    <InputField label="Email Address" type="email" name="email" value={formData.email} onChange={handleInputChange} required />
-                    <InputField label="Phone Number" name="phone" value={formData.phone} onChange={handleInputChange} required />
-                    <InputField label="Department" name="department" value={formData.department} onChange={handleInputChange} required />
-                    <InputField label="Designation" name="designation" value={formData.designation} onChange={handleInputChange} required />
-                    <InputField label="Joining Date" type="date" name="joiningDate" value={formData.joiningDate} onChange={handleInputChange} required />
+                    <InputField label="Full Name" name="fullName" value={formData.fullName} onChange={handleInputChange} autoComplete="off" required />
+                    <InputField label="Employee ID (optional)" name="employeeId" value={formData.employeeId} onChange={handleInputChange} autoComplete="off" />
+                    <InputField label="Email Address" type="email" name="email" value={formData.email} onChange={handleInputChange} autoComplete="off" required />
+                    <InputField label="Phone Number" name="phone" value={formData.phone} onChange={handleInputChange} autoComplete="off" required />
+                    <InputField label="Department" name="department" value={formData.department} onChange={handleInputChange} autoComplete="off" required />
+                    <InputField label="Designation" name="designation" value={formData.designation} onChange={handleInputChange} autoComplete="off" required />
+                    <InputField label="Joining Date" type="date" name="joiningDate" value={formData.joiningDate} onChange={handleInputChange} autoComplete="off" required />
                   </div>
                   <h4 style={{ color: 'var(--primary)', marginTop: 24, marginBottom: 16 }}>Salary Structure</h4>
                   {formData.type === 'Employee' ? (

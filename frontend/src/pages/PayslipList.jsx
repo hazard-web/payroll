@@ -260,7 +260,7 @@ export default function PayslipList() {
                   </td>
                 </tr>
               ) : (
-                payslips.map((p) => (
+                payslips.map((p, i) => (
                   <tr
                     key={p._id}
                     onClick={() => navigate(`/payslips/${p._id}`)}
@@ -328,7 +328,8 @@ export default function PayslipList() {
                           style={{
                             position: 'absolute',
                             right: 12,
-                            top: '80%',
+                            top: (i >= payslips.length - 2 && payslips.length > 2) ? 'auto' : '80%',
+                            bottom: (i >= payslips.length - 2 && payslips.length > 2) ? '80%' : 'auto',
                             width: 170,
                             background: 'var(--surface)',
                             border: '1px solid var(--border)',

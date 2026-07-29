@@ -481,7 +481,8 @@ export default function StaffSupport() {
                             <div style={{
                               position: 'absolute',
                               right: 18,
-                              top: '80%',
+                              top: (i >= filtered.length - 2 && filtered.length > 2) ? 'auto' : '80%',
+                              bottom: (i >= filtered.length - 2 && filtered.length > 2) ? '80%' : 'auto',
                               width: 150,
                               background: 'var(--surface)',
                               border: '1px solid var(--border)',

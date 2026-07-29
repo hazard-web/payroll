@@ -639,22 +639,15 @@ export default function Layout() {
           overflow: 'hidden'
         }}>
           {/* Navigation Sidebar */}
-          <nav style={{ padding: '12px 12px', flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-            {sidebarOpen && (
-              <div style={{ 
-                display: 'flex', alignItems: 'center',
-                padding: '0 8px 8px',
-                borderBottom: '1px solid var(--border)',
-                marginBottom: 10
-              }}>
-                <span style={{ 
-                  fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', 
-                  letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap'
-                }}>
-                  Workspace
-                </span>
-              </div>
-            )}
+          <nav style={{ padding: '24px 16px', flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+            <div style={{ 
+              fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', 
+              letterSpacing: '0.1em', padding: sidebarOpen ? '0 12px 14px' : '0 0 14px', 
+              textTransform: 'uppercase', textAlign: sidebarOpen ? 'left' : 'center',
+              whiteSpace: 'nowrap'
+            }}>
+              {sidebarOpen ? 'Portal Menu' : '•••'}
+            </div>
             {navItems.map(({ to, label, icon: Icon, end }) => (
               <NavLink
                 key={to}

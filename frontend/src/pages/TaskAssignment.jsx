@@ -586,7 +586,8 @@ function ProjectCard({ project, onDelete, onStatusChange, submittingId, isLast }
             <div style={{
               position: 'absolute',
               right: 0,
-              top: '100%',
+              top: isLast ? 'auto' : '100%',
+              bottom: isLast ? '100%' : 'auto',
               width: 140,
               background: 'var(--surface)',
               border: '1px solid var(--border)',

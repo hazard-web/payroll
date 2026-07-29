@@ -327,45 +327,60 @@ export default function PortalLayout() {
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
               gap: 10,
               background: 'var(--surface)',
               border: '1px solid var(--border)',
               borderRadius: 12,
-              padding: '8px 10px',
+              padding: '10px 12px',
             }}>
               {staffUser?.documents?.profileImage?.url ? (
                 <img
                   src={staffUser.documents.profileImage.url}
                   alt={staffUser.fullName}
-                  style={{ width: 34, height: 34, borderRadius: 9, flexShrink: 0, objectFit: 'cover', border: '1px solid var(--border)' }}
+                  style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, objectFit: 'cover', border: '1px solid var(--border)' }}
                   title={staffUser.fullName}
                 />
               ) : (
                 <div style={{
-                  width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+                  width: 36, height: 36, borderRadius: 9, flexShrink: 0,
                   background: 'var(--primary)', color: 'white',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontWeight: 800, fontSize: 14,
+                  fontWeight: 800, fontSize: 15,
                 }} title={staffUser?.fullName}>
                   {(staffUser?.fullName || 'E').charAt(0).toUpperCase()}
                 </div>
               )}
 
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {staffUser?.fullName || 'Employee'}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {staffUser?.email || 'email'}
+                </div>
+              </div>
+
               <button
                 onClick={logout}
                 style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '6px 10px', color: 'var(--text-muted)',
-                  fontSize: 12, fontWeight: 600, borderRadius: 8,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 28,
+                  height: 28,
+                  borderRadius: 6,
+                  color: 'var(--text-muted)',
                   transition: 'all 0.2s',
+                  flexShrink: 0
                 }}
+                title="Sign Out"
                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'; e.currentTarget.style.color = '#ef4444'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-muted)'; }}
               >
-                <LogOut size={13} style={{ flexShrink: 0 }} />
-                Sign Out
+                <LogOut size={15} />
               </button>
             </div>
           ) : (

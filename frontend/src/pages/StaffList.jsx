@@ -291,7 +291,7 @@ export default function StaffList() {
           }
         />
       ) : (
-        <div className="table-card" style={{ overflowX: 'auto', width: '100%' }}>
+        <div className="table-card" style={{ overflowX: 'auto', width: '100%', minHeight: filteredStaff.length <= 2 ? '280px' : 'auto' }}>
           <table className="data-table" style={{ width: '100%', tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: '25%' }} />
@@ -330,7 +330,7 @@ export default function StaffList() {
                 >
                   <td style={{ padding: '10px 16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Avatar
+                       <Avatar
                         name={person.fullName}
                         src={person.documents?.profileImage?.url}
                         className={person.type === 'Intern' ? 'avatar--intern' : 'avatar--employee'}
@@ -411,7 +411,8 @@ export default function StaffList() {
                           <div style={{
                             position: 'absolute',
                             right: 16,
-                            top: '80%',
+                            top: (i >= filteredStaff.length - 2 && filteredStaff.length > 2) ? 'auto' : '80%',
+                            bottom: (i >= filteredStaff.length - 2 && filteredStaff.length > 2) ? '80%' : 'auto',
                             width: 180,
                             background: 'var(--surface)',
                             border: '1px solid var(--border)',
@@ -477,15 +478,16 @@ export default function StaffList() {
 
           <h4 className="panel-title" style={{ marginBottom: 'var(--space-4)' }}>Basic Information</h4>
           <div className="form-grid-2">
-            <InputField label="Full Name" name="fullName" value={formData.fullName} onChange={handleInputChange} required />
+            <InputField label="Full Name" name="fullName" value={formData.fullName} onChange={handleInputChange} autoComplete="off" required />
             <InputField
               label="Employee ID (optional)"
               name="employeeId"
               value={formData.employeeId}
               onChange={handleInputChange}
               placeholder="Leave blank to assign later"
+              autoComplete="off"
             />
-            <InputField label="Email Address" type="email" name="email" value={formData.email} onChange={handleInputChange} required />
+            <InputField label="Email Address" type="email" name="email" value={formData.email} onChange={handleInputChange} autoComplete="off" required />
             <InputField
               label="Phone Number"
               name="phone"
@@ -494,10 +496,11 @@ export default function StaffList() {
               required
               placeholder="10-digit mobile"
               hint="Enter 10-digit number"
+              autoComplete="off"
             />
-            <InputField label="Department" name="department" value={formData.department} onChange={handleInputChange} required />
-            <InputField label="Designation" name="designation" value={formData.designation} onChange={handleInputChange} required />
-            <InputField label="Joining Date" type="date" name="joiningDate" value={formData.joiningDate} onChange={handleInputChange} required />
+            <InputField label="Department" name="department" value={formData.department} onChange={handleInputChange} autoComplete="off" required />
+            <InputField label="Designation" name="designation" value={formData.designation} onChange={handleInputChange} autoComplete="off" required />
+            <InputField label="Joining Date" type="date" name="joiningDate" value={formData.joiningDate} onChange={handleInputChange} autoComplete="off" required />
             <div style={{ display: 'flex', alignItems: 'flex-end' }}>
               <div style={{ width: '100%', padding: 12, background: 'var(--bg)', borderRadius: 8, fontSize: 12, color: 'var(--text-muted)' }}>
                 <strong>New flow:</strong> PAN, DOB, Address, Bank & Emergency details are filled by the employee from the Team Portal after first login.
