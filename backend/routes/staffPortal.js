@@ -697,13 +697,10 @@ router.put('/me', authStaff, async (req, res) => {
       }
     });
 
-    // profileCompleted is a sticky monotonic flag: only flip false → true.
-    // Once a profile is complete, it stays complete across all future edits.
-    if (!req.staff.profileCompleted) {
-      req.staff.profileCompleted = isProfileComplete(
-        req.staff.toObject ? req.staff.toObject() : req.staff
-      );
-    }
+    // Re-evaluate profileCompleted status on every update to dynamically reflect changes
+    req.staff.profileCompleted = isProfileComplete(
+      req.staff.toObject ? req.staff.toObject() : req.staff
+    );
 
     await req.staff.save();
 
@@ -782,12 +779,10 @@ router.post('/me/documents/:type', authStaff, async (req, res) => {
       uploadedAt: new Date(),
     };
 
-    // profileCompleted is sticky monotonic: only flip false → true on upload.
-    if (!req.staff.profileCompleted) {
-      req.staff.profileCompleted = isProfileComplete(
-        req.staff.toObject ? req.staff.toObject() : req.staff
-      );
-    }
+    // Re-evaluate profileCompleted status on document upload to dynamically reflect changes
+    req.staff.profileCompleted = isProfileComplete(
+      req.staff.toObject ? req.staff.toObject() : req.staff
+    );
 
     await req.staff.save();
 

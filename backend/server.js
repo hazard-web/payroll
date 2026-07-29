@@ -183,7 +183,7 @@ function ensureMongoConnection() {
   mongooseConnectionPromise = mongoose.connect(MONGO_URI, {
     serverSelectionTimeoutMS: 15000,
     connectTimeoutMS: 15000,
-    maxPoolSize: 10,
+    maxPoolSize: 2,
   });
   // Reset the cache on hard failure so a future request can retry
   mongooseConnectionPromise.catch(() => {
