@@ -66,6 +66,7 @@ export default function StaffList() {
     fullName: '', employeeId: '', email: '', phone: '', designation: '', department: '',
     type: 'Employee', joiningDate: '', annualCTC: '', baseSalary: ''
   })
+  const [isOnboardingInvite, setIsOnboardingInvite] = useState(false)
 
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
@@ -156,7 +157,7 @@ export default function StaffList() {
     e.preventDefault()
 
     // Client-side phone validation
-    if (formData.phone && formData.phone.replace(/\D/g, '').length !== 10) {
+    if (!isOnboardingInvite && formData.phone && formData.phone.replace(/\D/g, '').length !== 10) {
       toast.error('Phone number must be exactly 10 digits.')
       return
     }
@@ -164,13 +165,14 @@ export default function StaffList() {
     setSubmitting(true)
     try {
       const payload = {
-        fullName: formData.fullName,
+        fullName: isOnboardingInvite ? 'Pending Onboarding' : formData.fullName,
         email: formData.email,
-        phone: formData.phone,
-        designation: formData.designation,
+        phone: isOnboardingInvite ? '' : formData.phone,
+        designation: isOnboardingInvite ? 'Pending' : formData.designation,
         department: formData.department,
         type: formData.type,
-        joiningDate: normalizeDate(formData.joiningDate),
+        joiningDate: isOnboardingInvite ? new Date().toISOString().split('T')[0] : normalizeDate(formData.joiningDate),
+        isOnboarding: isOnboardingInvite,
         salaryDetails: {
           annualCTC: parseFloat(formData.annualCTC) || 0,
           baseSalary: parseFloat(formData.baseSalary) || 0
@@ -213,6 +215,7 @@ export default function StaffList() {
       fullName: '', employeeId: '', email: '', phone: '', designation: '', department: '',
       type: 'Employee', joiningDate: '', annualCTC: '', baseSalary: ''
     })
+    setIsOnboardingInvite(false)
   }
 
   const handleDeleteStaff = async (id) => {
@@ -530,9 +533,39 @@ export default function StaffList() {
             style={{ marginBottom: 'var(--space-6)' }}
           />
 
+          {!editingStaff && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'rgba(88, 131, 59, 0.06)', border: '1px solid rgba(88, 131, 59, 0.12)', borderRadius: 10, marginBottom: 20 }}>
+              <input
+                type="checkbox"
+                id="isOnboardingInvite"
+                checked={isOnboardingInvite}
+                onChange={(e) => {
+                  setIsOnboardingInvite(e.target.checked);
+                  if (e.target.checked) {
+                    setFormData(prev => ({
+                      ...prev,
+                      fullName: '',
+                      phone: '',
+                      designation: '',
+                      joiningDate: '',
+                      annualCTC: '',
+                      baseSalary: ''
+                    }));
+                  }
+                }}
+                style={{ cursor: 'pointer', width: 16, height: 16 }}
+              />
+              <label htmlFor="isOnboardingInvite" style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', cursor: 'pointer', userSelect: 'none' }}>
+                🚀 Magic Link Invite (Only Email & Department required)
+              </label>
+            </div>
+          )}
+
           <h4 className="panel-title" style={{ marginBottom: 'var(--space-4)' }}>Basic Information</h4>
           <div className="form-grid-2">
-            <InputField label="Full Name" name="fullName" value={formData.fullName} onChange={handleInputChange} autoComplete="off" required />
+            {!isOnboardingInvite && (
+              <InputField label="Full Name" name="fullName" value={formData.fullName} onChange={handleInputChange} autoComplete="off" required />
+            )}
             <InputField
               label="Employee ID (optional)"
               name="employeeId"
@@ -542,47 +575,57 @@ export default function StaffList() {
               autoComplete="off"
             />
             <InputField label="Email Address" type="email" name="email" value={formData.email} onChange={handleInputChange} autoComplete="off" required />
-            <InputField
-              label="Phone Number"
-              name="phone"
-              value={formData.phone}
-              onChange={handlePhoneChange}
-              required
-              placeholder="10-digit mobile"
-              hint="Enter 10-digit number"
-              autoComplete="off"
-            />
+            {!isOnboardingInvite && (
+              <InputField
+                label="Phone Number"
+                name="phone"
+                value={formData.phone}
+                onChange={handlePhoneChange}
+                required
+                placeholder="10-digit mobile"
+                hint="Enter 10-digit number"
+                autoComplete="off"
+              />
+            )}
             <InputField label="Department" name="department" value={formData.department} onChange={handleInputChange} autoComplete="off" required />
-            <InputField label="Designation" name="designation" value={formData.designation} onChange={handleInputChange} autoComplete="off" required />
-            <InputField label="Joining Date" type="date" name="joiningDate" value={formData.joiningDate} onChange={handleInputChange} autoComplete="off" required />
-            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+            {!isOnboardingInvite && (
+              <>
+                <InputField label="Designation" name="designation" value={formData.designation} onChange={handleInputChange} autoComplete="off" required />
+                <InputField label="Joining Date" type="date" name="joiningDate" value={formData.joiningDate} onChange={handleInputChange} autoComplete="off" required />
+              </>
+            )}
+            <div style={{ display: 'flex', alignItems: 'flex-end', gridColumn: isOnboardingInvite ? 'span 2' : 'auto' }}>
               <div style={{ width: '100%', padding: 12, background: 'var(--bg)', borderRadius: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-                <strong>New flow:</strong> PAN, DOB, Address, Bank & Emergency details are filled by the employee from the Team Portal after first login.
+                <strong>Onboarding flow:</strong> {isOnboardingInvite ? 'The employee will fill their Full Name, Phone, Address, Bank details, PAN & upload documents from the Team Portal.' : 'PAN, DOB, Address, Bank & Emergency details are filled by the employee from the Team Portal after first login.'}
               </div>
             </div>
           </div>
 
-          <h4 className="panel-title" style={{ marginTop: 'var(--space-6)', marginBottom: 'var(--space-4)' }}>Salary Structure</h4>
-          {formData.type === 'Employee' ? (
-            <div>
-              <InputField label="Annual CTC (in ₹)" type="number" name="annualCTC" value={formData.annualCTC} onChange={handleInputChange} required />
-              <p className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>
-                Note: For Regular Employees, the payslip engine derives HRA, PF, etc., automatically from the CTC.
-              </p>
-            </div>
-          ) : (
-            <div>
-              <InputField label="Monthly Stipend (Base Salary)" type="number" name="baseSalary" value={formData.baseSalary} onChange={handleInputChange} required />
-              <p className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>
-                Note: For Interns, this base amount is used to calculate the final stipend after absence deductions.
-              </p>
-            </div>
+          {!isOnboardingInvite && (
+            <>
+              <h4 className="panel-title" style={{ marginTop: 'var(--space-6)', marginBottom: 'var(--space-4)' }}>Salary Structure</h4>
+              {formData.type === 'Employee' ? (
+                <div>
+                  <InputField label="Annual CTC (in ₹)" type="number" name="annualCTC" value={formData.annualCTC} onChange={handleInputChange} required />
+                  <p className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>
+                    Note: For Regular Employees, the payslip engine derives HRA, PF, etc., automatically from the CTC.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <InputField label="Monthly Stipend (Base Salary)" type="number" name="baseSalary" value={formData.baseSalary} onChange={handleInputChange} required />
+                  <p className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>
+                    Note: For Interns, this base amount is used to calculate the final stipend after absence deductions.
+                  </p>
+                </div>
+              )}
+            </>
           )}
 
           <div style={{ display: 'flex', gap: 12, marginTop: 'var(--space-6)', justifyContent: 'flex-end' }}>
             <button type="button" onClick={() => { setShowModal(false); setEditingStaff(null); resetForm(); }} className="btn-ghost">Cancel</button>
             <button type="submit" disabled={submitting} className="btn-primary">
-              {submitting ? <Loader2 size={18} className="animate-spin" /> : (editingStaff ? 'Update Team Member' : 'Save Team Member')}
+              {submitting ? <Loader2 size={18} className="animate-spin" /> : (editingStaff ? 'Update Team Member' : (isOnboardingInvite ? 'Send Invite Link' : 'Save Team Member'))}
             </button>
           </div>
         </form>

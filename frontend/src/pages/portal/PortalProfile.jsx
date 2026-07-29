@@ -15,6 +15,7 @@ import { motion } from 'framer-motion'
 const PAN_REGEX = /^[A-Z0-9]{5,15}$/i
 
 const emptyForm = {
+  fullName: '',
   employeeId: '',
   joiningDate: '',
   department: '',
@@ -300,6 +301,7 @@ export default function PortalProfile() {
 
     if (!hasInitializedForm.current || !isEditing) {
       setForm({
+        fullName: staffUser.fullName === 'Pending Onboarding' ? '' : (staffUser.fullName || ''),
         employeeId: staffUser.employeeId || '',
         joiningDate: staffUser.joiningDate ? String(staffUser.joiningDate).split('T')[0] : '',
         department: staffUser.department || '',
@@ -414,6 +416,9 @@ export default function PortalProfile() {
 
   const validateRequired = () => {
     const e = {}
+    if (!form.fullName || form.fullName.trim() === '' || form.fullName === 'Pending Onboarding') {
+      e['fullName'] = 'Full Name is required'
+    }
     const phoneLen = (form.phone || '').replace(/\D/g, '').length
     if (!form.phone || phoneLen < 8 || phoneLen > 12) {
       e['phone'] = 'Enter a valid phone number (8-12 digits)'
@@ -461,6 +466,7 @@ export default function PortalProfile() {
     setSaving(true)
     try {
       const payload = {
+        fullName: form.fullName.trim(),
         employeeId: form.employeeId,
         joiningDate: form.joiningDate,
         department: form.department,
@@ -503,6 +509,7 @@ export default function PortalProfile() {
     (doc) => !doc.required || documents[doc.type]?.url
   )
   const requiredComplete = Boolean(
+    form.fullName && form.fullName !== 'Pending Onboarding' &&
     form.phone && form.panNumber && form.dob && form.gender &&
     form.address.street && form.address.city && form.address.state && form.address.pincode &&
     form.emergencyContact.name && form.emergencyContact.phone &&
@@ -777,6 +784,10 @@ export default function PortalProfile() {
               </div>
               <div className="panel-card-body">
                 <div className="info-kv-row">
+                  <span className="info-kv-key">Full Name</span>
+                  <span className="info-kv-val">{staffUser.fullName || '—'}</span>
+                </div>
+                <div className="info-kv-row">
                   <span className="info-kv-key">Email Address</span>
                   <span className="info-kv-val">{staffUser.email || '—'}</span>
                 </div>
@@ -973,14 +984,23 @@ export default function PortalProfile() {
               </div>
             </Section>
 
-            <Section title="Contact Information" subtitle="Your primary details and contact telephone number." icon={Mail}>
+            <Section title="Personal & Contact Information" subtitle="Your primary details and contact information." icon={User}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+                <InputField
+                  label="Full Name"
+                  value={form.fullName}
+                  onChange={(e) => updateField('fullName', e.target.value)}
+                  required
+                  error={errors.fullName}
+                  icon={User}
+                />
                 <InputField
                   label="Email"
                   value={form.email}
                   onChange={(e) => updateField('email', e.target.value)}
                   required
                   icon={Mail}
+                  disabled
                 />
                 <InputField
                   label="Official Phone Number"

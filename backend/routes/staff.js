@@ -163,13 +163,9 @@ router.get('/', protect, async (req, res) => {
 router.post('/', protect, async (req, res) => {
   try {
     const requestedId = (req.body.employeeId || '').trim();
+    const isOnboarding = req.body.isOnboarding === true;
 
     // ── Required field validation ────────────────────────────────
-    const fullName = (req.body.fullName || '').trim();
-    if (!fullName) {
-      return res.status(400).json({ success: false, message: 'Full Name is required.' });
-    }
-
     const email = (req.body.email || '').trim().toLowerCase();
     if (!isValidEmail(email)) {
       return res.status(400).json({
@@ -178,13 +174,26 @@ router.post('/', protect, async (req, res) => {
       });
     }
 
-    // Phone: required, must be 10 digits
-    const phone = (req.body.phone || '').trim().replace(/\D/g, '');
-    if (!phone || phone.length !== 10) {
-      return res.status(400).json({
-        success: false,
-        message: 'A valid 10-digit phone number is required.'
-      });
+    let fullName = (req.body.fullName || '').trim();
+    if (!fullName) {
+      if (isOnboarding) {
+        fullName = 'Pending Onboarding';
+      } else {
+        return res.status(400).json({ success: false, message: 'Full Name is required.' });
+      }
+    }
+
+    // Phone: required only if not onboarding
+    let phone = (req.body.phone || '').trim().replace(/\D/g, '');
+    if (!isOnboarding) {
+      if (!phone || phone.length !== 10) {
+        return res.status(400).json({
+          success: false,
+          message: 'A valid 10-digit phone number is required.'
+        });
+      }
+    } else {
+      if (!phone) phone = '';
     }
 
     // PAN validation: only if explicitly provided by admin
@@ -228,6 +237,8 @@ router.post('/', protect, async (req, res) => {
           message: 'Invalid Joining Date. Use DD-MM-YYYY or YYYY-MM-DD format.'
         });
       }
+    } else if (isOnboarding) {
+      joiningDate = new Date(); // Default joining date for onboarding
     }
 
     // Build the staff document. Employee ID is intentionally optional.

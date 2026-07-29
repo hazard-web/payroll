@@ -72,11 +72,15 @@ const MAX_DOCUMENT_BYTES = 3 * 1024 * 1024; // 3 MB
 const getNested = (obj, path) =>
   path.split('.').reduce((acc, k) => (acc == null ? acc : acc[k]), obj);
 
-const isProfileComplete = (staff) =>
-  PROFILE_REQUIRED_FIELDS.every((p) => {
+const isProfileComplete = (staff) => {
+  const allFields = PROFILE_REQUIRED_FIELDS.every((p) => {
     const v = getNested(staff, p);
     return v !== undefined && v !== null && String(v).trim() !== '';
   });
+  const nameValid = staff.fullName && staff.fullName !== 'Pending Onboarding' && staff.fullName.trim() !== '';
+  const phoneValid = staff.phone && staff.phone.trim() !== '';
+  return allFields && nameValid && phoneValid;
+};
 
 // Middleware to verify Staff JWT
 const authStaff = async (req, res, next) => {
@@ -666,7 +670,7 @@ router.put('/me', authStaff, async (req, res) => {
 
     // Apply remaining fields (partial update — only fields present in body are touched)
     const ALLOWED = [
-      'employeeId', 'type', 'designation', 'department', 'joiningDate', 'salaryDetails',
+      'fullName', 'employeeId', 'type', 'designation', 'department', 'joiningDate', 'salaryDetails',
       'workLocation', 'email', 'phone', 'panNumber', 'dob', 'gender',
       'address', 'emergencyContact', 'bankDetails',
     ];
