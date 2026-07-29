@@ -15,7 +15,8 @@ router.get('/admin', authAdmin, async (req, res) => {
     })
       .populate('staff', 'fullName employeeId')
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(50)
+      .lean();
     res.json({ success: true, data: notifications });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch notifications' });
@@ -31,7 +32,8 @@ router.get('/staff', authStaff, async (req, res) => {
       isArchived: false
     })
       .sort({ createdAt: -1 })
-      .limit(30);
+      .limit(30)
+      .lean();
     res.json({ success: true, data: notifications });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch notifications' });

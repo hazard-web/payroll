@@ -20,7 +20,8 @@ router.get('/', auth, async (req, res) => {
     });
 
     const announcements = await Announcement.find({ user: req.user._id })
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
     res.json({ success: true, data: announcements });
   } catch (err) {
     console.error('Get announcements error:', err.message);

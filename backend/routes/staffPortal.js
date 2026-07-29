@@ -17,9 +17,7 @@ const { uploadBase64 } = require('../utils/cloudinary');
 async function rawFindStaffByEmail(email) {
   const db = mongoose.connection.db;
   const normalized = email.toLowerCase().trim();
-  // Fetch without any filter (avoids the broken index)
-  const all = await db.collection('staffs').find({}).toArray();
-  return all.find(s => s.email && s.email.toLowerCase().trim() === normalized) || null;
+  return await db.collection('staffs').findOne({ email: normalized });
 }
 async function rawFindStaffById(id) {
   const db = mongoose.connection.db;
@@ -433,15 +431,13 @@ router.post('/reset-password', async (req, res, next) => {
       });
     }
 
-    // Use raw driver — fetch all staff and filter by token in memory
+    // Use raw driver — query directly by token
     console.log('🔑 [reset-password] Looking up staff by reset token (raw driver)...');
     const db = mongoose.connection.db;
-    const all = await db.collection('staffs').find({}).toArray();
-    const staff = all.find(s =>
-      s.passwordResetToken === token &&
-      s.passwordResetExpires &&
-      new Date(s.passwordResetExpires) > new Date()
-    );
+    const staff = await db.collection('staffs').findOne({
+      passwordResetToken: token,
+      passwordResetExpires: { $gt: new Date() }
+    });
     console.log('🔑 [reset-password] Staff found:', !!staff);
 
     if (!staff) {
@@ -491,15 +487,13 @@ router.post('/setup-password', async (req, res, next) => {
       });
     }
 
-    // Use raw driver — fetch all staff and filter by token in memory
+    // Use raw driver — query directly by token
     console.log('🔑 [setup-password] Looking up staff by setup token (raw driver)...');
     const db = mongoose.connection.db;
-    const all = await db.collection('staffs').find({}).toArray();
-    const staff = all.find(s =>
-      s.passwordResetToken === token &&
-      s.passwordResetExpires &&
-      new Date(s.passwordResetExpires) > new Date()
-    );
+    const staff = await db.collection('staffs').findOne({
+      passwordResetToken: token,
+      passwordResetExpires: { $gt: new Date() }
+    });
     console.log('🔑 [setup-password] Staff found:', !!staff);
 
     if (!staff) {
@@ -842,7 +836,7 @@ router.get('/payslips', authStaff, async (req, res) => {
       ];
     }
 
-    const payslips = await Payslip.find(filter).sort({ createdAt: -1 });
+    const payslips = await Payslip.find(filter).sort({ createdAt: -1 }).lean();
 
     res.json({ success: true, data: payslips });
   } catch (err) {
@@ -897,7 +891,7 @@ router.get('/announcements', authStaff, async (req, res) => {
         { endDate: null },
         { endDate: { $gte: now } },
       ],
-    }).sort({ createdAt: -1 });
+    }).sort({ createdAt: -1 }).lean();
 
     // Sort: Urgent → Important → Normal, then newest first
     const priorityOrder = { Urgent: 0, Important: 1, Normal: 2 };

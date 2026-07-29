@@ -78,7 +78,8 @@ router.post('/', authStaff, async (req, res) => {
 router.get('/me', authStaff, async (req, res) => {
   try {
     const requests = await SupportRequest.find({ staff: req.staff._id })
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.json({ success: true, data: requests });
   } catch (err) {
@@ -95,7 +96,8 @@ router.get('/admin', authAdmin, async (req, res) => {
     const requests = await SupportRequest.find({ admin: req.user._id })
       .populate('staff', 'fullName employeeId designation email')
       .populate('attendanceId', 'punchIn punchOut status totalHours overtimeHours date')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.json({ success: true, data: requests });
   } catch (err) {
@@ -112,7 +114,7 @@ router.get('/admin/:id/context', authAdmin, async (req, res) => {
     const supportRequest = await SupportRequest.findOne({
       _id: req.params.id,
       admin: req.user._id
-    }).populate('staff', 'fullName employeeId designation email');
+    }).populate('staff', 'fullName employeeId designation email').lean();
 
     if (!supportRequest) {
       return res.status(404).json({ success: false, message: 'Support request not found' });
@@ -126,26 +128,30 @@ router.get('/admin/:id/context', authAdmin, async (req, res) => {
       // Return the linked attendance record (or recent ones for that staff)
       if (supportRequest.attendanceId) {
         context.data = await Attendance.findById(supportRequest.attendanceId)
-          .select('punchIn punchOut status totalHours overtimeHours date');
+          .select('punchIn punchOut status totalHours overtimeHours date')
+          .lean();
       } else {
         // Fallback: recent 3 attendance records
         context.data = await Attendance.find({ staff: staffId })
           .sort({ date: -1 })
           .limit(3)
-          .select('punchIn punchOut status totalHours date');
+          .select('punchIn punchOut status totalHours date')
+          .lean();
       }
     } else if (type === 'Leave Request Issue') {
       context.data = await LeaveRequest.find({ staff: staffId, admin: req.user._id })
         .sort({ createdAt: -1 })
         .limit(5)
-        .select('type startDate endDate status reason adminNotes createdAt');
+        .select('type startDate endDate status reason adminNotes createdAt')
+        .lean();
     } else if (type === 'Payslip / Salary Issue') {
       const staffDoc = await Staff.findById(staffId).select('employeeId');
       if (staffDoc) {
         context.data = await Payslip.find({ user: req.user._id, employeeId: staffDoc.employeeId })
           .sort({ createdAt: -1 })
           .limit(5)
-          .select('employeeName month year netSalary grossEarnings totalDeductions emailSent createdAt');
+          .select('employeeName month year netSalary grossEarnings totalDeductions emailSent createdAt')
+          .lean();
       }
     }
     // For IT/Technical, HR/Policy, Other — message is sufficient, no linked data

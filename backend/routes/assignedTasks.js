@@ -11,7 +11,8 @@ router.get('/admin', authAdmin, async (req, res) => {
   try {
     const tasks = await AssignedTask.find()
       .populate('staff', 'fullName employeeId department designation documents.profileImage')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
     res.json({ success: true, tasks });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch tasks' });
@@ -106,7 +107,7 @@ router.patch('/admin/:id/status', authAdmin, async (req, res) => {
 // GET /api/assigned-tasks/staff — Get tasks assigned to the authenticated staff member
 router.get('/staff', authStaff, async (req, res) => {
   try {
-    const tasks = await AssignedTask.find({ staff: req.staff._id }).sort({ createdAt: -1 });
+    const tasks = await AssignedTask.find({ staff: req.staff._id }).sort({ createdAt: -1 }).lean();
     res.json({ success: true, tasks });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch assigned tasks' });

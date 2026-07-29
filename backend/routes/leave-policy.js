@@ -59,7 +59,7 @@ router.post('/reset', auth, async (req, res) => {
     const policy = await LeavePolicy.findOne({ user: req.user._id });
     if (!policy) return res.status(404).json({ success: false, message: 'Leave policy not found' });
 
-    const staffList = await Staff.find({ user: req.user._id });
+    const staffList = await Staff.find({ user: req.user._id }).select('_id').lean();
     const resetCL = policy.casualLeave.daysPerYear;
     const resetSL = policy.sickLeave.daysPerYear;
 
@@ -245,7 +245,7 @@ router.get('/staff-balances', auth, async (req, res) => {
 router.get('/adjustments', auth, async (req, res) => {
   try {
     // Collect all staff IDs belonging to this admin
-    const staffIds = await Staff.find({ user: req.user._id }).distinct('_id');
+    const staffIds = await Staff.distinct('_id', { user: req.user._id });
     const adjustments = await LeaveAdjustment.find({ staff: { $in: staffIds } })
       .populate('staff', 'fullName employeeId')
       .sort({ createdAt: -1 })
@@ -262,7 +262,7 @@ router.get('/adjustments', auth, async (req, res) => {
 // Adjustment history for a specific employee.
 router.get('/adjustments/:staffId', auth, async (req, res) => {
   try {
-    const staff = await Staff.findOne({ _id: req.params.staffId, user: req.user._id });
+    const staff = await Staff.findOne({ _id: req.params.staffId, user: req.user._id }).lean();
     if (!staff) return res.status(404).json({ success: false, message: 'Staff not found' });
 
     const adjustments = await LeaveAdjustment.find({ staff: req.params.staffId })

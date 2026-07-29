@@ -52,7 +52,7 @@ router.post('/apply', authStaff, async (req, res) => {
 // GET /api/leaves/my-requests — Staff views their requests
 router.get('/my-requests', authStaff, async (req, res) => {
   try {
-    const requests = await LeaveRequest.find({ staff: req.staff._id }).sort({ createdAt: -1 });
+    const requests = await LeaveRequest.find({ staff: req.staff._id }).sort({ createdAt: -1 }).lean();
     res.json({ success: true, data: requests });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch requests' });
@@ -89,7 +89,8 @@ router.get('/notifications', authStaff, async (req, res) => {
       isArchived: false 
     })
       .sort({ createdAt: -1 })
-      .limit(20);
+      .limit(20)
+      .lean();
     res.json({ success: true, data: notifications });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch notifications' });
@@ -130,7 +131,8 @@ router.get('/admin/pending', authAdmin, async (req, res) => {
     
     const requests = await LeaveRequest.find(query)
       .populate('staff', 'fullName employeeId leaveBalance documents.profileImage')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
     res.json({ success: true, data: requests });
   } catch (err) {
     console.error('Fetch pending leaves error:', err);
@@ -197,7 +199,8 @@ router.get('/admin/notifications', authAdmin, async (req, res) => {
       isArchived: false 
     })
       .populate('staff', 'fullName employeeId documents.profileImage')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
     res.json({ success: true, data: notifications });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch notifications' });

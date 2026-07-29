@@ -12,7 +12,8 @@ router.get('/', protect, async (req, res) => {
     const logs = await ActivityLog.find({ user: req.user._id })
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(parseInt(limit))
+      .lean();
       
     const total = await ActivityLog.countDocuments({ user: req.user._id });
 
@@ -60,7 +61,7 @@ router.get('/dashboard-summary', protect, async (req, res) => {
       currentMonthly,
       prevMonthly
     ] = await Promise.all([
-      Staff.find({ user: userId }).lean(),
+      Staff.find({ user: userId }).select('fullName employeeId email documents.profileImage').lean(),
       Attendance.countDocuments({
         user: userId,
         date: { $gte: new Date().setHours(0,0,0,0) },
@@ -85,12 +86,12 @@ router.get('/dashboard-summary', protect, async (req, res) => {
         user: userId,
         month: month,
         year: year
-      }).populate('staff', 'fullName email').lean(),
+      }).select('date punchIn punchOut totalHours workStatus staff').populate('staff', '_id').lean(),
       Attendance.find({
         user: userId,
         month: prevMonth,
         year: prevYear
-      }).populate('staff', 'fullName email').lean()
+      }).select('date punchIn punchOut totalHours workStatus staff').populate('staff', '_id').lean()
     ]);
 
     res.json({
