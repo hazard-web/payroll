@@ -615,44 +615,35 @@ export default function Dashboard() {
   const [monthlyError, setMonthlyError] = useState('')
   const [attendanceSearch, setAttendanceSearch] = useState('')
 
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
+
   // Pull all the parallel fetches into a stable callback so the effect's
   // dependency array stays minimal and we don't refetch on every render.
   const fetchData = useCallback(async () => {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 8000)
+    const timer = setTimeout(() => controller.abort(), 12000)
     try {
       setLoading(true)
       setLoadError('')
-      // Note: the GET cache + dedup in api.js means a rapid second mount
-      // (e.g. StrictMode) won't trigger network calls.
-      const requests = await Promise.allSettled([
-        api.get('/staff', { signal: controller.signal }),
-        api.get('/attendance/admin/active', { signal: controller.signal }),
-        api.get('/attendance/admin/today-punchins', { signal: controller.signal }),
-        api.get('/leaves/admin/pending', { params: { status: 'Approved' }, signal: controller.signal }),
-        api.get('/leaves/admin/pending', { params: { status: 'Pending' }, signal: controller.signal }),
-        api.get('/announcements', { signal: controller.signal })
-      ])
-      const [staffRes, activeRes, punchinsRes, approvedLeaveRes, pendingLeaveRes, announcementsRes] = requests
-
-      if (staffRes.status === 'fulfilled') setStaffData(staffRes.value.data.data || [])
-      if (activeRes.status === 'fulfilled') setActiveCount(activeRes.value.data?.activeCount || 0)
-      if (punchinsRes.status === 'fulfilled') setTodayPunchins(punchinsRes.value.data?.data || [])
-      if (approvedLeaveRes.status === 'fulfilled') setApprovedLeaves(approvedLeaveRes.value.data?.data || [])
-      if (pendingLeaveRes.status === 'fulfilled') setPendingLeaves(pendingLeaveRes.value.data?.data || [])
       
-      if (announcementsRes && announcementsRes.status === 'fulfilled') {
-        const all = announcementsRes.value.data.data || []
-        // Sort by newest created first
+      const res = await api.get('/activities/dashboard-summary', { signal: controller.signal })
+      const d = res.data
+      
+      setStaffData(d.staff || [])
+      setActiveCount(d.activeCount || 0)
+      setTodayPunchins(d.todayPunchins || [])
+      setApprovedLeaves(d.approvedLeaves || [])
+      setPendingLeaves(d.pendingLeaves || [])
+      
+      if (d.announcements) {
+        const all = d.announcements || []
         all.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         setAnnouncements(all.slice(0, 3))
       }
-
-      const firstError = requests.find((result) => result.status === 'rejected')
-      const allFailed = requests.every((result) => result.status === 'rejected')
-      if (firstError && allFailed) {
-        setLoadError(firstError.reason?.message || 'Some dashboard data could not be loaded.')
-      }
+      
+      setMonthlyAttendance(d.currentMonthly || [])
+      setPreviousMonthlyAttendance(d.prevMonthly || [])
+      setIsInitialLoad(false)
     } catch (err) {
       console.error('Dashboard load error:', err)
       setLoadError(
@@ -677,6 +668,8 @@ export default function Dashboard() {
   }, [fetchData])
 
   useEffect(() => {
+    if (isInitialLoad) return
+
     const controller = new AbortController()
     const fetchMonthlyAttendance = async () => {
       const { month, year } = parseMonthValue(attendanceMonth)
@@ -710,7 +703,7 @@ export default function Dashboard() {
 
     fetchMonthlyAttendance()
     return () => controller.abort()
-  }, [attendanceMonth])
+  }, [attendanceMonth, isInitialLoad])
 
   useEffect(() => {
     const controller = new AbortController()

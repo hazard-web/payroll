@@ -31,4 +31,83 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
+const Staff = require('../models/Staff');
+const Attendance = require('../models/Attendance');
+const LeaveRequest = require('../models/LeaveRequest');
+const Announcement = require('../models/Announcement');
+
+// GET /api/activities/dashboard-summary — Get unified dashboard summary
+router.get('/dashboard-summary', protect, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const now = new Date();
+    
+    // Parse current month and previous month values
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+    
+    const prevDate = new Date(year, now.getMonth() - 1, 1);
+    const prevMonth = prevDate.getMonth() + 1;
+    const prevYear = prevDate.getFullYear();
+
+    const [
+      staff,
+      activeCount,
+      todayPunchins,
+      approvedLeaves,
+      pendingLeaves,
+      announcements,
+      currentMonthly,
+      prevMonthly
+    ] = await Promise.all([
+      Staff.find({ user: userId }).lean(),
+      Attendance.countDocuments({
+        user: userId,
+        date: { $gte: new Date().setHours(0,0,0,0) },
+        punchOut: null
+      }),
+      Attendance.find({
+        user: userId,
+        date: { $gte: new Date().setHours(0,0,0,0) }
+      }).populate('staff', 'fullName email').lean(),
+      LeaveRequest.find({
+        user: userId,
+        status: 'Approved',
+        startDate: { $lte: now },
+        endDate: { $gte: now }
+      }).populate('staff', 'fullName email').lean(),
+      LeaveRequest.find({
+        user: userId,
+        status: 'Pending'
+      }).populate('staff', 'fullName email').lean(),
+      Announcement.find({ user: userId }).sort({ createdAt: -1 }).limit(3).lean(),
+      Attendance.find({
+        user: userId,
+        month: month,
+        year: year
+      }).populate('staff', 'fullName email').lean(),
+      Attendance.find({
+        user: userId,
+        month: prevMonth,
+        year: prevYear
+      }).populate('staff', 'fullName email').lean()
+    ]);
+
+    res.json({
+      success: true,
+      staff,
+      activeCount,
+      todayPunchins,
+      approvedLeaves,
+      pendingLeaves,
+      announcements,
+      currentMonthly,
+      prevMonthly
+    });
+  } catch (err) {
+    console.error('Dashboard summary error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch dashboard summary' });
+  }
+});
+
 module.exports = router;
