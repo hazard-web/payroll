@@ -25,4 +25,6 @@ const activityLogSchema = new mongoose.Schema({
   }
 });
 
+activityLogSchema.index({ user: 1, createdAt: -1 });
+
 module.exports = mongoose.model('ActivityLog', activityLogSchema);

@@ -51,6 +51,12 @@ router.get('/dashboard-summary', protect, async (req, res) => {
     const prevMonth = prevDate.getMonth() + 1;
     const prevYear = prevDate.getFullYear();
 
+    const currentMonthStart = new Date(year, now.getMonth(), 1);
+    const currentMonthEnd = new Date(year, now.getMonth() + 1, 0, 23, 59, 59, 999);
+    
+    const prevMonthStart = new Date(prevYear, prevDate.getMonth(), 1);
+    const prevMonthEnd = new Date(prevYear, prevDate.getMonth() + 1, 0, 23, 59, 59, 999);
+
     const [
       staff,
       activeCount,
@@ -63,34 +69,32 @@ router.get('/dashboard-summary', protect, async (req, res) => {
     ] = await Promise.all([
       Staff.find({ user: userId }).select('fullName employeeId email documents.profileImage').lean(),
       Attendance.countDocuments({
-        user: userId,
+        admin: userId,
         date: { $gte: new Date().setHours(0,0,0,0) },
         punchOut: null
       }),
       Attendance.find({
-        user: userId,
+        admin: userId,
         date: { $gte: new Date().setHours(0,0,0,0) }
       }).populate('staff', 'fullName email').lean(),
       LeaveRequest.find({
-        user: userId,
+        admin: userId,
         status: 'Approved',
         startDate: { $lte: now },
         endDate: { $gte: now }
       }).populate('staff', 'fullName email').lean(),
       LeaveRequest.find({
-        user: userId,
+        admin: userId,
         status: 'Pending'
       }).populate('staff', 'fullName email').lean(),
       Announcement.find({ user: userId }).sort({ createdAt: -1 }).limit(3).lean(),
       Attendance.find({
-        user: userId,
-        month: month,
-        year: year
+        admin: userId,
+        date: { $gte: currentMonthStart, $lte: currentMonthEnd }
       }).select('date punchIn punchOut totalHours workStatus staff').populate('staff', '_id').lean(),
       Attendance.find({
-        user: userId,
-        month: prevMonth,
-        year: prevYear
+        admin: userId,
+        date: { $gte: prevMonthStart, $lte: prevMonthEnd }
       }).select('date punchIn punchOut totalHours workStatus staff').populate('staff', '_id').lean()
     ]);
 
