@@ -1383,6 +1383,7 @@ h3 {
   border-radius: var(--radius-md);
   box-sizing: border-box;
   align-items: center;
+  height: 38px;
 }
 
 .segmented__btn {
