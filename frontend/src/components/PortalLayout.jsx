@@ -234,24 +234,36 @@ export default function PortalLayout() {
           borderBottom: '1px solid var(--border)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{
-              width: 38, height: 38, borderRadius: 6,
-              background: 'transparent',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0
-            }}>
-              <div style={{ color: 'var(--primary)', fontSize: 24, fontWeight: 900, fontFamily: 'var(--font-display)', letterSpacing: '-0.05em' }}>
-                BDA
+            {staffUser?.companyLogo ? (
+              <img
+                src={staffUser.companyLogo}
+                alt="Company Logo"
+                style={{ width: 34, height: 34, borderRadius: 9, flexShrink: 0, objectFit: 'contain', background: 'white', padding: 2, border: '1px solid var(--border)' }}
+              />
+            ) : (
+              <div style={{
+                width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+                background: 'var(--primary)', color: 'white',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 800, fontSize: 14,
+              }}>
+                {(staffUser?.companyName || 'B').charAt(0).toUpperCase()}
               </div>
-            </div>
+            )}
             {sidebarOpen && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ minWidth: 0 }}>
                 <div style={{
                   fontFamily: 'var(--font-display)',
-                  fontSize: 12, fontWeight: 700,
-                  color: 'var(--text-muted)', letterSpacing: '0.1em',
-                  whiteSpace: 'nowrap', textTransform: 'uppercase'
-                }}>Team Portal</div>
+                  fontSize: 14, fontWeight: 800,
+                  color: 'var(--text)',
+                  whiteSpace: 'nowrap',
+                  letterSpacing: '-0.02em',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: 135
+                }} title={staffUser?.companyName || 'Team Portal'}>
+                  {staffUser?.companyName || 'Team Portal'}
+                </div>
               </motion.div>
             )}
           </div>
