@@ -292,7 +292,7 @@ export default function PayslipList() {
                     {/* Employee Identity */}
                     <td style={{ padding: '10px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <Avatar name={p.employeeName} size="lg" style={{ width: 32, height: 32, fontSize: 11, borderRadius: 8, background: 'var(--primary)' }} />
+                        <Avatar name={p.employeeName} src={p.employeeImage} size="lg" style={{ width: 32, height: 32, fontSize: 11, borderRadius: 8, background: 'var(--primary)' }} />
                         <div style={{ overflow: 'hidden' }}>
                           <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{p.employeeName}</div>
                           <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontWeight: 500 }}>{p.employeeId} · <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{p.department}</span></div>

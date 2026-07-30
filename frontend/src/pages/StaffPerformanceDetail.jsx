@@ -248,7 +248,7 @@ export default function StaffPerformanceDetail() {
 
       {/* Profile Header Box */}
       <div className="panel" style={{ padding: '16px 20px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontFamily: 'var(--font-display), sans-serif' }}>
-        <Avatar name={staff.fullName} style={{ width: 48, height: 48, borderRadius: 12, fontSize: 16 }} />
+        <Avatar name={staff.fullName} src={staff.documents?.profileImage?.url} style={{ width: 48, height: 48, borderRadius: 12, fontSize: 16 }} />
         <div>
           <h2 style={{ margin: 0, color: 'var(--text)', fontSize: 17, fontWeight: 800 }}>{staff.fullName}</h2>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginTop: 4 }}>

@@ -233,7 +233,7 @@ const AttentionRequired = ({ notActiveStaff = [], approvedOnLeaveToday = [], pen
                 style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, cursor: 'pointer' }}
                 title="View employee profile"
               >
-                <Avatar name={staff.fullName} style={{ width: 28, height: 28, fontSize: 11 }} />
+                <Avatar name={staff.fullName} src={staff.documents?.profileImage?.url} style={{ width: 28, height: 28, fontSize: 11 }} />
                 <div style={{ minWidth: 0 }}>
                   <div className="hover-primary" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 0.15s' }}>
                     {staff.fullName || 'Unknown'}
@@ -480,9 +480,9 @@ const AttentionRequired = ({ notActiveStaff = [], approvedOnLeaveToday = [], pen
 }
 
 // ── Punch Row (used in modals) ─────────────────────────────────────
-const PunchRow = ({ name, designation, meta, badge, bg, color }) => (
+const PunchRow = ({ name, src, designation, meta, badge, bg, color }) => (
   <div className="punch-row">
-    <Avatar name={name} style={{ background: bg, color }} />
+    <Avatar name={name} src={src} style={{ background: bg, color }} />
     <div style={{ minWidth: 0, flex: 1 }}>
       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {name}
@@ -1349,6 +1349,7 @@ export default function Dashboard() {
             <PunchRow
               key={person._id}
               name={person.fullName}
+              src={person.documents?.profileImage?.url}
               designation={person.designation || 'Team Member'}
               meta={person.employeeId ? `${person.designation || 'Team Member'} · ${person.employeeId}` : (person.designation || 'Team Member')}
               bg="#fef2f2" color="#b91c1c"
@@ -1375,6 +1376,7 @@ export default function Dashboard() {
             <PunchRow
               key={leave._id}
               name={leave.staff?.fullName || 'Unknown'}
+              src={leave.staff?.documents?.profileImage?.url}
               meta={`${leave.type || 'Leave'} · ${new Date(leave.startDate).toLocaleDateString('en-GB')} to ${new Date(leave.endDate).toLocaleDateString('en-GB')}`}
               bg="#fff7ed" color="#c2410c"
               badge={<span className="pill pill-orange">Pending</span>}
@@ -1385,7 +1387,7 @@ export default function Dashboard() {
             <div style={{ padding: '0 20px 12px', fontSize: 13, color: 'var(--text-muted)' }}>No approved leaves for today.</div>
           ) : approvedOnLeaveToday.map((leave) => (
             <div key={leave._id} className="punch-row">
-              <Avatar name={leave.staff?.fullName} style={{ background: '#e5ebdd', color: '#58833b' }} />
+              <Avatar name={leave.staff?.fullName} src={leave.staff?.documents?.profileImage?.url} style={{ background: '#e5ebdd', color: '#58833b' }} />
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {leave.staff?.fullName || 'Unknown'} {leave.staff?.employeeId ? `· ${leave.staff.employeeId}` : ''}
@@ -1417,6 +1419,7 @@ export default function Dashboard() {
             <PunchRow
               key={record._id}
               name={`${record.staff?.fullName || 'Unknown'} ${record.staff?.employeeId ? `· ${record.staff.employeeId}` : ''}`}
+              src={record.staff?.documents?.profileImage?.url}
               meta={`Punch-In: ${fmtTime(record.punchIn)}`}
               bg="#eff6ff" color="#1d4ed8"
               badge={<span className="pill pill-blue">{calcWorkedTime(record, now)}</span>}

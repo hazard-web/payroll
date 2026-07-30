@@ -894,7 +894,7 @@ function AttendanceTab() {
                     {/* Employee */}
                     <td style={{ padding: '10px 16px', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'nowrap' }}>
-                        <Avatar name={row.staff.fullName} size={30} />
+                        <Avatar name={row.staff.fullName} src={row.staff.documents?.profileImage?.url} size={30} />
                         <span style={{ fontWeight: 700, color: 'var(--text)', fontSize: 13, whiteSpace: 'nowrap' }}>{row.staff.fullName}</span>
                       </div>
                     </td>
@@ -1287,7 +1287,7 @@ function WorkingDaysTab() {
                       {/* Employee */}
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <Avatar name={s.fullName} size={32} />
+                          <Avatar name={s.fullName} src={s.documents?.profileImage?.url} size={32} />
                           <div>
                             <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: 13 }}>{s.fullName}</div>
                             <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{s.employeeId || '—'} · {s.designation || 'Team Member'}</div>
