@@ -218,11 +218,20 @@ router.post('/', protect, async (req, res) => {
     if (requestedId) {
       const exists = await Staff.findOne({ user: req.user._id, employeeId: requestedId });
       if (exists) {
-        return res.status(400).json({
+        return res.status(409).json({
           success: false,
-          message: `Employee ID "${requestedId}" is already in use.`
+          message: `Employee ID "${requestedId}" is already assigned to ${exists.fullName}. Each employee must have a unique ID.`
         });
       }
+    }
+
+    // ── Duplicate email check: prevent two staff profiles with same email ──
+    const emailExists = await Staff.findOne({ user: req.user._id, email });
+    if (emailExists) {
+      return res.status(409).json({
+        success: false,
+        message: `A team member with email "${email}" already exists (${emailExists.fullName}). Each employee must have a unique email address.`
+      });
     }
 
     // ── Joining Date: accept DD-MM-YYYY or YYYY-MM-DD / ISO ─────
@@ -322,6 +331,17 @@ router.post('/', protect, async (req, res) => {
       const fields = Object.values(err.errors).map(e => e.message).join(' | ');
       return res.status(400).json({ success: false, message: fields || err.message });
     }
+    // Handle MongoDB duplicate key errors (e.g. unique index violation on concurrent requests)
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyPattern || {})[0];
+      if (field === 'email' || (err.keyValue && err.keyValue.email)) {
+        return res.status(409).json({ success: false, message: `A team member with this email address already exists. Each employee must have a unique email.` });
+      }
+      if (field === 'employeeId' || (err.keyValue && err.keyValue.employeeId)) {
+        return res.status(409).json({ success: false, message: `This Employee ID is already in use. Each employee must have a unique ID.` });
+      }
+      return res.status(409).json({ success: false, message: 'A team member with this information already exists.' });
+    }
     console.error('POST /staff error:', err.message);
     res.status(400).json({ success: false, message: err.message });
   }
@@ -367,6 +387,38 @@ router.put('/:id', protect, async (req, res) => {
         });
       }
       req.body.email = email;
+
+      // ── Duplicate email check on update: ensure no OTHER staff has this email ──
+      const emailTaken = await Staff.findOne({
+        user: req.user._id,
+        email,
+        _id: { $ne: req.params.id }
+      });
+      if (emailTaken) {
+        return res.status(409).json({
+          success: false,
+          message: `Email "${email}" is already used by ${emailTaken.fullName}. Each employee must have a unique email address.`
+        });
+      }
+    }
+
+    // ── Duplicate Employee ID check on update: ensure no OTHER staff has this ID ──
+    if (req.body.employeeId !== undefined && req.body.employeeId !== '') {
+      const newEmployeeId = String(req.body.employeeId).trim();
+      if (newEmployeeId) {
+        const idTaken = await Staff.findOne({
+          user: req.user._id,
+          employeeId: newEmployeeId,
+          _id: { $ne: req.params.id }
+        });
+        if (idTaken) {
+          return res.status(409).json({
+            success: false,
+            message: `Employee ID "${newEmployeeId}" is already assigned to ${idTaken.fullName}. Each employee must have a unique ID.`
+          });
+        }
+        req.body.employeeId = newEmployeeId;
+      }
     }
 
     // Normalise PAN to uppercase before persisting
@@ -403,6 +455,17 @@ router.put('/:id', protect, async (req, res) => {
     if (err.name === 'ValidationError') {
       const fields = Object.values(err.errors).map(e => e.message).join(' | ');
       return res.status(400).json({ success: false, message: fields || err.message });
+    }
+    // Handle MongoDB duplicate key errors (concurrent update race condition)
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyPattern || {})[0];
+      if (field === 'email' || (err.keyValue && err.keyValue.email)) {
+        return res.status(409).json({ success: false, message: `A team member with this email address already exists. Each employee must have a unique email.` });
+      }
+      if (field === 'employeeId' || (err.keyValue && err.keyValue.employeeId)) {
+        return res.status(409).json({ success: false, message: `This Employee ID is already in use. Each employee must have a unique ID.` });
+      }
+      return res.status(409).json({ success: false, message: 'A team member with this information already exists.' });
     }
     console.error('PUT /staff/:id error:', err.message);
     res.status(400).json({ success: false, message: err.message });

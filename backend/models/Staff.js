@@ -26,7 +26,7 @@ const staffSchema = new mongoose.Schema(
       required: true,
       lowercase: true,
       trim: true,
-      index: true,
+      // index is covered by the compound unique index { user, email } below
     },
     phone: {
       type: String,
@@ -187,12 +187,13 @@ staffSchema.methods.comparePassword = async function (candidatePassword) {
 };
 
 // Indexes that accelerate the hottest queries:
-//  • { user, createdAt } — admin staff list (sorted by newest)
+//  • { user, email }      — UNIQUE: prevents duplicate employees per company (enforced at DB level)
+//  • { user, createdAt }  — admin staff list (sorted by newest)
 //  • { user, employeeId } — duplicate-employee-id check on create + payslip join
 //  • { user, isPortalEnabled } — stats "active portals" count
-//  • email is already declared index:true on the field above
+staffSchema.index({ user: 1, email: 1 }, { unique: true });
 staffSchema.index({ user: 1, createdAt: -1 });
-staffSchema.index({ user: 1, employeeId: 1 });
+staffSchema.index({ user: 1, employeeId: 1 }, { unique: true, sparse: true });
 staffSchema.index({ user: 1, isPortalEnabled: 1 });
 staffSchema.index({ user: 1, type: 1 });
 
