@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
-  Plus, Briefcase, Loader2, FilePlus, Users, Search, MoreVertical
+  Plus, Briefcase, Loader2, FilePlus, Users, Search, MoreVertical,
+  ArrowDownAZ, ArrowUpZA, ArrowUpDown
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api'
@@ -56,10 +58,14 @@ export default function StaffList() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState('All')
+  const [sortField, setSortField] = useState('createdAt')
+  const [sortOrder, setSortOrder] = useState('desc')
   const [showModal, setShowModal] = useState(false)
   const [editingStaff, setEditingStaff] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [activeMenuId, setActiveMenuId] = useState(null)
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0, openUp: false })
+  const menuBtnRefs = useRef({})
   const navigate = useNavigate()
 
   const [formData, setFormData] = useState({
@@ -75,13 +81,16 @@ export default function StaffList() {
   const observerRef = useRef(null)
   const searchTimer = useRef(null)
 
-  const fetchStaff = useCallback(async (pageNum, searchVal, typeVal, reset = false) => {
+  const fetchStaff = useCallback(async (pageNum, searchVal, typeVal, sortF, sortO, reset = false) => {
     if (pageNum === 1) setLoading(true)
     else setLoadingMore(true)
     try {
       const params = new URLSearchParams({ page: pageNum, limit: 20 })
       if (searchVal) params.set('search', searchVal)
       if (typeVal && typeVal !== 'All') params.set('type', typeVal)
+      if (sortF) params.set('sort', sortF)
+      if (sortO) params.set('order', sortO)
+      
       const res = await api.get('/staff?' + params.toString())
       const newStaff = res.data?.data || []
       const pagination = res.data?.pagination || {}
@@ -96,18 +105,18 @@ export default function StaffList() {
   }, [])
 
   // Initial load
-  useEffect(() => { fetchStaff(1, search, filterType) }, [])
+  useEffect(() => { fetchStaff(1, search, filterType, sortField, sortOrder) }, [])
 
-  // Debounced search + type filter — resets to page 1
+  // Debounced search + type filter + sort — resets to page 1
   useEffect(() => {
     clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(() => {
       setPage(1)
       setHasMore(true)
-      fetchStaff(1, search, filterType)
+      fetchStaff(1, search, filterType, sortField, sortOrder)
     }, 350)
     return () => clearTimeout(searchTimer.current)
-  }, [search, filterType])
+  }, [search, filterType, sortField, sortOrder])
 
   // IntersectionObserver for infinite scroll
   useEffect(() => {
@@ -117,7 +126,7 @@ export default function StaffList() {
         if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
           setPage(prev => {
             const next = prev + 1
-            fetchStaff(next, search, filterType)
+            fetchStaff(next, search, filterType, sortField, sortOrder)
             return next
           })
         }
@@ -126,12 +135,21 @@ export default function StaffList() {
     )
     if (sentinelRef.current) observerRef.current.observe(sentinelRef.current)
     return () => observerRef.current?.disconnect()
-  }, [hasMore, loadingMore, loading, fetchStaff, search, filterType])
+  }, [hasMore, loadingMore, loading, fetchStaff, search, filterType, sortField, sortOrder])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
     const nextValue = name === 'email' ? value : value.toUpperCase()
     setFormData(prev => ({ ...prev, [name]: nextValue }))
+  }
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
   }
 
   const handlePhoneChange = (e) => {
@@ -168,7 +186,7 @@ export default function StaffList() {
         fullName: isOnboardingInvite ? 'Pending Onboarding' : formData.fullName,
         email: formData.email,
         phone: isOnboardingInvite ? '' : formData.phone,
-        designation: isOnboardingInvite ? 'Pending' : formData.designation,
+        designation: formData.designation,
         department: formData.department,
         type: formData.type,
         joiningDate: isOnboardingInvite ? new Date().toISOString().split('T')[0] : normalizeDate(formData.joiningDate),
@@ -346,23 +364,71 @@ export default function StaffList() {
             </colgroup>
             <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
               <tr style={{ background: 'var(--primary)' }}>
-                {['Employee', 'Role', 'Type', 'Profile', 'Compensation', 'Actions'].map((h, i) => (
-                  <th key={h} style={{
-                    textAlign: i === 5 ? 'right' : 'left',
-                    color: 'var(--primary-text)',
-                    padding: '10px 16px',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px'
-                  }}>
-                    {h}
+                {[
+                  { label: 'Employee', field: 'fullName' },
+                  { label: 'Role', field: 'designation' },
+                  { label: 'Type', field: 'type' },
+                  { label: 'Profile', field: 'profileCompleted' },
+                  { label: 'Compensation', field: 'createdAt' }, // using createdAt as proxy or disable sort
+                  { label: 'Actions', field: '' }
+                ].map((h, i) => (
+                  <th key={h.label} 
+                      onClick={() => h.field && h.field !== '' ? handleSort(h.field) : null}
+                      style={{
+                        textAlign: i === 5 ? 'right' : 'left',
+                        color: 'var(--primary-text)',
+                        padding: '10px 16px',
+                        fontSize: 10,
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        cursor: h.field ? 'pointer' : 'default'
+                      }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: i === 5 ? 'flex-end' : 'flex-start', gap: 4 }}>
+                      {h.label}
+                      {h.field && sortField === h.field && (
+                        sortOrder === 'asc' ? <ArrowDownAZ size={12} /> : <ArrowUpZA size={12} />
+                      )}
+                      {h.field && sortField !== h.field && (
+                        <ArrowUpDown size={12} style={{ opacity: 0.3 }} />
+                      )}
+                    </div>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {displayStaff.map((person, i) => (
+              {loading && displayStaff.length === 0 ? (
+                Array(5).fill(0).map((_, idx) => (
+                  <tr key={`skel-${idx}`}>
+                    <td style={{ padding: '10px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                        <div>
+                          <div style={{ width: 120, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 6 }} />
+                          <div style={{ width: 80, height: 10, borderRadius: 4, background: 'var(--bg-alt)', animation: 'pulse 1.5s infinite' }} />
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <div style={{ width: 100, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 6 }} />
+                      <div style={{ width: 60, height: 10, borderRadius: 4, background: 'var(--bg-alt)', animation: 'pulse 1.5s infinite' }} />
+                    </td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <div style={{ width: 50, height: 20, borderRadius: 10, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                    </td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <div style={{ width: 70, height: 20, borderRadius: 10, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                    </td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <div style={{ width: 60, height: 10, borderRadius: 4, background: 'var(--bg-alt)', animation: 'pulse 1.5s infinite', marginBottom: 6 }} />
+                      <div style={{ width: 80, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                    </td>
+                    <td style={{ padding: '10px 16px' }} />
+                  </tr>
+                ))
+              ) : (
+                displayStaff.map((person, i) => (
                 <motion.tr
                   key={person._id}
                   initial={{ opacity: 0, y: 10 }}
@@ -420,12 +486,26 @@ export default function StaffList() {
                     </div>
                   </td>
 
-                  <td style={{ padding: '10px 16px', position: 'relative', textAlign: 'right' }}>
+                  <td style={{ padding: '10px 16px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
                       <button
+                        ref={el => { menuBtnRefs.current[person._id] = el; }}
                         onClick={(e) => { 
                           e.stopPropagation(); 
-                          setActiveMenuId(activeMenuId === person._id ? null : person._id); 
+                          if (activeMenuId === person._id) {
+                            setActiveMenuId(null);
+                          } else {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const menuHeight = 220; // approximate dropdown height
+                            const spaceBelow = window.innerHeight - rect.bottom;
+                            const openUp = spaceBelow < menuHeight;
+                            setMenuPos({
+                              top: openUp ? rect.top : rect.bottom + 4,
+                              left: rect.right - 200,
+                              openUp
+                            });
+                            setActiveMenuId(person._id);
+                          }
                         }}
                         className="btn-icon btn-hover"
                         style={{ 
@@ -445,23 +525,25 @@ export default function StaffList() {
                         <MoreVertical size={14} />
                       </button>
 
-                      {activeMenuId === person._id && (
+                      {activeMenuId === person._id && createPortal(
                         <>
                           <div 
-                            style={{ position: 'fixed', inset: 0, zIndex: 110 }} 
+                            style={{ position: 'fixed', inset: 0, zIndex: 9998 }} 
                             onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} 
                           />
                           <div style={{
-                            position: 'absolute',
-                            right: 16,
-                            top: (i >= displayStaff.length - 2 && displayStaff.length > 2) ? 'auto' : '80%',
-                            bottom: (i >= displayStaff.length - 2 && displayStaff.length > 2) ? '80%' : 'auto',
-                            width: 180,
+                            position: 'fixed',
+                            left: Math.max(8, menuPos.left),
+                            ...(menuPos.openUp
+                              ? { bottom: window.innerHeight - menuPos.top + 4 }
+                              : { top: menuPos.top }
+                            ),
+                            width: 200,
                             background: 'var(--surface)',
                             border: '1px solid var(--border)',
                             borderRadius: 10,
-                            boxShadow: 'var(--shadow-lg)',
-                            zIndex: 120,
+                            boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
+                            zIndex: 9999,
                             display: 'flex',
                             flexDirection: 'column',
                             padding: '6px 0',
@@ -492,12 +574,13 @@ export default function StaffList() {
                               🚫 Deactivate Employee
                             </DropdownItem>
                           </div>
-                        </>
+                        </>,
+                        document.body
                       )}
                     </div>
                   </td>
                 </motion.tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>
@@ -524,17 +607,18 @@ export default function StaffList() {
         onClose={() => { setShowModal(false); setEditingStaff(null); resetForm(); }}
         title={editingStaff ? 'Edit Team Member' : 'Add New Team Member'}
         size="md"
+        className="modal-compact"
       >
         <form id="addStaffForm" onSubmit={handleSubmit}>
           <SegmentedControl
             options={TYPE_OPTIONS}
             value={formData.type}
             onChange={(v) => setFormData({ ...formData, type: v })}
-            style={{ marginBottom: 'var(--space-6)' }}
+            style={{ marginBottom: 8 }}
           />
 
           {!editingStaff && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'rgba(88, 131, 59, 0.06)', border: '1px solid rgba(88, 131, 59, 0.12)', borderRadius: 10, marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: 'rgba(88, 131, 59, 0.06)', border: '1px solid rgba(88, 131, 59, 0.12)', borderRadius: 6, marginBottom: 8 }}>
               <input
                 type="checkbox"
                 id="isOnboardingInvite"
@@ -553,15 +637,15 @@ export default function StaffList() {
                     }));
                   }
                 }}
-                style={{ cursor: 'pointer', width: 16, height: 16 }}
+                style={{ cursor: 'pointer', width: 12, height: 12 }}
               />
-              <label htmlFor="isOnboardingInvite" style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', cursor: 'pointer', userSelect: 'none' }}>
-                🚀 Magic Link Invite (Only Email & Department required)
+              <label htmlFor="isOnboardingInvite" style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', cursor: 'pointer', userSelect: 'none' }}>
+                🚀 Magic Link Invite (Only Email, Department & Designation required)
               </label>
             </div>
           )}
 
-          <h4 className="panel-title" style={{ marginBottom: 'var(--space-4)' }}>Basic Information</h4>
+          <h4 className="panel-title">Basic Information</h4>
           <div className="form-grid-2">
             {!isOnboardingInvite && (
               <InputField label="Full Name" name="fullName" value={formData.fullName} onChange={handleInputChange} autoComplete="off" required />
@@ -588,14 +672,12 @@ export default function StaffList() {
               />
             )}
             <InputField label="Department" name="department" value={formData.department} onChange={handleInputChange} autoComplete="off" required />
+            <InputField label="Designation" name="designation" value={formData.designation} onChange={handleInputChange} autoComplete="off" required />
             {!isOnboardingInvite && (
-              <>
-                <InputField label="Designation" name="designation" value={formData.designation} onChange={handleInputChange} autoComplete="off" required />
-                <InputField label="Joining Date" type="date" name="joiningDate" value={formData.joiningDate} onChange={handleInputChange} autoComplete="off" required />
-              </>
+              <InputField label="Joining Date" type="date" name="joiningDate" value={formData.joiningDate} onChange={handleInputChange} autoComplete="off" required />
             )}
             <div style={{ display: 'flex', alignItems: 'flex-end', gridColumn: isOnboardingInvite ? 'span 2' : 'auto' }}>
-              <div style={{ width: '100%', padding: 12, background: 'var(--bg)', borderRadius: 8, fontSize: 12, color: 'var(--text-muted)' }}>
+              <div style={{ width: '100%', padding: '6px 8px', background: 'var(--bg)', borderRadius: 6, fontSize: 9.5, color: 'var(--text-muted)', lineHeight: 1.4 }}>
                 <strong>Onboarding flow:</strong> {isOnboardingInvite ? 'The employee will fill their Full Name, Phone, Address, Bank details, PAN & upload documents from the Team Portal.' : 'PAN, DOB, Address, Bank & Emergency details are filled by the employee from the Team Portal after first login.'}
               </div>
             </div>
@@ -603,18 +685,18 @@ export default function StaffList() {
 
           {!isOnboardingInvite && (
             <>
-              <h4 className="panel-title" style={{ marginTop: 'var(--space-6)', marginBottom: 'var(--space-4)' }}>Salary Structure</h4>
+              <h4 className="panel-title">Salary Structure</h4>
               {formData.type === 'Employee' ? (
                 <div>
                   <InputField label="Annual CTC (in ₹)" type="number" name="annualCTC" value={formData.annualCTC} onChange={handleInputChange} required />
-                  <p className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>
+                  <p className="text-muted" style={{ fontSize: 9.5, marginTop: 0, lineHeight: 1.3 }}>
                     Note: For Regular Employees, the payslip engine derives HRA, PF, etc., automatically from the CTC.
                   </p>
                 </div>
               ) : (
                 <div>
                   <InputField label="Monthly Stipend (Base Salary)" type="number" name="baseSalary" value={formData.baseSalary} onChange={handleInputChange} required />
-                  <p className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>
+                  <p className="text-muted" style={{ fontSize: 9.5, marginTop: 0, lineHeight: 1.3 }}>
                     Note: For Interns, this base amount is used to calculate the final stipend after absence deductions.
                   </p>
                 </div>
@@ -622,10 +704,10 @@ export default function StaffList() {
             </>
           )}
 
-          <div style={{ display: 'flex', gap: 12, marginTop: 'var(--space-6)', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
             <button type="button" onClick={() => { setShowModal(false); setEditingStaff(null); resetForm(); }} className="btn-ghost">Cancel</button>
             <button type="submit" disabled={submitting} className="btn-primary">
-              {submitting ? <Loader2 size={18} className="animate-spin" /> : (editingStaff ? 'Update Team Member' : (isOnboardingInvite ? 'Send Invite Link' : 'Save Team Member'))}
+              {submitting ? <Loader2 size={16} className="animate-spin" /> : (editingStaff ? 'Update Team Member' : (isOnboardingInvite ? 'Send Invite Link' : 'Save Team Member'))}
             </button>
           </div>
         </form>

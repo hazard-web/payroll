@@ -243,8 +243,8 @@ export default function PortalLeave() {
           </div>
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Casual Leave</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>
-              {balanceLoading ? '—' : `${balance.casual} / ${policyLimit.casual}`}
+            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2, minHeight: 24 }}>
+              {balanceLoading ? <div style={{ width: 40, height: 24, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', display: 'inline-block' }} /> : `${balance.casual} / ${policyLimit.casual}`}
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1, fontWeight: 600 }}>Days Available</div>
           </div>
@@ -257,8 +257,8 @@ export default function PortalLeave() {
           </div>
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#f97316', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sick Leave</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>
-              {balanceLoading ? '—' : `${balance.sick} / ${policyLimit.sick}`}
+            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2, minHeight: 24 }}>
+              {balanceLoading ? <div style={{ width: 40, height: 24, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', display: 'inline-block' }} /> : `${balance.sick} / ${policyLimit.sick}`}
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1, fontWeight: 600 }}>Days Available</div>
           </div>
@@ -271,7 +271,9 @@ export default function PortalLeave() {
           </div>
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#a855f7', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Earned Leave</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>8</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2, minHeight: 24 }}>
+              {balanceLoading ? <div style={{ width: 40, height: 24, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', display: 'inline-block' }} /> : 8}
+            </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1, fontWeight: 600 }}>Days Available</div>
           </div>
         </div>
@@ -283,7 +285,9 @@ export default function PortalLeave() {
           </div>
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Leave Taken</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>{leaveTaken}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2, minHeight: 24 }}>
+              {histLoading ? <div style={{ width: 40, height: 24, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', display: 'inline-block' }} /> : leaveTaken}
+            </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1, fontWeight: 600 }}>Days This Year</div>
           </div>
         </div>
@@ -421,9 +425,17 @@ export default function PortalLeave() {
             <div>STATUS</div>
           </div>
 
-          {histLoading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-              <Loader2 size={24} className="animate-spin" style={{ color: 'var(--primary)' }} />
+          {histLoading && filteredHistory.length === 0 ? (
+            <div>
+              {Array(4).fill(0).map((_, i) => (
+                <div key={`skel-h-${i}`} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.8fr 1fr 1.2fr', padding: '14px 20px', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
+                  <div style={{ width: 40, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                  <div style={{ width: 60, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                  <div style={{ width: 100, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                  <div style={{ width: 30, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                  <div style={{ width: 60, height: 18, borderRadius: 10, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                </div>
+              ))}
             </div>
           ) : filteredHistory.length === 0 ? (
             <div style={{ padding: '80px 40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
@@ -434,7 +446,7 @@ export default function PortalLeave() {
           ) : (
             <div style={{ maxHeight: 440, overflowY: 'auto' }}>
               <AnimatePresence initial={false}>
-                {filteredHistory.map(req => {
+                {filteredHistory.map((req, index) => {
                   const statusPill =
                     req.status === 'Approved' ? 'pl-pill-green' :
                     req.status === 'Rejected' ? 'pl-pill-red' : 'pl-pill-orange'
@@ -443,7 +455,7 @@ export default function PortalLeave() {
                   const reqDays = isHalf ? 0.5 : Math.max(1, Math.ceil((new Date(req.endDate) - new Date(req.startDate)) / 86400000) + 1)
                   
                   return (
-                    <motion.div key={req._id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                    <motion.div key={req._id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }}
                       style={{
                         display: 'grid',
                         gridTemplateColumns: '1.2fr 1fr 1.8fr 1fr 1.2fr',
@@ -493,7 +505,7 @@ export default function PortalLeave() {
       }}>
         <Lightbulb size={16} color="#1e40af" style={{ flexShrink: 0 }} />
         <span style={{ fontSize: 12, color: '#1e3a8a', fontWeight: 600 }}>
-          Tip: Your assigned tasks will automatically appear after Punch In or when your manager assigns a task.
+          Tip: Medical certificates are required as attachments for Sick Leaves longer than 3 consecutive days. Check your Leave Balance status before planning custom unpaid leaves.
         </span>
       </div>
     </PageShell>

@@ -635,12 +635,6 @@ export default function PortalDashboard() {
 
   const pendingLeavesCount = useMemo(() => leaves.filter(l => l.status === 'Pending').length, [leaves])
 
-  if (loading) return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: 100 }}>
-      <Loader2 size={40} className="animate-spin" style={{ color: 'var(--primary)' }} />
-    </div>
-  )
-
   return (
     <PageShell style={{ maxWidth: 'none' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -651,191 +645,232 @@ export default function PortalDashboard() {
           gridTemplateColumns: '1.4fr 1fr',
           gap: 20
         }} className="dashboard-row-1">
-          {/* Card A: Welcome */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 16,
-              padding: '24px 28px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 16,
-              boxShadow: 'var(--shadow-sm)',
-              position: 'relative',
-              overflow: 'hidden'
-            }}
-          >
+          {loading ? (
             <div style={{
-              width: 44, height: 44, borderRadius: 12,
-              background: 'rgba(88,131,59,0.1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0
+              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16,
+              padding: '24px 28px', display: 'flex', alignItems: 'center', gap: 16, height: 96, boxSizing: 'border-box'
             }}>
-              {currentTime.getHours() < 12 ? (
-                <CloudSun size={22} color="var(--primary)" />
-              ) : currentTime.getHours() < 17 ? (
-                <Sun size={22} color="var(--primary)" />
-              ) : (
-                <Moon size={22} color="var(--primary)" />
-              )}
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ width: 140, height: 18, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 6 }} />
+                <div style={{ width: 220, height: 12, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>
-                {greeting}, <span style={{ color: 'var(--primary)' }}>{staffUser?.fullName?.split(' ')[0]}</span>! 👋
-              </h1>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, fontWeight: 500 }}>
-                Let's make today productive and meaningful.
-              </p>
-            </div>
-          </motion.div>
+          ) : (
+            /* Card A: Welcome */
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 16,
+                padding: '24px 28px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 16,
+                boxShadow: 'var(--shadow-sm)',
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+            >
+              <div style={{
+                width: 44, height: 44, borderRadius: 12,
+                background: 'rgba(88,131,59,0.1)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                {currentTime.getHours() < 12 ? (
+                  <CloudSun size={22} color="var(--primary)" />
+                ) : currentTime.getHours() < 17 ? (
+                  <Sun size={22} color="var(--primary)" />
+                ) : (
+                  <Moon size={22} color="var(--primary)" />
+                )}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>
+                  {greeting}, <span style={{ color: 'var(--primary)' }}>{staffUser?.fullName?.split(' ')[0]}</span>! 👋
+                </h1>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, fontWeight: 500 }}>
+                  Let's make today productive and meaningful.
+                </p>
+              </div>
+            </motion.div>
+          )}
 
-          {/* Card B: Date/Time & Desk illustration */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 16,
-              padding: '20px 24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 16,
-              boxShadow: 'var(--shadow-sm)',
-              position: 'relative',
-              overflow: 'hidden'
-            }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, zIndex: 2 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Calendar size={14} style={{ color: 'var(--primary)' }} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>
-                  {currentTime.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                </span>
+          {loading ? (
+            <div style={{
+              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16,
+              padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, height: 96, boxSizing: 'border-box'
+            }}>
+              <div>
+                <div style={{ width: 180, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 8 }} />
+                <div style={{ width: 100, height: 18, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 8 }} />
+                <div style={{ width: 120, height: 16, borderRadius: 99, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Clock size={14} style={{ color: '#3b82f6' }} />
-                <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
-                  {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
-                </span>
-              </div>
-              <div style={{ marginTop: 4 }}>
-                <span style={{
-                  fontSize: 10, fontWeight: 800,
-                  padding: '4px 10px', borderRadius: 99,
-                  background: isPunchedIn ? 'rgba(34, 197, 94, 0.1)' : 'rgba(107,114,128,0.08)',
-                  color: isPunchedIn ? '#16a34a' : '#6b7280',
-                  border: `1px solid ${isPunchedIn ? 'rgba(34,197,94,0.15)' : 'rgba(107,114,128,0.1)'}`
-                }}>
-                  Office Status: {isPunchedIn ? 'Working' : 'Open'}
-                </span>
-              </div>
+              <div style={{ width: 90, height: 60, borderRadius: 10, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
             </div>
+          ) : (
+            /* Card B: Date/Time & Desk illustration */
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 16,
+                padding: '20px 24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 16,
+                boxShadow: 'var(--shadow-sm)',
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, zIndex: 2 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Calendar size={14} style={{ color: 'var(--primary)' }} />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>
+                    {currentTime.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Clock size={14} style={{ color: '#3b82f6' }} />
+                  <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
+                    {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                  </span>
+                </div>
+                <div style={{ marginTop: 4 }}>
+                  <span style={{
+                    fontSize: 10, fontWeight: 800,
+                    padding: '4px 10px', borderRadius: 99,
+                    background: isPunchedIn ? 'rgba(34, 197, 94, 0.1)' : 'rgba(107,114,128,0.08)',
+                    color: isPunchedIn ? '#16a34a' : '#6b7280',
+                    border: `1px solid ${isPunchedIn ? 'rgba(34,197,94,0.15)' : 'rgba(107,114,128,0.1)'}`
+                  }}>
+                    Office Status: {isPunchedIn ? 'Working' : 'Open'}
+                  </span>
+                </div>
+              </div>
 
-            {/* dynamic desk illustration vector */}
-            <div style={{ zIndex: 1, marginRight: -10 }} className="dashboard-desk-illustration">
-              <img src={getBannerImage()} alt="Desk Workspace" style={{ maxHeight: 90, width: 'auto', objectFit: 'contain' }} />
-            </div>
-          </motion.div>
+              {/* dynamic desk illustration vector */}
+              <div style={{ zIndex: 1, marginRight: -10 }} className="dashboard-desk-illustration">
+                <img src={getBannerImage()} alt="Desk Workspace" style={{ maxHeight: 90, width: 'auto', objectFit: 'contain' }} />
+              </div>
+            </motion.div>
+          )}
         </div>
 
         {/* ── Row 2: Metrics Row (4 Columns with SVG Sparklines) ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-            gap: 20
-          }}
-        >
-          {/* Card 1: Worked Hours */}
-          <div style={{
-            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
-            padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, boxShadow: 'var(--shadow-sm)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Clock size={18} color="#3b82f6" />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Worked Hours</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>{formatHours(workedHours)}</div>
-              </div>
-            </div>
-            <svg width="55" height="22" viewBox="0 0 55 22" style={{ overflow: 'visible', flexShrink: 0 }}>
-              <path d="M0 16 Q 13.75 6, 27.5 14 T 55 4" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </div>
-
-          {/* Card 2: Attendance */}
-          <div style={{
-            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
-            padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, boxShadow: 'var(--shadow-sm)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(34,197,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <UserCheck size={18} color="#22c55e" />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Attendance</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>Present</div>
-              </div>
-            </div>
-            <svg width="55" height="22" viewBox="0 0 55 22" style={{ overflow: 'visible', flexShrink: 0 }}>
-              <path d="M0 16 Q 13.75 18, 27.5 8 T 55 12" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </div>
-
-          {/* Card 3: Today's Tasks */}
-          <div style={{
-            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
-            padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, boxShadow: 'var(--shadow-sm)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(139,92,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <ListChecks size={18} color="#8b5cf6" />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Today's Tasks</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>{totalTasks}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontWeight: 600 }}>{activeShift?.tasks?.filter(t => t.status === 'Completed').length || 0} Completed</div>
-              </div>
-            </div>
-            <svg width="55" height="22" viewBox="0 0 55 22" style={{ overflow: 'visible', flexShrink: 0 }}>
-              <path d="M0 12 Q 13.75 4, 27.5 18 T 55 6" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </div>
-
-          {/* Card 4: Leave Balance */}
-          <div style={{
-            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
-            padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, boxShadow: 'var(--shadow-sm)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Briefcase size={18} color="#f59e0b" />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Leave Balance</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>
-                  {(staffUser?.leaveBalance?.casual || 0) + (staffUser?.leaveBalance?.sick || 0)} Days
+        {loading ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 20 }}>
+            {Array(4).fill(0).map((_, i) => (
+              <div key={`skel-pm-${i}`} style={{ height: 90, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                  <div style={{ width: 60, height: 12, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontWeight: 600 }}>
-                  {pendingLeavesCount} Pending Requests
+                <div style={{ width: 80, height: 24, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginTop: 4 }} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+              gap: 20
+            }}
+          >
+            {/* Card 1: Worked Hours */}
+            <div style={{
+              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+              padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, boxShadow: 'var(--shadow-sm)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Clock size={18} color="#3b82f6" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Worked Hours</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>{formatHours(workedHours)}</div>
                 </div>
               </div>
+              <svg width="55" height="22" viewBox="0 0 55 22" style={{ overflow: 'visible', flexShrink: 0 }}>
+                <path d="M0 16 Q 13.75 6, 27.5 14 T 55 4" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
+              </svg>
             </div>
-            <svg width="55" height="22" viewBox="0 0 55 22" style={{ overflow: 'visible', flexShrink: 0 }}>
-              <path d="M0 20 Q 13.75 10, 27.5 14 T 55 8" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </div>
-        </motion.div>
+
+            {/* Card 2: Attendance */}
+            <div style={{
+              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+              padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, boxShadow: 'var(--shadow-sm)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(34,197,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <UserCheck size={18} color="#22c55e" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Attendance</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>Present</div>
+                </div>
+              </div>
+              <svg width="55" height="22" viewBox="0 0 55 22" style={{ overflow: 'visible', flexShrink: 0 }}>
+                <path d="M0 16 Q 13.75 18, 27.5 8 T 55 12" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </div>
+
+            {/* Card 3: Today's Tasks */}
+            <div style={{
+              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+              padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, boxShadow: 'var(--shadow-sm)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(139,92,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <ListChecks size={18} color="#8b5cf6" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Today's Tasks</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>{totalTasks}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontWeight: 600 }}>{activeShift?.tasks?.filter(t => t.status === 'Completed').length || 0} Completed</div>
+                </div>
+              </div>
+              <svg width="55" height="22" viewBox="0 0 55 22" style={{ overflow: 'visible', flexShrink: 0 }}>
+                <path d="M0 12 Q 13.75 4, 27.5 18 T 55 6" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </div>
+
+            {/* Card 4: Leave Balance */}
+            <div style={{
+              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+              padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, boxShadow: 'var(--shadow-sm)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Briefcase size={18} color="#f59e0b" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Leave Balance</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>
+                    {(staffUser?.leaveBalance?.casual || 0) + (staffUser?.leaveBalance?.sick || 0)} Days
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontWeight: 600 }}>
+                    {pendingLeavesCount} Pending Requests
+                  </div>
+                </div>
+              </div>
+              <svg width="55" height="22" viewBox="0 0 55 22" style={{ overflow: 'visible', flexShrink: 0 }}>
+                <path d="M0 20 Q 13.75 10, 27.5 14 T 55 8" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </div>
+          </motion.div>
+        )}
 
         {/* ── Row 3: Daily Activity Widgets (Attendance Clock, Tasks, Schedule) ── */}
         <div style={{
@@ -845,339 +880,385 @@ export default function PortalDashboard() {
         }} className="dashboard-row-3">
 
           {/* Column 1: Today's Attendance circular tracker */}
-          <div style={{
-            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
-            padding: 20, boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 16,
-            height: 330, boxSizing: 'border-box'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Today's Attendance</span>
-              <span style={{
-                fontSize: 9, fontWeight: 800, padding: '3px 8px', borderRadius: 99,
-                background: isPunchedIn ? 'rgba(34,197,94,0.1)' : 'rgba(107,114,128,0.08)',
-                color: isPunchedIn ? '#16a34a' : 'var(--text-muted)'
-              }}>
-                {isPunchedIn ? 'Currently Working' : 'Not Punched In'}
-              </span>
+          {loading ? (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, height: 330, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 16, boxSizing: 'border-box' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ width: 100, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                <div style={{ width: 80, height: 14, borderRadius: 99, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1 }}>
+                <div style={{ width: 124, height: 124, borderRadius: '50%', background: 'var(--border)', animation: 'pulse 1.5s infinite', flexShrink: 0 }} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {Array(4).fill(0).map((_, i) => (
+                    <div key={`skel-att-${i}`} style={{ height: 24, borderRadius: 6, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                  ))}
+                </div>
+              </div>
+              <div style={{ height: 38, borderRadius: 8, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
             </div>
+          ) : (
+            <div style={{
+              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+              padding: 20, boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 16,
+              height: 330, boxSizing: 'border-box'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Today's Attendance</span>
+                <span style={{
+                  fontSize: 9, fontWeight: 800, padding: '3px 8px', borderRadius: 99,
+                  background: isPunchedIn ? 'rgba(34,197,94,0.1)' : 'rgba(107,114,128,0.08)',
+                  color: isPunchedIn ? '#16a34a' : 'var(--text-muted)'
+                }}>
+                  {isPunchedIn ? 'Currently Working' : 'Not Punched In'}
+                </span>
+              </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1 }}>
-              {/* Circular Gauge visual */}
-              <div style={{ position: 'relative', width: 124, height: 124, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="124" height="124" viewBox="0 0 124 124">
-                  <circle cx="62" cy="62" r="54" fill="none" stroke="var(--border)" strokeWidth="6" />
-                  <circle
-                    cx="62" cy="62" r="54" fill="none"
-                    stroke={isPunchedIn ? 'var(--primary)' : '#6b7280'} strokeWidth="6"
-                    strokeDasharray={2 * Math.PI * 54}
-                    strokeDashoffset={2 * Math.PI * 54 - (isPunchedIn ? 0.65 : 0.05) * 2 * Math.PI * 54}
-                    strokeLinecap="round"
-                    transform="rotate(-90 62 62)"
-                    style={{ transition: 'stroke-dashoffset 0.35s' }}
-                  />
-                </svg>
-                <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
-                    {isPunchedIn ? currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--:--'}
-                  </span>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                    {isPunchedIn ? 'Punched In' : 'Punched Out'}
-                  </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 20, flex: 1 }}>
+                {/* Circular Gauge visual */}
+                <div style={{ position: 'relative', width: 124, height: 124, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="124" height="124" viewBox="0 0 124 124">
+                    <circle cx="62" cy="62" r="54" fill="none" stroke="var(--border)" strokeWidth="6" />
+                    <circle
+                      cx="62" cy="62" r="54" fill="none"
+                      stroke={isPunchedIn ? 'var(--primary)' : '#6b7280'} strokeWidth="6"
+                      strokeDasharray={2 * Math.PI * 54}
+                      strokeDashoffset={2 * Math.PI * 54 - (isPunchedIn ? 0.65 : 0.05) * 2 * Math.PI * 54}
+                      strokeLinecap="round"
+                      transform="rotate(-90 62 62)"
+                      style={{ transition: 'stroke-dashoffset 0.35s' }}
+                    />
+                  </svg>
+                  <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
+                      {isPunchedIn ? currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--:--'}
+                    </span>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                      {isPunchedIn ? 'Punched In' : 'Punched Out'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Status parameters */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6, flex: 1 }}>
+                  {[
+                    { label: 'First Punch In', value: formatTimeLabel(firstPunchIn) },
+                    { label: 'Last Punch Out', value: formatTimeLabel(lastPunchOut) },
+                    { label: 'Worked Hours', value: formatHours(workedHours) },
+                    { label: 'Current Status', value: isPunchedIn ? 'Working' : 'Offline', isGreen: isPunchedIn }
+                  ].map((stat, sIdx) => (
+                    <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--border)', fontSize: 10 }}>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{stat.label}</span>
+                      <span style={{ color: stat.isGreen ? '#16a34a' : 'var(--text)', fontWeight: 800 }}>{stat.value}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Status parameters */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6, flex: 1 }}>
-                {[
-                  { label: 'First Punch In', value: formatTimeLabel(firstPunchIn) },
-                  { label: 'Last Punch Out', value: formatTimeLabel(lastPunchOut) },
-                  { label: 'Worked Hours', value: formatHours(workedHours) },
-                  { label: 'Current Status', value: isPunchedIn ? 'Working' : 'Offline', isGreen: isPunchedIn }
-                ].map((stat, sIdx) => (
-                  <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--border)', fontSize: 10 }}>
-                    <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{stat.label}</span>
-                    <span style={{ color: stat.isGreen ? '#16a34a' : 'var(--text)', fontWeight: 800 }}>{stat.value}</span>
-                  </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <motion.button
+                  whileHover={{ scale: 1.005 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => {
+                    if (isPunchedIn) {
+                      openTaskModal('out')
+                    } else {
+                      const hasPunchedToday = activeShift && activeShift.sessions && activeShift.sessions.length > 0
+                      if (hasPunchedToday) {
+                        handleDirectPunchIn()
+                      } else {
+                        openTaskModal('in')
+                      }
+                    }
+                  }}
+                  disabled={actionLoading || taskSubmitting}
+                  style={{
+                    width: '100%', height: 38, borderRadius: 8, border: 'none', color: 'white',
+                    background: isPunchedIn ? '#dc2626' : 'var(--primary)',
+                    cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6
+                  }}
+                >
+                  {actionLoading || taskSubmitting ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : isPunchedIn ? (
+                    <><LogOut size={14} /> Punch Out</>
+                  ) : (
+                    <><LogIn size={14} /> Punch In</>
+                  )}
+                </motion.button>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 9, color: 'var(--text-muted)', fontWeight: 600 }}>
+                  <Clock size={10} /> You will be automatically logged out at 11:59 PM
+                </div>
+              </div>
+            </div>
+          )}
+
+          {loading ? (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, height: 330, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 16, boxSizing: 'border-box' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ width: 100, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                <div style={{ width: 80, height: 28, borderRadius: 8, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+                {Array(2).fill(0).map((_, i) => (
+                  <div key={`skel-task-${i}`} style={{ height: 60, borderRadius: 10, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
                 ))}
               </div>
             </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <motion.button
-                whileHover={{ scale: 1.005 }}
-                whileTap={{ scale: 0.99 }}
-                onClick={() => {
-                  if (isPunchedIn) {
-                    openTaskModal('out')
-                  } else {
-                    const hasPunchedToday = activeShift && activeShift.sessions && activeShift.sessions.length > 0
-                    if (hasPunchedToday) {
-                      handleDirectPunchIn()
-                    } else {
-                      openTaskModal('in')
-                    }
-                  }
-                }}
-                disabled={actionLoading || taskSubmitting}
-                style={{
-                  width: '100%', height: 38, borderRadius: 8, border: 'none', color: 'white',
-                  background: isPunchedIn ? '#dc2626' : 'var(--primary)',
-                  cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6
-                }}
-              >
-                {actionLoading || taskSubmitting ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : isPunchedIn ? (
-                  <><LogOut size={14} /> Punch Out</>
-                ) : (
-                  <><LogIn size={14} /> Punch In</>
-                )}
-              </motion.button>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 9, color: 'var(--text-muted)', fontWeight: 600 }}>
-                <Clock size={10} /> You will be automatically logged out at 11:59 PM
+          ) : (
+            <div style={{
+              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+              padding: 20, boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 14,
+              height: 330, boxSizing: 'border-box', minWidth: 0
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Today's Tasks</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button 
+                    onClick={() => openTaskModal(isPunchedIn ? 'add' : 'in')}
+                    style={{ 
+                      border: 'none', background: 'rgba(88,131,59,0.08)', color: 'var(--primary)',
+                      borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 800, cursor: 'pointer',
+                      display: 'inline-flex', alignItems: 'center', gap: 4
+                    }}
+                  >
+                    <Plus size={11} /> Add Task
+                  </button>
+                  <span style={{ fontSize: 10, fontWeight: 800, background: 'rgba(88,131,59,0.08)', color: 'var(--primary)', padding: '2px 8px', borderRadius: 99 }}>
+                    {totalTasks} Tasks
+                  </span>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div style={{
-            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
-            padding: 20, boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 14,
-            height: 330, boxSizing: 'border-box', minWidth: 0
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Today's Tasks</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <button 
-                  onClick={() => openTaskModal(isPunchedIn ? 'add' : 'in')}
-                  style={{ 
-                    border: 'none', background: 'rgba(88,131,59,0.08)', color: 'var(--primary)',
-                    borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 800, cursor: 'pointer',
-                    display: 'inline-flex', alignItems: 'center', gap: 4
-                  }}
-                >
-                  <Plus size={11} /> Add Task
-                </button>
-                <span style={{ fontSize: 10, fontWeight: 800, background: 'rgba(88,131,59,0.08)', color: 'var(--primary)', padding: '2px 8px', borderRadius: 99 }}>
-                  {totalTasks} Tasks
+              <div style={{ display: 'grid', gap: 6, flex: 1, alignContent: 'start', marginTop: 4, overflowY: 'auto', paddingRight: 2 }}>
+                {activeShift && Array.isArray(activeShift.tasks) && activeShift.tasks.length > 0 ? (
+                  activeShift.tasks.map((task, idx) => {
+                    const done = task.status === 'Completed'
+                    const statusStyle = getTaskStatusStyle(task.status)
+
+                    return (
+                      <div 
+                        key={task._id || idx} 
+                        onClick={() => navigate('/portal/tasks')}
+                        title="Click to manage task in My Tasks"
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'space-between', 
+                          gap: 8, 
+                          padding: '6px 10px', 
+                          borderRadius: 6, 
+                          background: 'var(--bg)', 
+                          border: '1px solid var(--border)',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(156,163,175,0.05)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'var(--bg)'}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+                          <span style={{
+                            width: 13, height: 13, borderRadius: 3, border: `1.5px solid ${done ? 'var(--primary)' : 'var(--border)'}`,
+                            background: done ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                          }}>
+                            {done && <UserCheck size={8} color="white" />}
+                          </span>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>
+                              {task.project || 'General'}
+                            </div>
+                            {task.description && (
+                              <div style={{ fontSize: 9, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>
+                                {task.description.split(' ').slice(0, 3).join(' ') + '...'}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <span style={{
+                          fontSize: 7.5, fontWeight: 800, padding: '1px 5px', borderRadius: 4,
+                          background: statusStyle.bg, color: statusStyle.color, border: `1px solid ${statusStyle.color}40`, flexShrink: 0
+                        }}>
+                          {task.status}
+                        </span>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '24px 10px', flex: 1 }}>
+                    <span style={{ fontSize: 20, marginBottom: 6 }}>📋</span>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>No tasks for today</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-light)', marginTop: 2 }}>Punch in or add tasks to get started.</div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+                <span onClick={() => navigate('/portal/tasks')} style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', cursor: 'pointer' }}>
+                  View all tasks →
                 </span>
               </div>
             </div>
-
-            <div style={{ display: 'grid', gap: 6, flex: 1, alignContent: 'start', marginTop: 4, overflowY: 'auto', paddingRight: 2 }}>
-              {activeShift && Array.isArray(activeShift.tasks) && activeShift.tasks.length > 0 ? (
-                activeShift.tasks.map((task, idx) => {
-                  const done = task.status === 'Completed'
-                  const statusStyle = getTaskStatusStyle(task.status)
-
-                  return (
-                    <div 
-                      key={task._id || idx} 
-                      onClick={() => navigate('/portal/tasks')}
-                      title="Click to manage task in My Tasks"
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'space-between', 
-                        gap: 8, 
-                        padding: '6px 10px', 
-                        borderRadius: 6, 
-                        background: 'var(--bg)', 
-                        border: '1px solid var(--border)',
-                        cursor: 'pointer',
-                        transition: 'background 0.2s'
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(156,163,175,0.05)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'var(--bg)'}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
-                        <span style={{
-                          width: 13, height: 13, borderRadius: 3, border: `1.5px solid ${done ? 'var(--primary)' : 'var(--border)'}`,
-                          background: done ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                        }}>
-                          {done && <UserCheck size={8} color="white" />}
-                        </span>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>
-                            {task.project || 'General'}
-                          </div>
-                          {task.description && (
-                            <div style={{ fontSize: 9, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>
-                              {task.description.split(' ').slice(0, 3).join(' ') + '...'}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <span style={{
-                        fontSize: 7.5, fontWeight: 800, padding: '1px 5px', borderRadius: 4,
-                        background: statusStyle.bg, color: statusStyle.color, border: `1px solid ${statusStyle.color}40`, flexShrink: 0
-                      }}>
-                        {task.status}
-                      </span>
-                    </div>
-                  )
-                })
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '24px 10px', flex: 1 }}>
-                  <span style={{ fontSize: 20, marginBottom: 6 }}>📋</span>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>No tasks for today</div>
-                  <div style={{ fontSize: 10, color: 'var(--text-light)', marginTop: 2 }}>Punch in or add tasks to get started.</div>
-                </div>
-              )}
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-              <span onClick={() => navigate('/portal/tasks')} style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', cursor: 'pointer' }}>
-                View all tasks →
-              </span>
-            </div>
-          </div>
+          )}
 
           {/* Column 3: Today's Schedule events timeline */}
-          <div style={{
-            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
-            padding: 20, boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', gap: 14,
-            height: 330, boxSizing: 'border-box', minWidth: 0
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Today's Schedule</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button 
-                  onClick={() => setShowAddEvent(!showAddEvent)}
-                  style={{ 
-                    border: 'none', background: 'rgba(88,131,59,0.08)', color: 'var(--primary)',
-                    borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 800, cursor: 'pointer',
-                    display: 'inline-flex', alignItems: 'center', gap: 4
-                  }}
-                >
-                  <Plus size={11} /> Add Event
-                </button>
+          {loading ? (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, height: 330, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 16, boxSizing: 'border-box' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ width: 100, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                <div style={{ width: 60, height: 28, borderRadius: 8, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+                {Array(3).fill(0).map((_, i) => (
+                  <div key={`skel-sch-${i}`} style={{ height: 50, borderRadius: 10, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                ))}
               </div>
             </div>
-
-            {/* Inline Add Event Form */}
-            {showAddEvent && (
-              <div style={{ padding: 12, background: 'var(--bg)', borderRadius: 10, border: '1px solid var(--border)', display: 'grid', gap: 8 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>Schedule New Event</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 6 }}>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. 10:30 AM" 
-                    value={newEvent.time} 
-                    onChange={e => setNewEvent({ ...newEvent, time: e.target.value })} 
-                    style={{ padding: '6px 8px', fontSize: 11, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
-                  />
-                  <input 
-                    type="text" 
-                    placeholder="Event Title" 
-                    value={newEvent.label} 
-                    onChange={e => setNewEvent({ ...newEvent, label: e.target.value })} 
-                    style={{ padding: '6px 8px', fontSize: 11, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
-                  />
-                </div>
-                <input 
-                  type="text" 
-                  placeholder="Short Description" 
-                  value={newEvent.desc} 
-                  onChange={e => setNewEvent({ ...newEvent, desc: e.target.value })} 
-                  style={{ padding: '6px 8px', fontSize: 11, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
-                />
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    {['#22c55e', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444'].map(c => (
-                      <span 
-                        key={c} 
-                        onClick={() => setNewEvent({ ...newEvent, dot: c })}
-                        style={{ 
-                          width: 14, height: 14, borderRadius: '50%', background: c, cursor: 'pointer',
-                          border: newEvent.dot === c ? '2px solid var(--text)' : 'none', boxSizing: 'border-box'
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button 
-                      onClick={() => setShowAddEvent(false)} 
-                      style={{ padding: '4px 10px', fontSize: 10, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' }}
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      onClick={() => {
-                        if (!newEvent.time || !newEvent.label) {
-                          toast.error('Time and Title are required!')
-                          return
-                        }
-                        setScheduleList([...scheduleList, { ...newEvent, checked: false }])
-                        setNewEvent({ time: '', label: '', desc: '', dot: '#22c55e' })
-                        setShowAddEvent(false)
-                        toast.success('Event added to today\'s schedule!')
-                      }}
-                      style={{ padding: '4px 10px', fontSize: 10, borderRadius: 6, border: 'none', background: 'var(--primary)', color: 'white', fontWeight: 700, cursor: 'pointer' }}
-                    >
-                      Add
-                    </button>
-                  </div>
+          ) : (
+            <div style={{
+              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+              padding: 20, boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', gap: 14,
+              height: 330, boxSizing: 'border-box', minWidth: 0
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Today's Schedule</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button 
+                    onClick={() => setShowAddEvent(!showAddEvent)}
+                    style={{ 
+                      border: 'none', background: 'rgba(88,131,59,0.08)', color: 'var(--primary)',
+                      borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 800, cursor: 'pointer',
+                      display: 'inline-flex', alignItems: 'center', gap: 4
+                    }}
+                  >
+                    <Plus size={11} /> Add Event
+                  </button>
                 </div>
               </div>
-            )}
 
-            <div style={{ display: 'grid', gap: 8, flex: 1, alignContent: 'start', marginTop: 4, overflowY: 'auto', paddingRight: 2 }}>
-              {scheduleList.length > 0 ? (
-                scheduleList.map((ev, eIdx) => {
-                  const getIcon = (dotColor) => {
-                    if (dotColor === '#3b82f6') return Coffee
-                    if (dotColor === '#8b5cf6') return Video
-                    if (dotColor === '#f59e0b') return FileText
-                    return Users
-                  }
-                  const Icon = getIcon(ev.dot)
-                  const evBg = ev.dot === '#22c55e' ? 'rgba(34,197,94,0.08)' : ev.dot === '#3b82f6' ? 'rgba(59,130,246,0.08)' : ev.dot === '#8b5cf6' ? 'rgba(139,92,246,0.08)' : ev.dot === '#f59e0b' ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)'
-                  
-                  return (
-                    <div key={eIdx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--border)', gap: 8, opacity: ev.checked ? 0.65 : 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-                        <input 
-                          type="checkbox" 
-                          checked={!!ev.checked} 
-                          onChange={() => {
-                            setScheduleList(scheduleList.map((item, idx) => idx === eIdx ? { ...item, checked: !item.checked } : item))
+              {/* Inline Add Event Form */}
+              {showAddEvent && (
+                <div style={{ padding: 12, background: 'var(--bg)', borderRadius: 10, border: '1px solid var(--border)', display: 'grid', gap: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>Schedule New Event</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 6 }}>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. 10:30 AM" 
+                      value={newEvent.time} 
+                      onChange={e => setNewEvent({ ...newEvent, time: e.target.value })} 
+                      style={{ padding: '6px 8px', fontSize: 11, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
+                    />
+                    <input 
+                      type="text" 
+                      placeholder="Event Title" 
+                      value={newEvent.label} 
+                      onChange={e => setNewEvent({ ...newEvent, label: e.target.value })} 
+                      style={{ padding: '6px 8px', fontSize: 11, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
+                    />
+                  </div>
+                  <input 
+                    type="text" 
+                    placeholder="Short Description" 
+                    value={newEvent.desc} 
+                    onChange={e => setNewEvent({ ...newEvent, desc: e.target.value })} 
+                    style={{ padding: '6px 8px', fontSize: 11, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {['#22c55e', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444'].map(c => (
+                        <span 
+                          key={c} 
+                          onClick={() => setNewEvent({ ...newEvent, dot: c })}
+                          style={{ 
+                            width: 14, height: 14, borderRadius: '50%', background: c, cursor: 'pointer',
+                            border: newEvent.dot === c ? '2px solid var(--text)' : 'none', boxSizing: 'border-box'
                           }}
-                          style={{ cursor: 'pointer', width: 13, height: 13 }}
                         />
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: ev.dot, flexShrink: 0 }} />
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: ev.checked ? 'line-through' : 'none' }}>{ev.label}</div>
-                          <div style={{ fontSize: 9, color: 'var(--text-muted)', fontWeight: 500, marginTop: 1 }}>{ev.desc}</div>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                        <span style={{ fontSize: 9, color: 'var(--text-muted)', fontWeight: 700 }}>{ev.time}</span>
-                        <div style={{ width: 24, height: 24, borderRadius: 6, background: evBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Icon size={12} color={ev.dot} />
-                        </div>
-                        <button 
-                          onClick={() => {
-                            setScheduleList(scheduleList.filter((_, idx) => idx !== eIdx))
-                            toast.success('Event removed')
-                          }}
-                          style={{ border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px 4px' }}
-                          title="Remove Event"
-                        >
-                          <X size={10} />
-                        </button>
-                      </div>
+                      ))}
                     </div>
-                  )
-                })
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 10px', textAlign: 'center', flex: 1 }}>
-                  <span style={{ fontSize: 18, marginBottom: 4 }}>📅</span>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>Schedule is empty</div>
-                  <div style={{ fontSize: 9, color: 'var(--text-light)', marginTop: 2 }}>Click "+ Add Event" to plan your day.</div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button 
+                        onClick={() => setShowAddEvent(false)} 
+                        style={{ padding: '4px 10px', fontSize: 10, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' }}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (!newEvent.time || !newEvent.label) {
+                            toast.error('Time and Title are required!')
+                            return
+                          }
+                          setScheduleList([...scheduleList, { ...newEvent, checked: false }])
+                          setNewEvent({ time: '', label: '', desc: '', dot: '#22c55e' })
+                          setShowAddEvent(false)
+                          toast.success('Event added to today\'s schedule!')
+                        }}
+                        style={{ padding: '4px 10px', fontSize: 10, borderRadius: 6, border: 'none', background: 'var(--primary)', color: 'white', fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
+
+              <div style={{ display: 'grid', gap: 8, flex: 1, alignContent: 'start', marginTop: 4, overflowY: 'auto', paddingRight: 2 }}>
+                {scheduleList.length > 0 ? (
+                  scheduleList.map((ev, eIdx) => {
+                    const getIcon = (dotColor) => {
+                      if (dotColor === '#3b82f6') return Coffee
+                      if (dotColor === '#8b5cf6') return Video
+                      if (dotColor === '#f59e0b') return FileText
+                      return Users
+                    }
+                    const Icon = getIcon(ev.dot)
+                    const evBg = ev.dot === '#22c55e' ? 'rgba(34,197,94,0.08)' : ev.dot === '#3b82f6' ? 'rgba(59,130,246,0.08)' : ev.dot === '#8b5cf6' ? 'rgba(139,92,246,0.08)' : ev.dot === '#f59e0b' ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)'
+                    
+                    return (
+                      <div key={eIdx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--border)', gap: 8, opacity: ev.checked ? 0.65 : 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                          <input 
+                            type="checkbox" 
+                            checked={!!ev.checked} 
+                            onChange={() => {
+                              setScheduleList(scheduleList.map((item, idx) => idx === eIdx ? { ...item, checked: !item.checked } : item))
+                            }}
+                            style={{ cursor: 'pointer', width: 13, height: 13 }}
+                          />
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: ev.dot, flexShrink: 0 }} />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: ev.checked ? 'line-through' : 'none' }}>{ev.label}</div>
+                            <div style={{ fontSize: 9, color: 'var(--text-muted)', fontWeight: 500, marginTop: 1 }}>{ev.desc}</div>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                          <span style={{ fontSize: 9, color: 'var(--text-muted)', fontWeight: 700 }}>{ev.time}</span>
+                          <div style={{ width: 24, height: 24, borderRadius: 6, background: evBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Icon size={12} color={ev.dot} />
+                          </div>
+                          <button 
+                            onClick={() => {
+                              setScheduleList(scheduleList.filter((_, idx) => idx !== eIdx))
+                              toast.success('Event removed')
+                            }}
+                            style={{ border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px 4px' }}
+                            title="Remove Event"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 10px', textAlign: 'center', flex: 1 }}>
+                    <span style={{ fontSize: 18, marginBottom: 4 }}>📅</span>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>Schedule is empty</div>
+                    <div style={{ fontSize: 9, color: 'var(--text-light)', marginTop: 2 }}>Click "+ Add Event" to plan your day.</div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
 

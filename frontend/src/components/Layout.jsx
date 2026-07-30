@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import PageTransition from './PageTransition'
 import { motion, AnimatePresence } from 'framer-motion'
+import GlobalSearch from './GlobalSearch'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -364,6 +365,7 @@ export default function Layout() {
 
         {/* Right side of header: Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, paddingRight: 'clamp(16px, 4vw, 32px)' }}>
+          <GlobalSearch portal="admin" />
 
           {deferredPrompt && (
             <button
@@ -587,27 +589,20 @@ export default function Layout() {
             )}
           </div>
 
-          {/* Theme toggle icon button (replaces profile dropdown) */}
-          <div style={{ display: 'flex', background: 'var(--bg)', borderRadius: 8, padding: 2, border: '1px solid var(--border)' }}>
-            {[
-              { id: 'light', label: 'L' },
-              { id: 'dark', label: 'D' }
-            ].map(t => (
-              <button
-                key={t.id}
-                onClick={() => setTheme(t.id)}
-                style={{
-                  background: theme === t.id ? 'var(--surface)' : 'transparent',
-                  color: theme === t.id ? 'var(--primary)' : 'var(--text-muted)',
-                  border: 'none', borderRadius: 6, padding: '4px 10px',
-                  cursor: 'pointer', fontSize: 11, fontWeight: 700, transition: 'all 0.2s'
-                }}
-                title={t.id === 'light' ? 'Light Mode' : 'Dark Mode'}
-              >
-                {t.id === 'light' ? <Sun size={14} /> : <Moon size={14} />}
-              </button>
-            ))}
-          </div>
+          {/* Theme toggle single button */}
+          <button
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+            className="btn-hover"
+            style={{
+              background: 'var(--bg)', border: '1px solid var(--border)',
+              color: 'var(--text)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 38, height: 38, borderRadius: 10, transition: 'all 0.2s'
+            }}
+            title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+          >
+            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
         </div>
       </header>
 

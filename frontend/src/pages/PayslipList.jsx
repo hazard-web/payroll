@@ -8,6 +8,7 @@ import toast from 'react-hot-toast'
 import api from '../api'
 import PageShell, { PageHeader } from '../components/PageShell'
 import { Avatar, EmptyState, SearchInput, Modal } from '../components/UI'
+import { motion } from 'framer-motion'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const CURRENT_YEAR = new Date().getFullYear()
@@ -237,14 +238,32 @@ export default function PayslipList() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {loading && payslips.length === 0 ? (
                 [...Array(5)].map((_, i) => (
-                  <tr key={i}>
-                    {[...Array(5)].map((_, j) => (
-                      <td key={j} style={{ padding: '10px 16px' }}>
-                        <div className="skeleton" style={{ height: 18, width: '80%', borderRadius: 6 }} />
-                      </td>
-                    ))}
+                  <tr key={`skel-pl-${i}`} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                        <div>
+                          <div style={{ width: 120, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 6 }} />
+                          <div style={{ width: 80, height: 10, borderRadius: 4, background: 'var(--bg-alt)', animation: 'pulse 1.5s infinite' }} />
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ width: 60, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 6 }} />
+                      <div style={{ width: 45, height: 10, borderRadius: 4, background: 'var(--bg-alt)', animation: 'pulse 1.5s infinite' }} />
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ width: 70, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 6 }} />
+                      <div style={{ width: 50, height: 10, borderRadius: 4, background: 'var(--bg-alt)', animation: 'pulse 1.5s infinite' }} />
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ width: 65, height: 18, borderRadius: 10, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginLeft: 'auto' }} />
+                    </td>
                   </tr>
                 ))
               ) : payslips.length === 0 ? (
@@ -261,10 +280,14 @@ export default function PayslipList() {
                 </tr>
               ) : (
                 payslips.map((p, i) => (
-                  <tr
+                  <motion.tr
                     key={p._id}
                     onClick={() => navigate(`/payslips/${p._id}`)}
-                    style={{ cursor: 'pointer' }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.03 }}
+                    style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                    className="table-row-hover"
                   >
                     {/* Employee Identity */}
                     <td style={{ padding: '10px 16px' }}>
@@ -490,7 +513,7 @@ export default function PayslipList() {
                         </div>
                       )}
                     </td>
-                  </tr>
+                  </motion.tr>
                 ))
               )}
             </tbody>

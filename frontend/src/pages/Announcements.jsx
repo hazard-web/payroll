@@ -142,8 +142,6 @@ export default function Announcements({ isSettings }) {
     return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
   }
 
-  if (loading) return <PageLoading label="Loading announcements…" />
-
   const content = (
     <>
       {isSettings ? (
@@ -168,14 +166,29 @@ export default function Announcements({ isSettings }) {
         />
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
-        <StatCard icon={Radio} label="TOTAL" value={announcements.length} color="#58833b" />
-        <StatCard icon={Eye} label="ACTIVE" value={announcements.filter(a => a.isActive).length} color="#1d4ed8" />
-        <StatCard icon={X} label="INACTIVE" value={announcements.filter(a => !a.isActive).length} color="#6b7280" />
-        <StatCard icon={Zap} label="URGENT" value={announcements.filter(a => a.priority === 'Urgent').length} color="#dc2626" />
-      </div>
+      {loading && announcements.length === 0 ? (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
+            {Array(4).fill(0).map((_, i) => (
+              <div key={`skel-astat-${i}`} style={{ height: 80, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', animation: 'pulse 1.5s infinite' }} />
+            ))}
+          </div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {Array(3).fill(0).map((_, i) => (
+              <div key={`skel-acard-${i}`} style={{ height: 90, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', animation: 'pulse 1.5s infinite' }} />
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
+            <StatCard icon={Radio} label="TOTAL" value={announcements.length} color="#58833b" />
+            <StatCard icon={Eye} label="ACTIVE" value={announcements.filter(a => a.isActive).length} color="#1d4ed8" />
+            <StatCard icon={X} label="INACTIVE" value={announcements.filter(a => !a.isActive).length} color="#6b7280" />
+            <StatCard icon={Zap} label="URGENT" value={announcements.filter(a => a.priority === 'Urgent').length} color="#dc2626" />
+          </div>
 
-      {/* Announcement list */}
+          {/* Announcement list */}
       {announcements.length === 0 ? (
         <EmptyState
           icon={Radio}
@@ -283,6 +296,8 @@ export default function Announcements({ isSettings }) {
             )
           })}
         </div>
+      )}
+        </>
       )}
 
       {/* Create / Edit Modal */}

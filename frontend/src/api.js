@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const PROD_BACKEND = 'https://payslip-gen-backend.vercel.app'
+const PROD_BACKEND = 'https://payroll-portal-bg9c.vercel.app'
 const API_BASE = import.meta.env.DEV
   ? ''
   : (import.meta.env.VITE_API_BASE_URL || PROD_BACKEND).replace(/\/+$/, '')

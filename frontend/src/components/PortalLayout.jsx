@@ -8,6 +8,7 @@ import { toast } from 'react-hot-toast'
 import { useStaffPortal } from '../context/StaffPortalContext'
 import { useTheme } from '../context/ThemeContext'
 import { motion, AnimatePresence } from 'framer-motion'
+import GlobalSearch from './GlobalSearch'
 import api from '../api'
 import PageTransition from './PageTransition'
 
@@ -466,6 +467,7 @@ export default function PortalLayout() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <GlobalSearch portal="team" />
             {/* Announcement Megaphone in Red */}
             <div style={{ position: 'relative' }}>
               <button 
@@ -679,31 +681,20 @@ export default function PortalLayout() {
             )}
             </div>
 
-            {/* Theme Control System */}
-            <div style={{ 
-              display: 'flex', background: 'var(--bg)', borderRadius: 6, 
-              padding: 3, border: '1.5px solid var(--border)' 
-            }}>
-              {[
-                { id: 'light', icon: Sun, label: 'Light' },
-                { id: 'dark', icon: Moon, label: 'Dark' }
-              ].map(t => (
-                <button 
-                  key={t.id}
-                  onClick={() => setTheme(t.id)}
-                  style={{
-                    background: theme === t.id ? 'var(--bg)' : 'transparent',
-                    color: theme === t.id ? 'var(--primary)' : 'var(--primary)',
-                    boxShadow: theme === t.id ? 'var(--shadow-sm)' : 'none',
-                    border: 'none', borderRadius: 11, padding: '7px 14px',
-                    display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-                    fontSize: 12, fontWeight: 700, transition: 'all 0.2s'
-                  }}
-                >
-                  <t.icon size={15} strokeWidth={2.5} />
-                </button>
-              ))}
-            </div>
+            {/* Theme toggle single button */}
+            <button
+              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+              className="btn-hover"
+              style={{
+                background: 'var(--bg)', border: '1px solid var(--border)',
+                color: 'var(--text)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 40, height: 40, borderRadius: 12, transition: 'all 0.2s'
+              }}
+              title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+            >
+              {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+            </button>
           </div>
         </header>
 

@@ -18,6 +18,7 @@ const notificationsRoutes = require('./routes/notifications');
 const supportRoutes = require('./routes/support');
 const announcementsRoutes = require('./routes/announcements');
 const assignedTasksRoutes = require('./routes/assignedTasks');
+const searchRoutes = require('./routes/search');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -109,6 +110,7 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/announcements', announcementsRoutes);
 app.use('/api/assigned-tasks', assignedTasksRoutes);
+app.use('/api/search', searchRoutes);
 
 const path = require('path');
 

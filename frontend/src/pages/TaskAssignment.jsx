@@ -8,6 +8,7 @@ import {
 import { toast } from 'react-hot-toast'
 import api from '../api'
 import PageShell, { PageHeader } from '../components/PageShell'
+import { motion } from 'framer-motion'
 
 // ─── Constants ───────────────────────────────────────────────
 const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent']
@@ -806,11 +807,10 @@ export default function WorkManagement() {
           </span>
           <button
             onClick={() => setModalOpen(true)}
+            className="btn-primary"
             style={{
               height: 36, padding: '0 16px', display: 'flex', alignItems: 'center', gap: 6,
-              borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: 'white',
-              background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
-              boxShadow: '0 4px 12px rgba(37,99,235,0.25)'
+              borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 13
             }}
           >
             <Plus size={16} strokeWidth={2.5} /> Assign Project
@@ -819,9 +819,36 @@ export default function WorkManagement() {
       </div>
 
       {/* Content */}
-      {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
-          <Loader2 size={36} className="animate-spin" color="var(--primary)" />
+      {loading && filtered.length === 0 ? (
+        <div className="panel" style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', overflow: 'hidden' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px',
+            fontSize: 10, fontWeight: 750, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px',
+            background: 'var(--bg)', borderBottom: '1px solid var(--border)'
+          }}>
+            <div style={{ flex: '0 0 200px', minWidth: 200 }}>Employee</div>
+            <div style={{ flex: 1 }}>Project</div>
+            <div style={{ width: 90, textAlign: 'center' }}>Priority</div>
+            <div style={{ width: 90, textAlign: 'center' }}>Status</div>
+            <div style={{ width: 110, textAlign: 'center' }}>Due Date</div>
+            <div style={{ width: 90, textAlign: 'center' }}>Actions</div>
+          </div>
+          {Array(4).fill(0).map((_, i) => (
+            <div key={`skel-task-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '0 0 200px', minWidth: 200 }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                <div style={{ width: 100, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ width: 150, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 6 }} />
+                <div style={{ width: 220, height: 10, borderRadius: 4, background: 'var(--bg-alt)', animation: 'pulse 1.5s infinite' }} />
+              </div>
+              <div style={{ width: 90, display: 'flex', justifyContent: 'center' }}><div style={{ width: 50, height: 18, borderRadius: 10, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} /></div>
+              <div style={{ width: 90, display: 'flex', justifyContent: 'center' }}><div style={{ width: 60, height: 18, borderRadius: 10, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} /></div>
+              <div style={{ width: 110, display: 'flex', justifyContent: 'center' }}><div style={{ width: 70, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} /></div>
+              <div style={{ width: 90, display: 'flex', justifyContent: 'center' }}><div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} /></div>
+            </div>
+          ))}
         </div>
       ) : filtered.length === 0 ? (
         <div style={{
@@ -855,14 +882,20 @@ export default function WorkManagement() {
             <div style={{ width: 90, textAlign: 'center' }}>Actions</div>
           </div>
           {filtered.map((project, idx) => (
-            <ProjectCard
+            <motion.div
               key={project._id}
-              project={project}
-              onDelete={handleDelete}
-              onStatusChange={handleStatusChange}
-              submittingId={submittingId}
-              isLast={idx === filtered.length - 1}
-            />
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.03 }}
+            >
+              <ProjectCard
+                project={project}
+                onDelete={handleDelete}
+                onStatusChange={handleStatusChange}
+                submittingId={submittingId}
+                isLast={idx === filtered.length - 1}
+              />
+            </motion.div>
           ))}
         </div>
       )}

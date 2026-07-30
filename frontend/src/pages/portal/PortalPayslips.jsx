@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Calendar as CalendarIcon, Loader2, Search, Download, FileText } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import api from '../../api'
@@ -9,12 +9,9 @@ export default function PortalPayslips() {
   const [payslips, setPayslips] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [downloadingId, setDownloadingId] = useState(null)
 
-  useEffect(() => {
-    fetchPayslips()
-  }, [])
-
-  const fetchPayslips = async (query = '') => {
+  const fetchPayslips = useCallback(async (query = '') => {
     try {
       setLoading(true)
       const searchParam = encodeURIComponent(query.trim())
@@ -26,10 +23,19 @@ export default function PortalPayslips() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  // Debounced search logic
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      fetchPayslips(search)
+    }, 300)
+    return () => clearTimeout(handler)
+  }, [search, fetchPayslips])
 
   const handleDownload = async (id) => {
     try {
+      setDownloadingId(id)
       // Use /portal/payslips/:id/download so the api.js interceptor sends
       // the staffToken (portal routes get staffToken priority).
       const response = await api.get(`/portal/payslips/${id}/download`, { responseType: 'blob' })
@@ -44,13 +50,13 @@ export default function PortalPayslips() {
     } catch (err) {
       console.error('Download error:', err)
       toast.error('Download failed')
+    } finally {
+      setDownloadingId(null)
     }
   }
 
   const handleSearch = (e) => {
-    const val = e.target.value
-    setSearch(val)
-    fetchPayslips(val)
+    setSearch(e.target.value)
   }
 
   return (
@@ -83,9 +89,21 @@ export default function PortalPayslips() {
         }
       />
 
-      {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '80px 0' }}>
-          <Loader2 size={36} className="animate-spin" style={{ color: 'var(--primary)' }} />
+      {loading && payslips.length === 0 ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
+          {Array(3).fill(0).map((_, i) => (
+            <div key={`skel-pp-${i}`} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px', padding: '18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1 }}>
+                <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: 'var(--border)', animation: 'pulse 1.5s infinite', flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ width: '80px', height: 16, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 6 }} />
+                  <div style={{ width: '100px', height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 6 }} />
+                  <div style={{ width: '60px', height: 12, borderRadius: 4, background: 'var(--bg-alt)', animation: 'pulse 1.5s infinite' }} />
+                </div>
+              </div>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'var(--border)', animation: 'pulse 1.5s infinite', flexShrink: 0 }} />
+            </div>
+          ))}
         </div>
       ) : payslips.length === 0 ? (
         <div 
@@ -108,9 +126,12 @@ export default function PortalPayslips() {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-          {payslips.map((p) => (
+          {payslips.map((p, i) => (
             <motion.div 
               key={p._id} 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.03 }}
               whileHover={{ y: -3, boxShadow: 'var(--shadow-md)' }} 
               style={{ 
                 background: 'var(--surface)',
@@ -165,6 +186,7 @@ export default function PortalPayslips() {
 
               <button
                 onClick={() => handleDownload(p._id)}
+                disabled={downloadingId === p._id}
                 style={{
                   width: '38px', 
                   height: '38px', 
@@ -178,13 +200,14 @@ export default function PortalPayslips() {
                   cursor: 'pointer',
                   transition: 'all 0.2s', 
                   boxShadow: '0 4px 10px rgba(88, 131, 59, 0.2)',
-                  flexShrink: 0
+                  flexShrink: 0,
+                  opacity: downloadingId === p._id ? 0.7 : 1
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(0.9)'}
                 onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
                 title="Download PDF"
               >
-                <Download size={16} />
+                {downloadingId === p._id ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
               </button>
             </motion.div>
           ))}
@@ -195,9 +218,9 @@ export default function PortalPayslips() {
         style={{ 
           marginTop: '36px', 
           padding: '18px', 
-          background: 'rgba(245, 158, 11, 0.02)', 
+          background: 'rgba(245, 158, 11, 0.06)', 
           borderRadius: '12px', 
-          border: '1px dashed rgba(245, 158, 11, 0.2)',
+          border: '1px dashed rgba(245, 158, 11, 0.3)',
           boxShadow: 'var(--shadow-sm)'
         }}
       >
@@ -206,7 +229,7 @@ export default function PortalPayslips() {
             width: '32px', 
             height: '32px', 
             borderRadius: '8px', 
-            background: 'rgba(245, 158, 11, 0.08)', 
+            background: 'rgba(245, 158, 11, 0.1)', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center', 
@@ -216,7 +239,7 @@ export default function PortalPayslips() {
             <CalendarIcon size={16} />
           </div>
           <div>
-            <h4 style={{ margin: 0, color: '#b45309', fontSize: '13px', fontWeight: 700 }}>Retention Policy Reminder</h4>
+            <h4 style={{ margin: 0, color: 'var(--text)', fontSize: '13px', fontWeight: 700 }}>Retention Policy Reminder</h4>
             <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
               The Employee Self-Service portal maintains active records for the <strong>last 3 months only</strong>. For historical payslips, legacy data, or records older than 90 days, please contact your company's HR department or Corporate Portal Administrator directly.
             </p>

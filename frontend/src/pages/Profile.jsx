@@ -10,6 +10,7 @@ const BDA_LOGO_BASE64 = `data:image/png;base64,iVBORw0KGgoAAAANSSuQmCC`;
 export default function Profile({ isSettings }) {
   const { user, updateProfile } = useAuth()
   const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [form, setForm] = useState({
     companyName: '',
     companyAddress: '',
@@ -56,6 +57,8 @@ export default function Profile({ isSettings }) {
             companyLogo:    user.companyLogo    || ''
           })
         }
+      } finally {
+        setInitialLoading(false)
       }
     }
     loadProfile()
@@ -117,8 +120,25 @@ export default function Profile({ isSettings }) {
         />
       )}
 
-      <div className="fade-in glass profile-card-container" style={{ marginTop: isSettings ? 0 : 24 }}>
-        <form onSubmit={handleSubmit}>
+      {initialLoading ? (
+        <div className="fade-in glass profile-card-container" style={{ marginTop: isSettings ? 0 : 24 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 32 }}>
+            <div style={{ width: 120, height: 120, borderRadius: '50%', background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+            <div style={{ width: 220, height: 18, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginTop: 16, marginBottom: 8 }} />
+            <div style={{ width: 150, height: 12, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+          </div>
+          <div className="profile-form-grid" style={{ gap: 20 }}>
+            {Array(6).fill(0).map((_, i) => (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ width: 100, height: 12, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                <div style={{ height: 42, borderRadius: 8, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="fade-in glass profile-card-container" style={{ marginTop: isSettings ? 0 : 24 }}>
+          <form onSubmit={handleSubmit}>
           
           {/* Top Section: Profile Header & Logo */}
           <div className="profile-top-branding">
@@ -252,8 +272,9 @@ export default function Profile({ isSettings }) {
             </button>
 
           </div>
-        </form>
-      </div>
+          </form>
+        </div>
+      )}
 
       <style>{`
         .profile-card-container {

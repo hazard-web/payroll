@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Calendar, CheckCircle2, Clock, ListChecks, Loader2, MoreHorizontal, Timer, Play, Square } from 'lucide-react'
-import PageShell, { PageLoading } from '../components/PageShell'
+import PageShell from '../components/PageShell'
 import { Avatar, StatCard } from '../components/UI'
 import api from '../api'
+import { motion } from 'framer-motion'
 
 const FILTER_OPTIONS = [
   { value: 'all', label: 'All Time' },
@@ -53,14 +54,17 @@ function PulseDot() {
 }
 
 
-const TaskRow = ({ task }) => {
+const TaskRow = ({ task, index }) => {
   const isRunning = !!task.isRunning
   const colors = getStatusColor(task.status, isRunning)
   const duration = fmtDuration(task.durationMinutes)
 
   return (
-    <div 
+    <motion.div 
       className="panel"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.04 }}
       style={{
         padding: '14px 20px',
         borderRadius: 12,
@@ -143,7 +147,7 @@ const TaskRow = ({ task }) => {
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 11, color: 'var(--text-muted)' }}>
         <div>Assigned: {formatDate(task.taskDate)}</div>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -185,7 +189,49 @@ export default function StaffPerformanceDetail() {
     }
   }
 
-  if (loading) return <PageShell><PageLoading label="Loading performance data…" /></PageShell>
+  if (loading && !data) {
+    return (
+      <PageShell>
+        <div style={{ height: 32, width: 100, background: 'var(--border)', borderRadius: 8, animation: 'pulse 1.5s infinite', marginBottom: 20 }} />
+        
+        {/* Profile Header Box Skeleton */}
+        <div style={{ padding: '16px 20px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+          <div>
+            <div style={{ width: 150, height: 18, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 6 }} />
+            <div style={{ width: 100, height: 12, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+          </div>
+        </div>
+
+        {/* Stat cards Skeleton */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ width: 100, height: 14, background: 'var(--border)', borderRadius: 4, animation: 'pulse 1.5s infinite', marginBottom: 12 }} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+            {Array(5).fill(0).map((_, i) => (
+              <div key={i} style={{ height: 80, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', animation: 'pulse 1.5s infinite' }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Task History Skeleton */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div style={{ width: 100, height: 14, background: 'var(--border)', borderRadius: 4, animation: 'pulse 1.5s infinite' }} />
+            <div style={{ display: 'flex', gap: 6 }}>
+              {Array(4).fill(0).map((_, i) => (
+                <div key={i} style={{ width: 70, height: 28, borderRadius: 6, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {Array(3).fill(0).map((_, i) => (
+              <div key={i} style={{ height: 100, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', animation: 'pulse 1.5s infinite' }} />
+            ))}
+          </div>
+        </div>
+      </PageShell>
+    )
+  }
   if (!data) return <PageShell><div style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>Failed to load performance data.</div></PageShell>
 
   const { staff, summary, tasks } = data
@@ -276,7 +322,7 @@ export default function StaffPerformanceDetail() {
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
             {tasks.map((task, idx) => (
-              <TaskRow key={`${task.attendanceId}-${idx}`} task={task} />
+              <TaskRow key={`${task.attendanceId}-${idx}`} task={task} index={idx} />
             ))}
           </div>
         )}

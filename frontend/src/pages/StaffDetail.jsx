@@ -255,6 +255,7 @@ export default function StaffDetail() {
   const [payslipsLoaded, setPayslipsLoaded] = useState(false)
   const [downloadLoading, setDownloadLoading] = useState({})
 
+  const [activeTab, setActiveTab] = useState('details')
 
   const [showEditModal, setShowEditModal] = useState(false)
   const [activeMenuId, setActiveMenuId] = useState(null)
@@ -609,8 +610,22 @@ export default function StaffDetail() {
         </div>
       </div>
 
-      {/* ── Horizontal Stats Grid Card ── */}
-      <div style={{
+      <div style={{ marginBottom: 20 }}>
+        <ShellTabBar tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
+      </div>
+
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2 }}
+        >
+          {activeTab === 'details' && (
+            <>
+              {/* ── Horizontal Stats Grid Card ── */}
+              <div style={{
         background: 'var(--surface)',
         borderRadius: 16,
         border: '1px solid var(--border)',
@@ -874,9 +889,12 @@ export default function StaffDetail() {
           text-align: right;
         }
       `}</style>
+            </>
+          )}
 
-          {attendance.length > 0 && (
-            <div id="attendance" style={{
+          {activeTab === 'attendance' && (
+            attendance.length > 0 ? (
+              <div id="attendance" style={{
               background: 'var(--surface)',
               borderRadius: 16,
               border: '1px solid var(--border)',
@@ -939,10 +957,14 @@ export default function StaffDetail() {
                 </table>
               </div>
             </div>
+            ) : (
+              <EmptyState message="No attendance records found for this team member." />
+            )
           )}
 
-          {leaves.length > 0 && (
-            <div id="leave" style={{
+          {activeTab === 'leave' && (
+            leaves.length > 0 ? (
+              <div id="leave" style={{
               background: 'var(--surface)',
               borderRadius: 16,
               border: '1px solid var(--border)',
@@ -1000,10 +1022,14 @@ export default function StaffDetail() {
                 </table>
               </div>
             </div>
+            ) : (
+              <EmptyState message="No leave history found for this team member." />
+            )
           )}
 
-          {payslips.length > 0 && (
-            <div id="salary" style={{
+          {activeTab === 'salary' && (
+            payslips.length > 0 ? (
+              <div id="salary" style={{
               background: 'var(--surface)',
               borderRadius: 16,
               border: '1px solid var(--border)',
@@ -1152,7 +1178,12 @@ export default function StaffDetail() {
                 </table>
               </div>
             </div>
+            ) : (
+              <EmptyState message="No generated payslips found for this team member." />
+            )
           )}
+        </motion.div>
+      </AnimatePresence>
 
       {/* Edit Staff Modal */}
       <AnimatePresence>

@@ -293,11 +293,11 @@ export default function PortalAttendance() {
 
       {/* Premium Hero Analytics Panel */}
       <div style={{
-        background: 'linear-gradient(135deg, var(--primary) 0%, #3e5f29 100%)',
+        background: 'linear-gradient(135deg, var(--primary) 0%, rgba(0, 0, 0, 0.4) 100%)',
         borderRadius: 16,
         padding: '20px 24px',
         color: 'white',
-        boxShadow: '0 8px 22px -6px rgba(88,131,59,0.3)',
+        boxShadow: '0 8px 22px -6px rgba(0,0,0,0.2)',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -308,33 +308,45 @@ export default function PortalAttendance() {
         {/* Left Side: Circular Progress */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
           <div style={{ position: 'relative', width: 84, height: 84, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg style={{ transform: 'rotate(-90deg)', width: 84, height: 84 }}>
-              <circle
-                cx="42"
-                cy="42"
-                r={radius}
-                fill="transparent"
-                stroke="rgba(255, 255, 255, 0.12)"
-                strokeWidth="7"
-              />
-              <circle
-                cx="42"
-                cy="42"
-                r={radius}
-                fill="transparent"
-                stroke="white"
-                strokeWidth="7"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                style={{ transition: 'stroke-dashoffset 0.5s ease' }}
-              />
-            </svg>
-            <span style={{ position: 'absolute', fontSize: 16, fontWeight: 900, color: 'white' }}>{attendancePercentage}%</span>
+            {loading && history.length === 0 ? (
+              <div style={{ width: 76, height: 76, borderRadius: '50%', border: '6px solid rgba(255,255,255,0.15)', animation: 'pulse 1.5s infinite', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 30, height: 14, borderRadius: 3, background: 'rgba(255,255,255,0.2)', animation: 'pulse 1.5s infinite' }} />
+              </div>
+            ) : (
+              <>
+                <svg style={{ transform: 'rotate(-90deg)', width: 84, height: 84 }}>
+                  <circle
+                    cx="42"
+                    cy="42"
+                    r={radius}
+                    fill="transparent"
+                    stroke="rgba(255, 255, 255, 0.12)"
+                    strokeWidth="7"
+                  />
+                  <circle
+                    cx="42"
+                    cy="42"
+                    r={radius}
+                    fill="transparent"
+                    stroke="white"
+                    strokeWidth="7"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={strokeDashoffset}
+                    strokeLinecap="round"
+                    style={{ transition: 'stroke-dashoffset 0.5s ease' }}
+                  />
+                </svg>
+                <span style={{ position: 'absolute', fontSize: 16, fontWeight: 900, color: 'white' }}>{attendancePercentage}%</span>
+              </>
+            )}
           </div>
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255, 255, 255, 0.75)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Month Attendance</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: 'white', marginTop: 2 }}>{presentDaysCount} / {workingDaysCount} Days</div>
+            {loading && history.length === 0 ? (
+              <div style={{ width: 100, height: 18, borderRadius: 4, background: 'rgba(255,255,255,0.15)', animation: 'pulse 1.5s infinite', marginTop: 4 }} />
+            ) : (
+              <div style={{ fontSize: 20, fontWeight: 800, color: 'white', marginTop: 2 }}>{presentDaysCount} / {workingDaysCount} Days</div>
+            )}
             <div style={{ fontSize: 11, color: 'rgba(255, 255, 255, 0.65)', marginTop: 2 }}>Working days present</div>
           </div>
         </div>
@@ -343,25 +355,37 @@ export default function PortalAttendance() {
         <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', flex: 1, justifyContent: 'center' }}>
           <div style={{ minWidth: 100 }}>
             <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Hours</div>
-            <div style={{ fontSize: 20, fontWeight: 850, color: 'white', marginTop: 3 }}>
-              {(summary?.totalHours || 0).toFixed(1)}<span style={{ fontSize: 12, fontWeight: 500, opacity: 0.8 }}>h</span>
-            </div>
+            {loading && history.length === 0 ? (
+              <div style={{ width: 70, height: 18, borderRadius: 4, background: 'rgba(255,255,255,0.15)', animation: 'pulse 1.5s infinite', marginTop: 5 }} />
+            ) : (
+              <div style={{ fontSize: 20, fontWeight: 850, color: 'white', marginTop: 3 }}>
+                {(summary?.totalHours || 0).toFixed(1)}<span style={{ fontSize: 12, fontWeight: 500, opacity: 0.8 }}>h</span>
+              </div>
+            )}
             <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>Logged this month</div>
           </div>
 
           <div style={{ minWidth: 100 }}>
             <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Average Daily</div>
-            <div style={{ fontSize: 20, fontWeight: 850, color: 'white', marginTop: 3 }}>
-              {(summary?.avgHours || 0).toFixed(1)}<span style={{ fontSize: 12, fontWeight: 500, opacity: 0.8 }}>h</span>
-            </div>
+            {loading && history.length === 0 ? (
+              <div style={{ width: 70, height: 18, borderRadius: 4, background: 'rgba(255,255,255,0.15)', animation: 'pulse 1.5s infinite', marginTop: 5 }} />
+            ) : (
+              <div style={{ fontSize: 20, fontWeight: 850, color: 'white', marginTop: 3 }}>
+                {(summary?.avgHours || 0).toFixed(1)}<span style={{ fontSize: 12, fontWeight: 500, opacity: 0.8 }}>h</span>
+              </div>
+            )}
             <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>Shift duration</div>
           </div>
 
           <div style={{ minWidth: 100 }}>
             <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tasks Track</div>
-            <div style={{ fontSize: 20, fontWeight: 850, color: 'white', marginTop: 3 }}>
-              {summary?.completedTasks || 0}<span style={{ fontSize: 12, fontWeight: 500, opacity: 0.8 }}> / {summary?.totalTasks || 0}</span>
-            </div>
+            {loading && history.length === 0 ? (
+              <div style={{ width: 70, height: 18, borderRadius: 4, background: 'rgba(255,255,255,0.15)', animation: 'pulse 1.5s infinite', marginTop: 5 }} />
+            ) : (
+              <div style={{ fontSize: 20, fontWeight: 850, color: 'white', marginTop: 3 }}>
+                {summary?.completedTasks || 0}<span style={{ fontSize: 12, fontWeight: 500, opacity: 0.8 }}> / {summary?.totalTasks || 0}</span>
+              </div>
+            )}
             <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>Tasks completed</div>
           </div>
 
@@ -407,9 +431,32 @@ export default function PortalAttendance() {
       </div>
 
       {/* Table */}
-      {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
-          <Loader2 size={28} className="animate-spin" style={{ color: 'var(--primary)' }} />
+      {loading && history.length === 0 ? (
+        <div className="pa-card" style={{ overflowX: 'auto' }}>
+          <table className="pa-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Punch In</th>
+                <th>Punch Out</th>
+                <th>Hours</th>
+                <th>Tasks</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array(4).fill(0).map((_, i) => (
+                <tr key={`skel-${i}`}>
+                  <td><div style={{ width: 80, height: 16, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} /></td>
+                  <td><div style={{ width: 60, height: 16, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} /></td>
+                  <td><div style={{ width: 60, height: 16, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} /></td>
+                  <td><div style={{ width: 40, height: 16, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} /></td>
+                  <td><div style={{ width: 30, height: 16, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} /></td>
+                  <td><div style={{ width: 60, height: 20, borderRadius: 10, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : history.length === 0 ? (
         <div style={{ padding: 52, textAlign: 'center', background: 'var(--surface)', borderRadius: 12, border: '1px dashed var(--border)' }}>
@@ -450,8 +497,9 @@ export default function PortalAttendance() {
                 return (
                   <motion.tr
                     key={i}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.03 }}
                   >
                     <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{fmtDate(row.date)}</td>
                     <td style={{ fontWeight: 600, color: 'var(--text)' }}>{fmtTime(row.punchIn)}</td>

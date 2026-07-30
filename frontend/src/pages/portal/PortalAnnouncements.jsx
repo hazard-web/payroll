@@ -46,16 +46,6 @@ export default function PortalAnnouncements() {
     return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
   }
 
-  if (loading) {
-    return (
-      <PageShell style={{ maxWidth: 'none' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
-          <Loader2 size={36} className="animate-spin" style={{ color: 'var(--primary)' }} />
-        </div>
-      </PageShell>
-    )
-  }
-
   const urgentCount = announcements.filter(a => a.priority === 'Urgent').length
 
   return (
@@ -70,109 +60,128 @@ export default function PortalAnnouncements() {
         </p>
       </div>
 
-      {/* ── Stats bar ── */}
-      {announcements.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
-          <StatCard icon={Radio} label="ACTIVE ANNOUNCEMENTS" value={announcements.length} color="#58833b" />
-          <StatCard icon={Zap} label="URGENT" value={urgentCount} color="#dc2626" />
-        </div>
-      )}
-
-      {/* ── Empty state ── */}
-      {announcements.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', padding: '60px 20px',
-            background: 'var(--surface)', border: '1px dashed var(--border)',
-            borderRadius: 16, textAlign: 'center',
-          }}
-        >
-          <div style={{
-            width: 56, height: 56, marginBottom: 16,
-            borderRadius: 14, background: 'var(--bg)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <BellOff size={26} color="var(--text-light)" />
+      {loading ? (
+        <>
+          {/* Stats Bar Skeletons */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
+            {Array(2).fill(0).map((_, i) => (
+              <div key={`skel-stat-${i}`} style={{ height: 80, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', animation: 'pulse 1.5s infinite' }} />
+            ))}
           </div>
-          <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px' }}>
-            No active announcements
-          </h3>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6, maxWidth: 300 }}>
-            Check back later for company-wide updates, policies, and important notices from your admin team.
-          </p>
-        </motion.div>
+          {/* List Skeletons */}
+          <div style={{ display: 'grid', gap: 16 }}>
+            {Array(3).fill(0).map((_, i) => (
+              <div key={`skel-ann-${i}`} style={{ height: 110, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', animation: 'pulse 1.5s infinite' }} />
+            ))}
+          </div>
+        </>
       ) : (
-        /* ── Announcement cards ── */
-        <div style={{ display: 'grid', gap: 16 }}>
-          {announcements.map((item, i) => {
-            const config = priorityConfig[item.priority] || priorityConfig.Normal
+        <>
+          {/* ── Stats bar ── */}
+          {announcements.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
+              <StatCard icon={Radio} label="ACTIVE ANNOUNCEMENTS" value={announcements.length} color="#58833b" />
+              <StatCard icon={Zap} label="URGENT" value={urgentCount} color="#dc2626" />
+            </div>
+          )}
 
-            return (
-              <motion.div
-                key={item._id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 12,
-                  overflow: 'hidden',
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'stretch', gap: 14, padding: '18px 20px', height: '100%', boxSizing: 'border-box' }}>
-                  {/* Priority indicator strip */}
-                  <div style={{
-                    width: 4, borderRadius: 4,
-                    background: config.color, flexShrink: 0,
-                  }} />
+          {/* ── Empty state ── */}
+          {announcements.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', padding: '60px 20px',
+                background: 'var(--surface)', border: '1px dashed var(--border)',
+                borderRadius: 16, textAlign: 'center',
+              }}
+            >
+              <div style={{
+                width: 56, height: 56, marginBottom: 16,
+                borderRadius: 14, background: 'var(--bg)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <BellOff size={26} color="var(--text-light)" />
+              </div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px' }}>
+                No active announcements
+              </h3>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6, maxWidth: 300 }}>
+                Check back later for company-wide updates, policies, and important notices from your admin team.
+              </p>
+            </motion.div>
+          ) : (
+            /* ── Announcement cards ── */
+            <div style={{ display: 'grid', gap: 16 }}>
+              {announcements.map((item, i) => {
+                const config = priorityConfig[item.priority] || priorityConfig.Normal
 
-                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12 }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-                        <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>{item.title}</h3>
-                        <span className={`pill ${config.badge}`} style={{ background: config.bg, color: config.color, border: `1px solid ${config.border}` }}>
-                          {item.priority}
-                        </span>
-                      </div>
+                return (
+                  <motion.div
+                    key={item._id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    style={{
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 12,
+                      overflow: 'hidden',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'stretch', gap: 14, padding: '18px 20px', height: '100%', boxSizing: 'border-box' }}>
+                      {/* Priority indicator strip */}
+                      <div style={{
+                        width: 4, borderRadius: 4,
+                        background: config.color, flexShrink: 0,
+                      }} />
 
-                      <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>
-                        {item.message}
-                      </p>
-                      {item.meetingLink && (
-                        <div style={{ marginTop: 12 }}>
-                          <a href={item.meetingLink} target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', fontSize: 12, height: 'auto', textDecoration: 'none', background: 'rgba(124, 58, 237, 0.08)', color: '#7c3aed', border: '1px solid rgba(124, 58, 237, 0.15)', borderRadius: 8, fontWeight: 700 }}>
-                            📹 Join Meeting Link
-                          </a>
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12 }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>{item.title}</h3>
+                            <span className={`pill ${config.badge}`} style={{ background: config.bg, color: config.color, border: `1px solid ${config.border}` }}>
+                              {item.priority}
+                            </span>
+                          </div>
+
+                          <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>
+                            {item.message}
+                          </p>
+                          {item.meetingLink && (
+                            <div style={{ marginTop: 12 }}>
+                              <a href={item.meetingLink} target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', fontSize: 12, height: 'auto', textDecoration: 'none', background: 'rgba(124, 58, 237, 0.08)', color: '#7c3aed', border: '1px solid rgba(124, 58, 237, 0.15)', borderRadius: 8, fontWeight: 700 }}>
+                                📹 Join Meeting Link
+                              </a>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
 
-                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-                      {item.startDate && (
-                        <span style={{ fontSize: 10, color: 'var(--text-light)', fontWeight: 600 }}>
-                          From: {fmtDate(item.startDate)}
-                        </span>
-                      )}
-                      {item.endDate && (
-                        <span style={{ fontSize: 10, color: 'var(--text-light)', fontWeight: 600 }}>
-                          Until: {fmtDate(item.endDate)}
-                        </span>
-                      )}
-                      <span style={{ fontSize: 10, color: 'var(--text-light)', fontWeight: 600, marginLeft: 'auto' }}>
-                        {fmtDate(item.createdAt)}
-                      </span>
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                          {item.startDate && (
+                            <span style={{ fontSize: 10, color: 'var(--text-light)', fontWeight: 600 }}>
+                              From: {fmtDate(item.startDate)}
+                            </span>
+                          )}
+                          {item.endDate && (
+                            <span style={{ fontSize: 10, color: 'var(--text-light)', fontWeight: 600 }}>
+                              Until: {fmtDate(item.endDate)}
+                            </span>
+                          )}
+                          <span style={{ fontSize: 10, color: 'var(--text-light)', fontWeight: 600, marginLeft: 'auto' }}>
+                            {fmtDate(item.createdAt)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </motion.div>
-            )
-          })}
-        </div>
+                  </motion.div>
+                )
+              })}
+            </div>
+          )}
+        </>
       )}
     </PageShell>
   )

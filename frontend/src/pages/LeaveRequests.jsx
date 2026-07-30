@@ -166,9 +166,41 @@ function LeaveTab({ initialFilter }) {
         </div>
       </div>
 
-      {loading ? (
-        <div style={{ display:'flex', justifyContent:'center', padding:60 }}>
-          <Loader2 size={30} className="animate-spin" style={{ color:'var(--primary)' }} />
+      {loading && filtered.length === 0 ? (
+        <div className="la-card">
+          <div className="la-table-head" style={{ gridTemplateColumns:'1.6fr 1fr 2fr 100px 90px' }}>
+            {['Employee','Dates','Reason','Balances','Status'].map(h => (
+              <div key={h} style={{ fontSize:11, fontWeight:700, color:'var(--text-light)', textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</div>
+            ))}
+          </div>
+          <div>
+            {Array(4).fill(0).map((_, i) => (
+              <div key={`skel-lv-${i}`} className="la-row" style={{ gridTemplateColumns:'1.6fr 1fr 2fr 100px 90px' }}>
+                <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+                  <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                  <div>
+                    <div style={{ width: 100, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 4 }} />
+                    <div style={{ width: 70, height: 10, borderRadius: 4, background: 'var(--bg-alt)', animation: 'pulse 1.5s infinite' }} />
+                  </div>
+                </div>
+                <div>
+                  <div style={{ width: 80, height: 12, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 4 }} />
+                  <div style={{ width: 50, height: 10, borderRadius: 4, background: 'var(--bg-alt)', animation: 'pulse 1.5s infinite' }} />
+                </div>
+                <div>
+                  <div style={{ width: 140, height: 12, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 4 }} />
+                  <div style={{ width: 90, height: 12, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                </div>
+                <div>
+                  <div style={{ width: 40, height: 10, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 4 }} />
+                  <div style={{ width: 40, height: 10, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end' }}>
+                  <div style={{ width: 60, height: 18, borderRadius: 10, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign:'center', padding:64, background:'var(--surface)', borderRadius:12, border:'1px dashed var(--border)' }}>
@@ -186,10 +218,10 @@ function LeaveTab({ initialFilter }) {
           </div>
 
           <AnimatePresence initial={false}>
-            {filtered.map(req => {
+            {filtered.map((req, index) => {
               const days = Math.max(1, Math.ceil((new Date(req.endDate) - new Date(req.startDate)) / 86400000) + 1)
               return (
-                <motion.div key={req._id} initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}
+                <motion.div key={req._id} initial={{ opacity:0, y:10 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }} transition={{ delay: index * 0.03 }}
                   className="la-row" style={{ gridTemplateColumns:'1.6fr 1fr 2fr 100px 90px' }}>
 
                   {/* Employee */}
@@ -703,16 +735,54 @@ function AttendanceTab() {
 
         <button 
           onClick={downloadAttendancePDF} 
-          className="la-filter-btn" 
-          style={{ height: 32, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, padding: '0 16px', borderRadius: 8, background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)', color: 'white', border: 'none', cursor: 'pointer', marginLeft: 'auto' }}
+          className="btn-primary" 
+          style={{ height: 32, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, padding: '0 16px', borderRadius: 8, cursor: 'pointer', marginLeft: 'auto' }}
         >
           <Download size={13} /> Download Report (PDF)
         </button>
       </div>
 
-      {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-          <Loader2 size={30} className="animate-spin" style={{ color: 'var(--primary)' }} />
+      {loading && rows.length === 0 ? (
+        <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13, fontFamily: 'var(--font-display), sans-serif' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employee</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>ID</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Department</th>
+                  <th style={{ padding: '12px 16px', color: '#16a34a', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Present</th>
+                  <th style={{ padding: '12px 16px', color: '#dc2626', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Absent</th>
+                  <th style={{ padding: '12px 16px', color: '#2563eb', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Leave</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Working Days</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Attendance %</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Status</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array(5).fill(0).map((_, i) => (
+                  <tr key={`skel-${i}`} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                        <div style={{ width: 100, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 40, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 60, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 30, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 30, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 30, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 30, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 50, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 60, height: 18, borderRadius: 10, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : rows.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 64, background: 'var(--surface)', borderRadius: 12, border: '1px dashed var(--border)' }}>
@@ -739,8 +809,15 @@ function AttendanceTab() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
-                  <tr key={row.staff._id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.1s' }} className="table-row-hover">
+                {rows.map((row, index) => (
+                  <motion.tr 
+                    key={row.staff._id} 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.03 }}
+                    style={{ borderBottom: '1px solid var(--border)' }} 
+                    className="table-row-hover"
+                  >
                     {/* Employee */}
                     <td style={{ padding: '10px 16px', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'nowrap' }}>
@@ -869,7 +946,7 @@ function AttendanceTab() {
                         )}
                       </div>
                     </td>
-                  </tr>
+                    </motion.tr>
                 ))}
               </tbody>
             </table>
@@ -1062,9 +1139,44 @@ function WorkingDaysTab() {
         </div>
       </div>
 
-      {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-          <Loader2 size={28} className="animate-spin" style={{ color: 'var(--primary)' }} />
+      {loading && filtered.length === 0 ? (
+        <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employee</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Working Days</th>
+                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array(5).fill(0).map((_, i) => (
+                  <tr key={`skel-wd-${i}`} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                        <div>
+                          <div style={{ width: 120, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 6 }} />
+                          <div style={{ width: 80, height: 10, borderRadius: 4, background: 'var(--bg-alt)', animation: 'pulse 1.5s infinite' }} />
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {Array(7).fill(0).map((_, j) => (
+                          <div key={j} style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                        ))}
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginLeft: 'auto' }} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 60, background: 'var(--surface)', borderRadius: 12, border: '1px dashed var(--border)' }}>
@@ -1083,7 +1195,7 @@ function WorkingDaysTab() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(s => {
+                {filtered.map((s, index) => {
                   const draft = drafts[s._id] || { workingDays: null, clientAssignment: '' }
                   const isCustom = draft.workingDays !== null
                   const displayDays = isCustom ? draft.workingDays : editDefault
@@ -1092,7 +1204,13 @@ function WorkingDaysTab() {
                     || draft.clientAssignment !== (s.clientAssignment || '')
 
                   return (
-                    <tr key={s._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <motion.tr 
+                      key={s._id} 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.03 }}
+                      style={{ borderBottom: '1px solid var(--border)' }}
+                    >
                       {/* Employee */}
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1167,7 +1285,7 @@ function WorkingDaysTab() {
                           )}
                         </div>
                       </td>
-                    </tr>
+                    </motion.tr>
                   )
                 })}
               </tbody>

@@ -521,7 +521,48 @@ export default function PortalProfile() {
   const isIntern = staffUser?.type === 'Intern'
 
   if (!staffUser) {
-    return <div style={{ display: 'flex', justifyContent: 'center', padding: 100 }}><Loader2 size={40} className="animate-spin text-muted" /></div>
+    return (
+      <PageShell style={{ maxWidth: 'none' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Top Header Card Skeleton */}
+          <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: '24px', display: 'flex', gap: 20, alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ width: 72, height: 72, borderRadius: 14, background: 'var(--border)', animation: 'pulse 1.5s infinite', flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ width: 200, height: 22, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 8 }} />
+              <div style={{ width: 140, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+            </div>
+          </div>
+
+          {/* Stats Grid Skeleton */}
+          <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: '20px 24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20, marginBottom: 20 }}>
+            {Array(4).fill(0).map((_, i) => (
+              <div key={`skel-ps-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 8, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ width: 80, height: 10, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 6 }} />
+                  <div style={{ width: 110, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Details Panels Skeleton */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, marginBottom: 20 }}>
+            {Array(3).fill(0).map((_, pIdx) => (
+              <div key={`skel-pp-${pIdx}`} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ width: 150, height: 16, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 8 }} />
+                {Array(5).fill(0).map((_, rowIdx) => (
+                  <div key={`skel-row-${rowIdx}`} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px dashed var(--border)' }}>
+                    <div style={{ width: 80, height: 12, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                    <div style={{ width: 120, height: 12, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </PageShell>
+    )
   }
 
   return (
@@ -743,7 +784,7 @@ export default function PortalProfile() {
             marginBottom: 20
           }}>
             {/* Panel 1: Employment & Role */}
-            <div className="detail-panel-card">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="detail-panel-card">
               <div className="panel-card-header">
                 <User size={16} style={{ color: 'var(--primary)' }} />
                 <span>Employment & Role</span>
@@ -774,10 +815,10 @@ export default function PortalProfile() {
                   <span className="info-kv-val">{staffUser.workLocation || 'Office'}</span>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Panel 2: Contact & Personal */}
-            <div className="detail-panel-card">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="detail-panel-card">
               <div className="panel-card-header">
                 <Mail size={16} style={{ color: 'var(--primary)' }} />
                 <span style={{ color: 'var(--primary)' }}>Contact & Personal</span>
@@ -820,10 +861,10 @@ export default function PortalProfile() {
                   </span>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Panel 3: Compensation & Financial */}
-            <div className="detail-panel-card">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="detail-panel-card">
               <div className="panel-card-header">
                 <Landmark size={16} style={{ color: 'var(--primary)' }} />
                 <span style={{ color: 'var(--primary)' }}>Compensation & Financial</span>
@@ -872,7 +913,7 @@ export default function PortalProfile() {
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
 
           {/* ── Identity Document Registry ── */}
@@ -895,9 +936,15 @@ export default function PortalProfile() {
             <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 20px 0' }}>Official verification document attachments uploaded by you.</p>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
-              <DocumentCardRowView label="Profile Picture" document={documents?.profileImage} onUploadClick={() => setIsEditing(true)} />
-              <DocumentCardRowView label="Aadhar Card" document={documents?.aadharCard} onUploadClick={() => setIsEditing(true)} />
-              <DocumentCardRowView label="PAN Card" document={documents?.panCard} onUploadClick={() => setIsEditing(true)} />
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                <DocumentCardRowView label="Profile Picture" document={documents?.profileImage} onUploadClick={() => setIsEditing(true)} />
+              </motion.div>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+                <DocumentCardRowView label="Aadhar Card" document={documents?.aadharCard} onUploadClick={() => setIsEditing(true)} />
+              </motion.div>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                <DocumentCardRowView label="PAN Card" document={documents?.panCard} onUploadClick={() => setIsEditing(true)} />
+              </motion.div>
             </div>
           </div>
         </motion.div>

@@ -115,7 +115,7 @@ async function provisionStaffPortalAccess(staff, req, options = {}) {
 const { logActivity } = require('../utils/logger');
 router.get('/', protect, async (req, res) => {
   try {
-    const { page = 1, limit = 20, search = '', type = '' } = req.query;
+    const { page = 1, limit = 20, search = '', type = '', sort = 'createdAt', order = 'desc' } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const filter = { user: req.user._id };
@@ -131,10 +131,12 @@ router.get('/', protect, async (req, res) => {
       ];
     }
 
+    const sortOption = { [sort]: order === 'desc' ? -1 : 1 };
+
     const [total, staff] = await Promise.all([
       Staff.countDocuments(filter),
       Staff.find(filter)
-        .sort({ createdAt: -1 })
+        .sort(sortOption)
         .skip(skip)
         .limit(parseInt(limit))
         .select('-financials -address -emergencyContact -bankDetails')

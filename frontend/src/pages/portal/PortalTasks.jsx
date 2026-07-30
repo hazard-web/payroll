@@ -952,64 +952,72 @@ export default function PortalTasks() {
         <>
 
           {/* ── Stat Cards ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px,1fr))', gap: 16, marginBottom: 20 }}>
-            {[
-              {
-                label: 'Total Tasks',
-                value: counts.total,
-                icon: ListChecks,
-                bg: 'rgba(59,130,246,0.08)',
-                color: '#3b82f6',
-                subText: view === 'today' ? 'Logged today' : view === 'week' ? 'This week' : 'This month',
-                rightElement: (
-                  <svg width="55" height="22" viewBox="0 0 55 22" style={{ overflow: 'visible', flexShrink: 0 }}>
-                    <path d="M0 10 Q 13.75 18, 27.5 10 T 55 12" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                )
-              },
-              {
-                label: 'Completed',
-                value: counts.completed,
-                icon: CheckCircle2,
-                bg: 'rgba(34,197,94,0.08)',
-                color: '#22c55e',
-                subText: `${completionRate}% of total`,
-                rightElement: <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2.5px solid var(--border)', flexShrink: 0 }} />
-              },
-              {
-                label: 'In Progress',
-                value: counts.inProgress,
-                icon: Clock,
-                bg: 'rgba(59,130,246,0.08)',
-                color: '#3b82f6',
-                subText: counts.inProgress === 1 ? '1 task active' : `${counts.inProgress} tasks active`,
-                rightElement: <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2.5px solid var(--border)', flexShrink: 0 }} />
-              },
-              {
-                label: 'Pending',
-                value: counts.pending,
-                icon: AlertCircle,
-                bg: 'rgba(249,115,22,0.08)',
-                color: '#f97316',
-                subText: 'Awaiting action',
-                rightElement: <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2.5px solid var(--border)', flexShrink: 0 }} />
-              },
-            ].map(({ label, value, icon: Icon, bg, color, subText, rightElement }) => (
-              <div key={label} className="pt-stat">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Icon size={18} color={color} />
+          {loading && tasks.length === 0 ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px,1fr))', gap: 16, marginBottom: 20 }}>
+              {Array(4).fill(0).map((_, i) => (
+                <div key={`skel-ptstat-${i}`} style={{ height: 80, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border)', animation: 'pulse 1.5s infinite' }} />
+              ))}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px,1fr))', gap: 16, marginBottom: 20 }}>
+              {[
+                {
+                  label: 'Total Tasks',
+                  value: counts.total,
+                  icon: ListChecks,
+                  bg: 'rgba(59,130,246,0.08)',
+                  color: '#3b82f6',
+                  subText: view === 'today' ? 'Logged today' : view === 'week' ? 'This week' : 'This month',
+                  rightElement: (
+                    <svg width="55" height="22" viewBox="0 0 55 22" style={{ overflow: 'visible', flexShrink: 0 }}>
+                      <path d="M0 10 Q 13.75 18, 27.5 10 T 55 12" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  )
+                },
+                {
+                  label: 'Completed',
+                  value: counts.completed,
+                  icon: CheckCircle2,
+                  bg: 'rgba(34,197,94,0.08)',
+                  color: '#22c55e',
+                  subText: `${completionRate}% of total`,
+                  rightElement: <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2.5px solid var(--border)', flexShrink: 0 }} />
+                },
+                {
+                  label: 'In Progress',
+                  value: counts.inProgress,
+                  icon: Clock,
+                  bg: 'rgba(59,130,246,0.08)',
+                  color: '#3b82f6',
+                  subText: counts.inProgress === 1 ? '1 task active' : `${counts.inProgress} tasks active`,
+                  rightElement: <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2.5px solid var(--border)', flexShrink: 0 }} />
+                },
+                {
+                  label: 'Pending',
+                  value: counts.pending,
+                  icon: AlertCircle,
+                  bg: 'rgba(249,115,22,0.08)',
+                  color: '#f97316',
+                  subText: 'Awaiting action',
+                  rightElement: <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2.5px solid var(--border)', flexShrink: 0 }} />
+                },
+              ].map(({ label, value, icon: Icon, bg, color, subText, rightElement }) => (
+                <div key={label} className="pt-stat">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Icon size={18} color={color} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>{value}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontWeight: 600 }}>{subText}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>{value}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontWeight: 600 }}>{subText}</div>
-                  </div>
+                  {rightElement}
                 </div>
-                {rightElement}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           {/* ── Progress bar ── */}
           {counts.total > 0 && (
@@ -1032,16 +1040,16 @@ export default function PortalTasks() {
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
                 style={{
-                  background: 'linear-gradient(135deg, rgba(245,158,11,.12), rgba(245,158,11,.06))',
-                  border: '1px solid rgba(245,158,11,.35)',
+                  background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05))',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
                   borderRadius: 12, padding: '12px 16px', marginBottom: 20,
                   display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
                 }}
               >
                 <span className="pt-pulse-dot" />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#92400e' }}>Task in progress: </span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#78350f' }}>{runningTask.description}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>Task in progress: </span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>{runningTask.description}</span>
                 </div>
                 <LiveTimer startedAt={runningTask.startedAt} baseDurationMinutes={runningTask.durationMinutes || 0} />
               </motion.div>
@@ -1117,9 +1125,23 @@ export default function PortalTasks() {
           </div>
 
           {/* ── Task List ── */}
-          {loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-              <Loader2 size={28} className="animate-spin" style={{ color: 'var(--primary)' }} />
+          {loading && groupedByDate.length === 0 ? (
+            <div>
+              {Array(3).fill(0).map((_, i) => (
+                <div key={`skel-dtask-${i}`} className="pt-task-card" style={{ padding: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ width: 80, height: 10, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 8 }} />
+                      <div style={{ width: 200, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginBottom: 6 }} />
+                      <div style={{ width: 150, height: 12, borderRadius: 4, background: 'var(--bg-alt)', animation: 'pulse 1.5s infinite' }} />
+                    </div>
+                    <div style={{ width: 60, height: 18, borderRadius: 10, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ width: 70, height: 28, borderRadius: 6, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : groupedByDate.length === 0 ? (
             <div style={{
@@ -1213,9 +1235,39 @@ export default function PortalTasks() {
           </div>
         </>
       ) : (
-        assignedLoading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-            <Loader2 size={28} className="animate-spin" style={{ color: 'var(--primary)' }} />
+        assignedLoading && assignedTasks.length === 0 ? (
+          <div className="panel" style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', overflow: 'hidden' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', padding: '10px 20px',
+              fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px',
+              background: 'var(--bg)', borderBottom: '1px solid var(--border)'
+            }}>
+              <div style={{ flex: 1 }}>Project</div>
+              <div style={{ width: 100, textAlign: 'center' }}>Priority</div>
+              <div style={{ width: 110, textAlign: 'center' }}>Status</div>
+              <div style={{ width: 130, textAlign: 'center' }}>Due Date</div>
+              <div style={{ width: 180, textAlign: 'right', paddingRight: 10 }}>Action</div>
+            </div>
+            {Array(3).fill(0).map((_, i) => (
+              <div key={`skel-row-${i}`} style={{ display: 'flex', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ width: 120, height: 12, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                  <div style={{ width: 180, height: 10, borderRadius: 4, background: 'var(--bg-alt)', animation: 'pulse 1.5s infinite' }} />
+                </div>
+                <div style={{ width: 100, display: 'flex', justifyContent: 'center' }}>
+                  <div style={{ width: 60, height: 18, borderRadius: 10, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                </div>
+                <div style={{ width: 110, display: 'flex', justifyContent: 'center' }}>
+                  <div style={{ width: 70, height: 18, borderRadius: 10, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                </div>
+                <div style={{ width: 130, display: 'flex', justifyContent: 'center' }}>
+                  <div style={{ width: 80, height: 12, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                </div>
+                <div style={{ width: 180, display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                  <div style={{ width: 80, height: 28, borderRadius: 6, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+                </div>
+              </div>
+            ))}
           </div>
         ) : assignedTasks.length === 0 ? (
           <div style={{
@@ -1292,13 +1344,18 @@ export default function PortalTasks() {
                     : task.status === 'Accepted' ? '#dbeafe' : '#f1f5f9'
 
                 return (
-                  <div key={task._id} style={{
-                    display: 'flex', alignItems: 'center',
-                    background: 'var(--surface)', borderBottom: isLast ? 'none' : '1px solid var(--border)',
-                    transition: 'background .15s',
-                    padding: '10px 20px',
-                    cursor: 'pointer'
-                  }}
+                  <motion.div 
+                    key={task._id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.03 }}
+                    style={{
+                      display: 'flex', alignItems: 'center',
+                      background: 'var(--surface)', borderBottom: isLast ? 'none' : '1px solid var(--border)',
+                      transition: 'background .15s',
+                      padding: '10px 20px',
+                      cursor: 'pointer'
+                    }}
                     onClick={() => setDetailsProject(task)}
                     onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg)' }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)' }}
@@ -1428,7 +1485,7 @@ export default function PortalTasks() {
                         >↺</button>
                       )}
                     </div>
-                  </div>
+                  </motion.div>
                 )
               })}
             </div>

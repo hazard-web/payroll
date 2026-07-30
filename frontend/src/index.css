@@ -53,20 +53,20 @@ html {
 }
 
 :root[data-theme='dark'] {
-  /* Official Design System Palette (Dark) */
-  --bda-dark: #0a0f0a;
-  --bda-surface: #1a1f1a;
-  --bda-green-light: #7d8538;
-  --text-light: #c9cfbf;
+  /* Midnight Dark Mode Palette */
+  --bda-dark: #090e17;
+  --bda-surface: #121a2f;
+  --bda-primary: #10b981;
+  --text-light: #94a3b8;
 
   /* Semantic Mappings */
-  --primary: var(--bda-green-light);
+  --primary: var(--bda-primary);
   --bg: var(--bda-dark);
   --surface: var(--bda-surface);
-  --text: #e5ebdd;
-  --text-muted: #b2b7ad;
-  --text-light: #9aa092;
-  --border: rgba(88, 131, 59, 0.2);
+  --text: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-light: #64748b;
+  --border: rgba(255, 255, 255, 0.1);
 }
 
 :root[data-theme='dark'] [style*="color: var(--navy)"] {
@@ -1022,6 +1022,78 @@ h3 {
   justify-content: flex-end;
   gap: var(--space-3);
 }
+
+/* ── Compact Modal Form ─────────────────────────────────────── */
+.modal-compact .modal-panel__header {
+  padding: 12px 16px;
+}
+
+.modal-compact .modal-panel__header .panel-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.modal-compact .modal-panel__body {
+  padding: 12px 16px;
+}
+
+.modal-compact .input-field {
+  min-height: 30px;
+  height: 30px;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.modal-compact .label {
+  font-size: 10px;
+  font-weight: 700;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+.modal-compact .form-field,
+.modal-compact [style*="margin-bottom: 20px"] {
+  margin-bottom: 6px !important;
+}
+
+.modal-compact .form-grid-2 {
+  gap: 6px 12px;
+}
+
+.modal-compact .panel-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-bottom: 6px !important;
+  margin-top: 10px !important;
+}
+
+.modal-compact .segmented {
+  height: 26px;
+}
+
+.modal-compact .segmented__btn {
+  font-size: 11px;
+  padding: 0 10px;
+}
+
+.modal-compact .btn-primary,
+.modal-compact .btn-ghost {
+  height: 28px;
+  font-size: 12px;
+  padding: 0 14px;
+  border-radius: 6px;
+}
+
+.modal-compact .text-muted {
+  font-size: 10px;
+}
+
 
 /* ── Empty State ─────────────────────────────────────────────── */
 .empty-state {

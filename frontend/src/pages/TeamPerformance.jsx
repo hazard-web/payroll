@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import PageShell, { PageLoading } from '../components/PageShell'
-import { Search, Activity, MoreVertical } from 'lucide-react'
+import PageShell from '../components/PageShell'
+import { Search, Activity, MoreVertical, ChevronUp, ChevronDown } from 'lucide-react'
 import api from '../api'
+import { motion } from 'framer-motion'
 
 function initials(name = '') {
   const parts = name.trim().split(/\s+/)
@@ -13,17 +14,17 @@ function initials(name = '') {
 export default function TeamPerformance() {
   const navigate = useNavigate()
   const [staffList, setStaffList] = useState([])
-  const [filteredStaff, setFilteredStaff] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [activeMenuId, setActiveMenuId] = useState(null)
+  const [sortField, setSortField] = useState('fullName')
+  const [sortOrder, setSortOrder] = useState('asc')
 
   useEffect(() => {
     const fetchStaffList = async () => {
       try {
         const res = await api.get('/attendance/admin/staff-list')
         setStaffList(res.data.data || [])
-        setFilteredStaff(res.data.data || [])
       } catch (err) {
         console.error('Failed to fetch staff list:', err)
       } finally {
@@ -34,29 +35,53 @@ export default function TeamPerformance() {
   }, [])
 
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredStaff(staffList)
-    } else {
-      const query = searchQuery.toLowerCase()
-      setFilteredStaff(
-        staffList.filter(staff =>
-          staff.fullName?.toLowerCase().includes(query) ||
-          staff.employeeId?.toLowerCase().includes(query) ||
-          staff.designation?.toLowerCase().includes(query) ||
-          staff.department?.toLowerCase().includes(query)
-        )
-      )
-    }
-  }, [searchQuery, staffList])
-
-  useEffect(() => {
     if (activeMenuId === null) return
     const handleClose = () => setActiveMenuId(null)
     window.addEventListener('click', handleClose)
     return () => window.removeEventListener('click', handleClose)
   }, [activeMenuId])
 
-  if (loading) return <PageShell><PageLoading label="Loading team…" /></PageShell>
+  const displayStaff = useMemo(() => {
+    let result = [...staffList]
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter(staff =>
+        staff.fullName?.toLowerCase().includes(query) ||
+        staff.employeeId?.toLowerCase().includes(query) ||
+        staff.designation?.toLowerCase().includes(query) ||
+        staff.department?.toLowerCase().includes(query)
+      )
+    }
+
+    result.sort((a, b) => {
+      let valA = a[sortField] ?? ''
+      let valB = b[sortField] ?? ''
+
+      if (sortField === 'performanceScore') {
+        valA = Number(valA) || 0
+        valB = Number(valB) || 0
+      } else {
+        valA = String(valA).toLowerCase()
+        valB = String(valB).toLowerCase()
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+
+    return result
+  }, [staffList, searchQuery, sortField, sortOrder])
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
 
   return (
     <PageShell style={{ maxWidth: 'none' }}>
@@ -189,7 +214,30 @@ export default function TeamPerformance() {
       </div>
 
       {/* ── Table ── */}
-      {filteredStaff.length === 0 ? (
+      {loading && displayStaff.length === 0 ? (
+        <div className="tp-table" style={{ overflow: 'visible' }}>
+          <div className="tp-grid tp-thead-row">
+            <div />
+            <div className="tp-th">Employee</div>
+            <div className="tp-th tp-col-id">Employee ID</div>
+            <div className="tp-th tp-col-role">Job Role</div>
+            <div className="tp-th tp-col-dept">Department</div>
+            <div className="tp-th tp-col-score">Performance</div>
+            <div className="tp-th" style={{ textAlign: 'left' }}>Action</div>
+          </div>
+          {Array(5).fill(0).map((_, i) => (
+            <div className="tp-grid tp-data-row" key={`skel-${i}`}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+              <div style={{ width: 120, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+              <div style={{ width: 60, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+              <div style={{ width: 90, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+              <div style={{ width: 80, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+              <div style={{ width: 40, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
+              <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--border)', animation: 'pulse 1.5s infinite', marginLeft: 'auto' }} />
+            </div>
+          ))}
+        </div>
+      ) : displayStaff.length === 0 ? (
         <div style={{
           marginTop: 24, padding: 48, textAlign: 'center',
           background: 'var(--bg)', borderRadius: 12,
@@ -203,17 +251,53 @@ export default function TeamPerformance() {
           {/* Column Headers */}
           <div className="tp-grid tp-thead-row">
             <div />
-            <div className="tp-th">Employee</div>
-            <div className="tp-th tp-col-id" style={{ textAlign: 'left' }}>Employee ID</div>
-            <div className="tp-th tp-col-role" style={{ textAlign: 'left' }}>Job Role</div>
-            <div className="tp-th tp-col-dept" style={{ textAlign: 'left' }}>Department</div>
-            <div className="tp-th tp-col-score" style={{ textAlign: 'left' }}>Performance</div>
+            <div 
+              className="tp-th" 
+              onClick={() => handleSort('fullName')}
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              Employee {sortField === 'fullName' && (sortOrder === 'asc' ? <ChevronUp size={10} /> : <ChevronDown size={10} />)}
+            </div>
+            <div 
+              className="tp-th tp-col-id" 
+              onClick={() => handleSort('employeeId')}
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              Employee ID {sortField === 'employeeId' && (sortOrder === 'asc' ? <ChevronUp size={10} /> : <ChevronDown size={10} />)}
+            </div>
+            <div 
+              className="tp-th tp-col-role" 
+              onClick={() => handleSort('designation')}
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              Job Role {sortField === 'designation' && (sortOrder === 'asc' ? <ChevronUp size={10} /> : <ChevronDown size={10} />)}
+            </div>
+            <div 
+              className="tp-th tp-col-dept" 
+              onClick={() => handleSort('department')}
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              Department {sortField === 'department' && (sortOrder === 'asc' ? <ChevronUp size={10} /> : <ChevronDown size={10} />)}
+            </div>
+            <div 
+              className="tp-th tp-col-score" 
+              onClick={() => handleSort('performanceScore')}
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+            >
+              Performance {sortField === 'performanceScore' && (sortOrder === 'asc' ? <ChevronUp size={10} /> : <ChevronDown size={10} />)}
+            </div>
             <div className="tp-th" style={{ textAlign: 'left' }}>Action</div>
           </div>
 
           {/* Rows */}
-          {filteredStaff.map(staff => (
-            <div className="tp-grid tp-data-row" key={staff._id}>
+          {displayStaff.map((staff, index) => (
+            <motion.div 
+              className="tp-grid tp-data-row" 
+              key={staff._id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.03 }}
+            >
 
               {staff.documents?.profileImage?.url ? (
                 <img
@@ -317,7 +401,7 @@ export default function TeamPerformance() {
                       )}
               </div>
 
-            </div>
+            </motion.div>
           ))}
         </div>
       )}
