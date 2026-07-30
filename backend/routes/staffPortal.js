@@ -597,6 +597,13 @@ const ADMIN_ONLY_FIELDS = [
   'loginAttempts',
   'lockUntil',
   'user',
+  'employeeId',
+  'designation',
+  'department',
+  'type',
+  'joiningDate',
+  'salaryDetails',
+  'email',
 ];
 
 router.put('/me', authStaff, async (req, res) => {
