@@ -186,9 +186,11 @@ export default function App() {
         }
       >
         <Route index element={<Lazy component={Dashboard} />} />
-        <Route path="generate"        element={<Lazy component={GeneratePayslip} />} />
         <Route path="payslips"        element={<Lazy component={PayslipList} />} />
+        <Route path="payslips/generate" element={<Lazy component={GeneratePayslip} />} />
         <Route path="payslips/:id"    element={<Lazy component={PayslipDetail} />} />
+        {/* Redirect old /generate path to /payslips/generate */}
+        <Route path="generate"        element={<Navigate to="/payslips/generate" replace />} />
         <Route path="staff"           element={<Lazy component={StaffList} />} />
         <Route path="staff/:id"       element={<Lazy component={StaffDetail} />} />
         <Route path="performance"     element={<Lazy component={TeamPerformance} />} />

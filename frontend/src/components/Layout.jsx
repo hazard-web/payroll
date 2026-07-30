@@ -80,6 +80,7 @@ export default function Layout() {
         label = 'Settings'
       } else if (seg === 'generate') {
         label = 'Generate Payslip'
+        currentPath = '/payslips/generate'
       } else if (seg === 'staff-support') {
         label = 'Staff Support'
       } else if (/^[a-f\d]{24}$/i.test(seg)) {
@@ -651,7 +652,7 @@ export default function Layout() {
                 title={!sidebarOpen ? label : ''}
                 className="sidebar-link"
                 style={({ isActive }) => {
-                  const active = isActive || (to === '/payslips' && location.pathname.startsWith('/generate'));
+                  const active = isActive;
                   return {
                     display: 'flex',
                     alignItems: 'center',

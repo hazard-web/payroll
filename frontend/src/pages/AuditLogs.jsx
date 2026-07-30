@@ -156,7 +156,7 @@ export default function AuditLogs({ isSettings }) {
               <div style={{ color: 'var(--primary)', fontSize: 18, fontWeight: 700, marginBottom: 8 }}>No recent activity</div>
               <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 24 }}>Start by generating your first statutory compliance document.</p>
               <button
-                onClick={() => navigate('/generate')}
+                onClick={() => navigate('/payslips/generate')}
                 style={{
                   background: 'var(--primary)', color: 'white',
                   border: 'none', borderRadius: 12, padding: '12px 24px',

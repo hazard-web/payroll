@@ -513,26 +513,99 @@ function AttendanceTab() {
     }
   }
 
-  const exportStaffExcel = (s) => {
-    const headers = ['Date', 'Check-In', 'Check-Out', 'Total Hours', 'Status']
-    const staffAtt = attendanceRecords.filter(r => r.staff?._id === s._id)
-    const rowsData = staffAtt.map(r => [
-      new Date(r.date).toLocaleDateString('en-IN'),
-      r.punchIn ? new Date(r.punchIn).toLocaleTimeString('en-IN') : '—',
-      r.punchOut ? new Date(r.punchOut).toLocaleTimeString('en-IN') : '—',
-      r.totalHours ? r.totalHours.toFixed(2) : '—',
-      r.workStatus || r.status || '—'
-    ])
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + [headers.join(','), ...rowsData.map(e => e.join(','))].join('\n')
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement("a")
-    link.setAttribute("href", encodedUri)
-    link.setAttribute("download", `Attendance_${s.fullName.replace(/\s+/g, '_')}_${month}_${year}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const exportStaffExcel = async (s) => {
+    try {
+      setExportingStaffId(s._id)
+      // Fetch full attendance history (all-time), same as PDF export
+      const res = await api.get(`/attendance/admin/staff/${s._id}`)
+      const history = (res.data?.history || []).sort((a, b) => new Date(a.date) - new Date(b.date))
+
+      const fmtDateExcel = (dt) => {
+        if (!dt) return '--'
+        const d = new Date(dt)
+        const day   = String(d.getDate()).padStart(2, '0')
+        const month = d.toLocaleString('en-US', { month: 'short' })
+        const year  = d.getFullYear()
+        const week  = d.toLocaleString('en-US', { weekday: 'short' })
+        return `${week} ${day}-${month}-${year}`
+      }
+
+      const fmtTimeExcel = (dt) => {
+        if (!dt) return '--'
+        const d = new Date(dt)
+        let h = d.getHours()
+        const m = String(d.getMinutes()).padStart(2, '0')
+        const ampm = h >= 12 ? 'PM' : 'AM'
+        h = h % 12 || 12
+        return `${String(h).padStart(2, '0')}:${m} ${ampm}`
+      }
+
+      const fmtHoursExcel = (h) => {
+        if (!h && h !== 0) return '--'
+        const hrs = Math.floor(h)
+        const min = Math.round((h - hrs) * 60)
+        return `${hrs}h ${String(min).padStart(2, '0')}m`
+      }
+
+      // Summary stats
+      const fullDays  = history.filter(r => r.workStatus === 'Full Day').length
+      const halfDays  = history.filter(r => r.workStatus === 'Half Day').length
+      const totalHrs  = history.reduce((sum, r) => sum + (r.totalHours || 0), 0)
+
+      // Build rows — wrap every cell in quotes to handle commas/special chars safely
+      const q = (v) => `"${String(v ?? '--').replace(/"/g, '""')}"`
+
+      const headers = ['Date', 'Check-In', 'Check-Out', 'Total Hours', 'Status', 'Location']
+
+      const dataRows = history.map(r => [
+        q(fmtDateExcel(r.date)),
+        q(fmtTimeExcel(r.punchIn)),
+        q(fmtTimeExcel(r.punchOut)),
+        q(fmtHoursExcel(r.totalHours)),
+        q(r.workStatus || r.status || '--'),
+        q(r.locationIn?.lat ? `${Number(r.locationIn.lat).toFixed(4)}, ${Number(r.locationIn.lng).toFixed(4)}` : '--'),
+      ].join(','))
+
+      // Compose CSV with UTF-8 BOM for proper Excel rendering
+      const BOM = '\uFEFF'
+      const summary = [
+        `"Employee: ${s.fullName}"`,
+        `"ID: ${s.employeeId || '--'}"`,
+        `"Department: ${s.department || '--'}"`,
+        `"Designation: ${s.designation || '--'}"`,
+      ].join(',')
+
+      const statRow = [
+        `"Total Records: ${history.length}"`,
+        `"Full Days: ${fullDays}"`,
+        `"Half Days: ${halfDays}"`,
+        `"Total Hours: ${fmtHoursExcel(totalHrs)}"`,
+      ].join(',')
+
+      const csvContent = BOM
+        + summary + '\n'
+        + statRow + '\n'
+        + '\n'
+        + headers.map(h => q(h)).join(',') + '\n'
+        + dataRows.join('\n')
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url  = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.setAttribute('href', url)
+      link.setAttribute('download', `Attendance_${s.fullName.replace(/\s+/g, '_')}_AllTime.csv`)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      toast.success(`Exported ${history.length} records for ${s.fullName}`)
+    } catch {
+      toast.error('Failed to export attendance data')
+    } finally {
+      setExportingStaffId(null)
+    }
   }
+
 
   const workingDays = getWorkingDaysCount(year, month, [0])
   const departments = ['All', ...new Set(staffList.map(s => s.department).filter(Boolean))]

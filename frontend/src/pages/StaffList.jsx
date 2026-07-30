@@ -531,19 +531,21 @@ export default function StaffList() {
                             style={{ position: 'fixed', inset: 0, zIndex: 9998 }} 
                             onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} 
                           />
-                          <div style={{
-                            position: 'fixed',
-                            left: Math.max(8, menuPos.left),
-                            ...(menuPos.openUp
-                              ? { bottom: window.innerHeight - menuPos.top + 4 }
-                              : { top: menuPos.top }
-                            ),
-                            width: 200,
-                            background: 'var(--surface)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 10,
-                            boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
-                            zIndex: 9999,
+                          <div 
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              position: 'fixed',
+                              left: Math.max(8, menuPos.left),
+                              ...(menuPos.openUp
+                                ? { bottom: window.innerHeight - menuPos.top + 4 }
+                                : { top: menuPos.top }
+                              ),
+                              width: 200,
+                              background: 'var(--surface)',
+                              border: '1px solid var(--border)',
+                              borderRadius: 10,
+                              boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
+                              zIndex: 9999,
                             display: 'flex',
                             flexDirection: 'column',
                             padding: '6px 0',
@@ -558,7 +560,7 @@ export default function StaffList() {
                             <DropdownItem onClick={() => { setActiveMenuId(null); navigate(`/attendance?search=${person.employeeId || person.fullName}`); }}>
                               📅 Attendance
                             </DropdownItem>
-                            <DropdownItem onClick={() => { setActiveMenuId(null); navigate(`/generate?staffId=${person._id}`); }}>
+                            <DropdownItem onClick={() => { setActiveMenuId(null); navigate(`/payslips/generate?staffId=${person._id}`); }}>
                               📄 Generate Payslip
                             </DropdownItem>
                             <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }} />

@@ -122,7 +122,7 @@ export default function PayslipList() {
       const res = await api.get(`/payslips/${id}`)
       const data = res.data.data
       const { _id, createdAt, updatedAt, emailSent, emailSentAt, __v, ...duplicateData } = data
-      navigate('/generate', { state: { duplicateData } })
+      navigate('/payslips/generate', { state: { duplicateData } })
     } catch (err) {
       toast.error('Failed to clone payslip')
     } finally {
@@ -196,7 +196,7 @@ export default function PayslipList() {
           )}
 
           <button
-            onClick={() => navigate('/generate')}
+            onClick={() => navigate('/payslips/generate')}
             className="btn-primary"
             style={{ 
               height: 34, 
