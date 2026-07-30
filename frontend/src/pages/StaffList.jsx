@@ -246,6 +246,26 @@ export default function StaffList() {
     }
   }
 
+  const handleResendInvite = async (staffId) => {
+    const loadingToast = toast.loading('Sending portal setup link...')
+    try {
+      const res = await api.post(`/staff/${staffId}/provision-portal`)
+      toast.dismiss(loadingToast)
+      if (res.data.success) {
+        toast.success(res.data.message || 'Setup link sent successfully!')
+        if (res.data.resetLink) {
+          navigator.clipboard.writeText(res.data.resetLink)
+          toast.success('Setup link copied to clipboard!', { icon: '📋' })
+        }
+      } else {
+        toast.error(res.data.message || 'Failed to send setup link')
+      }
+    } catch (err) {
+      toast.dismiss(loadingToast)
+      toast.error(err.response?.data?.message || err.message || 'Failed to send setup link')
+    }
+  }
+
   // No client-side filter — search/type are sent server-side
   const displayStaff = staff
 
@@ -562,6 +582,9 @@ export default function StaffList() {
                             </DropdownItem>
                             <DropdownItem onClick={() => { setActiveMenuId(null); navigate(`/payslips/generate?staffId=${person._id}`); }}>
                               📄 Generate Payslip
+                            </DropdownItem>
+                            <DropdownItem onClick={() => { setActiveMenuId(null); handleResendInvite(person._id); }}>
+                              ✉️ Resend Portal Link
                             </DropdownItem>
                             <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }} />
                             <DropdownItem 

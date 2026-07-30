@@ -381,6 +381,26 @@ export default function StaffDetail() {
     }
   }
 
+  const handleResendInvite = async () => {
+    const loadingToast = toast.loading('Sending portal setup link...')
+    try {
+      const res = await api.post(`/staff/${id}/provision-portal`)
+      toast.dismiss(loadingToast)
+      if (res.data.success) {
+        toast.success(res.data.message || 'Setup link sent successfully!')
+        if (res.data.resetLink) {
+          navigator.clipboard.writeText(res.data.resetLink)
+          toast.success('Setup link copied to clipboard!', { icon: '📋' })
+        }
+      } else {
+        toast.error(res.data.message || 'Failed to send setup link')
+      }
+    } catch (err) {
+      toast.dismiss(loadingToast)
+      toast.error(err.response?.data?.message || err.message || 'Failed to send setup link')
+    }
+  }
+
   const handleInputChange = (e) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
@@ -582,6 +602,32 @@ export default function StaffDetail() {
                 padding: '6px 0',
                 textAlign: 'left'
               }}>
+                <button
+                  onClick={async () => {
+                    setActiveMenuId(null);
+                    await handleResendInvite();
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: '8px 16px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: 'var(--primary)',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    transition: 'background 0.15s'
+                  }}
+                >
+                  <Mail size={13} /> Resend Portal Link
+                </button>
+                <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }} />
                 <button
                   onClick={() => { 
                     setActiveMenuId(null); 
