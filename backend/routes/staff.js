@@ -5,6 +5,9 @@ const Notification = require('../models/Notification');
 const Attendance = require('../models/Attendance');
 const LeaveRequest = require('../models/LeaveRequest');
 const Payslip = require('../models/Payslip');
+const AssignedTask = require('../models/AssignedTask');
+const LeaveAdjustment = require('../models/LeaveAdjustment');
+const SupportRequest = require('../models/SupportRequest');
 const { auth: protect } = require('./auth');
 const crypto = require('crypto');
 const emailService = require('../utils/emailService');
@@ -480,12 +483,26 @@ router.delete('/:id', protect, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Staff member not found' });
     }
 
-    // Cascade delete: remove all related data for this staff member
+    // Determine the query to delete related payslips (matching email or employeeId for this admin's workspace)
+    const payslipQuery = { user: req.user._id };
+    if (deletedStaff.employeeId) {
+      payslipQuery.$or = [
+        { employeeEmail: deletedStaff.email },
+        { employeeId: deletedStaff.employeeId }
+      ];
+    } else {
+      payslipQuery.employeeEmail = deletedStaff.email;
+    }
+
+    // Cascade delete: remove all related data for this staff member from all collections
     await Promise.all([
       Attendance.deleteMany({ staff: deletedStaff._id }),
       LeaveRequest.deleteMany({ staff: deletedStaff._id }),
-      Payslip.deleteMany({ staff: deletedStaff._id }),
-      Notification.deleteMany({ recipient: deletedStaff._id }),
+      Payslip.deleteMany(payslipQuery),
+      Notification.deleteMany({ staff: deletedStaff._id }),
+      AssignedTask.deleteMany({ staff: deletedStaff._id }),
+      LeaveAdjustment.deleteMany({ staff: deletedStaff._id }),
+      SupportRequest.deleteMany({ staff: deletedStaff._id }),
     ]);
 
     await logActivity(req.user._id, 'STAFF_DELETED', `Deleted staff: ${deletedStaff.fullName}`, { staffId: deletedStaff._id });
