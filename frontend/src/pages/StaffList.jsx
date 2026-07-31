@@ -208,10 +208,14 @@ export default function StaffList() {
       } else {
         res = await api.post('/staff', payload)
         const portalAccess = res.data.portalAccess
-        if (portalAccess?.emailError) {
-          toast.error(`Team member added, but invite email failed: ${portalAccess.emailError}`)
+        if (isOnboardingInvite) {
+          if (portalAccess?.emailError) {
+            toast.error(`Team member added, but invite email failed: ${portalAccess.emailError}`)
+          } else {
+            toast.success('Team member added — invite email sent to their inbox!')
+          }
         } else {
-          toast.success('Team member added — invite email sent to their inbox!')
+          toast.success('Team member added successfully')
         }
         setStaff([res.data.data, ...staff])
       }

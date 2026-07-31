@@ -229,8 +229,8 @@ router.post('/', protect, async (req, res) => {
       }
     }
 
-    // ── Duplicate email check: prevent two staff profiles with same email ──
-    const emailExists = await Staff.findOne({ user: req.user._id, email });
+    // ── Duplicate email check: prevent two staff profiles with same email globally ──
+    const emailExists = await Staff.findOne({ email });
     if (emailExists) {
       return res.status(409).json({
         success: false,
@@ -309,17 +309,19 @@ router.post('/', protect, async (req, res) => {
 
     let portalAccess = null;
     let portalError = null;
-    try {
-      portalAccess = await provisionStaffPortalAccess(staff, req, { sendEmail: true });
-    } catch (provisionErr) {
-      console.error('Failed to provision staff portal after creation:', provisionErr.message);
-      console.error('Stack:', provisionErr.stack);
-      portalError = provisionErr.message;
-      portalAccess = {
-        resetLink: null,
-        emailPreviewUrl: null,
-        emailError: `Portal setup encountered an issue: ${provisionErr.message}`,
-      };
+    if (isOnboarding) {
+      try {
+        portalAccess = await provisionStaffPortalAccess(staff, req, { sendEmail: true });
+      } catch (provisionErr) {
+        console.error('Failed to provision staff portal after creation:', provisionErr.message);
+        console.error('Stack:', provisionErr.stack);
+        portalError = provisionErr.message;
+        portalAccess = {
+          resetLink: null,
+          emailPreviewUrl: null,
+          emailError: `Portal setup encountered an issue: ${provisionErr.message}`,
+        };
+      }
     }
 
     await logActivity(
@@ -402,9 +404,8 @@ router.put('/:id', protect, async (req, res) => {
       }
       req.body.email = email;
 
-      // ── Duplicate email check on update: ensure no OTHER staff has this email ──
+      // ── Duplicate email check on update: ensure no OTHER staff has this email globally ──
       const emailTaken = await Staff.findOne({
-        user: req.user._id,
         email,
         _id: { $ne: req.params.id }
       });
