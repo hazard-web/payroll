@@ -42,8 +42,11 @@ const { sendPasswordResetEmail } = require('../utils/emailService');
 const { closeAttendanceSession, getDayStart } = require('../utils/attendanceService');
 
 // PAN validator
-const PAN_REGEX = /^[A-Z0-9]{5,15}$/i;
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i;
 const isValidPAN = (pan) => typeof pan === 'string' && PAN_REGEX.test(pan);
+
+// IFSC validator
+const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/i;
 
 // Required fields for the employee self-service profile-completion form
 const PROFILE_REQUIRED_FIELDS = [
@@ -667,6 +670,16 @@ router.put('/me', authStaff, async (req, res) => {
 
     // Bank details — mirror to financials for legacy payslip support
     if (req.body.bankDetails !== undefined) {
+      if (req.body.bankDetails.ifscCode) {
+        const ifsc = String(req.body.bankDetails.ifscCode).toUpperCase().trim();
+        if (!IFSC_REGEX.test(ifsc)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid IFSC format. Expected: 4 letters, followed by 0, followed by 6 alphanumeric characters (e.g., UTIB0000249).'
+          });
+        }
+        req.body.bankDetails.ifscCode = ifsc;
+      }
       req.staff.financials = {
         ...(req.staff.financials || {}),
         bankName: req.body.bankDetails.bankName,

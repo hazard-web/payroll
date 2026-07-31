@@ -20,6 +20,7 @@ const { buildSetupLink } = require('../utils/urlHelper');
 // ─────────────────────────────────────────────────────────────
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/i;
 const isValidPAN = (pan) => typeof pan === 'string' && PAN_REGEX.test(pan);
 const isValidEmail = (email) => typeof email === 'string' && EMAIL_REGEX.test(email.toLowerCase().trim());
 const DEFAULT_FRONTEND_URL = 'https://rohit98k-payroll-portal.vercel.app';
@@ -278,6 +279,16 @@ router.post('/', protect, async (req, res) => {
     }
     // Same for bankDetails → financials (legacy payslip)
     if (staffPayload.bankDetails) {
+      if (staffPayload.bankDetails.ifscCode) {
+        const ifsc = String(staffPayload.bankDetails.ifscCode).toUpperCase().trim();
+        if (!IFSC_REGEX.test(ifsc)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid IFSC format. Expected: 4 letters, followed by 0, followed by 6 alphanumeric characters (e.g., UTIB0000249).'
+          });
+        }
+        staffPayload.bankDetails.ifscCode = ifsc;
+      }
       staffPayload.financials = {
         ...(staffPayload.financials || {}),
         bankName: staffPayload.bankDetails.bankName,
@@ -435,6 +446,16 @@ router.put('/:id', protect, async (req, res) => {
       };
     }
     if (req.body.bankDetails) {
+      if (req.body.bankDetails.ifscCode) {
+        const ifsc = String(req.body.bankDetails.ifscCode).toUpperCase().trim();
+        if (!IFSC_REGEX.test(ifsc)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid IFSC format. Expected: 4 letters, followed by 0, followed by 6 alphanumeric characters (e.g., UTIB0000249).'
+          });
+        }
+        req.body.bankDetails.ifscCode = ifsc;
+      }
       req.body.financials = {
         ...(req.body.financials || {}),
         bankName: req.body.bankDetails.bankName,

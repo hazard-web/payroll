@@ -87,6 +87,7 @@ const staffSchema = new mongoose.Schema(
       accountNumber: { type: String, default: '' },
       ifscCode: { type: String, default: '' },
       branch: { type: String, default: '' },
+      accountType: { type: String, default: 'Savings', enum: ['Savings', 'Current'] },
     },
     documents: {
       aadharCard: {

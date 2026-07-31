@@ -12,7 +12,8 @@ import PageShell, { PageHeader } from '../../components/PageShell'
 import { InputField, SelectField } from '../../components/UI'
 import { motion } from 'framer-motion'
 
-const PAN_REGEX = /^[A-Z0-9]{5,15}$/i
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i
+const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/i
 
 const emptyForm = {
   fullName: '',
@@ -33,8 +34,10 @@ const emptyForm = {
     accountHolderName: '',
     bankName: '',
     accountNumber: '',
+    confirmAccountNumber: '',
     ifscCode: '',
-    branch: ''
+    branch: '',
+    accountType: 'Savings'
   },
   salaryDetails: {
     annualCtc: '',
@@ -46,6 +49,14 @@ const GENDER_OPTIONS = [
   { value: 'Male', label: 'Male' },
   { value: 'Female', label: 'Female' },
   { value: 'Other', label: 'Other' }
+]
+
+const TABS = [
+  { id: 'personal', label: 'Personal & Contact', icon: User },
+  { id: 'employment', label: 'Employment & Role', icon: Briefcase },
+  { id: 'emergency', label: 'Emergency Contact', icon: Phone },
+  { id: 'bank', label: 'Bank Details', icon: Landmark },
+  { id: 'documents', label: 'Identity & Documents', icon: ShieldCheck }
 ]
 
 function Section({ title, subtitle, icon: Icon, children }) {
@@ -287,6 +298,7 @@ export default function PortalProfile() {
   const [uploadingDoc, setUploadingDoc] = useState(null)
   
   const [isEditing, setIsEditing] = useState(false)
+  const [activeTab, setActiveTab] = useState('personal')
   const isEditingInitialized = useRef(false)
   const hasInitializedForm = useRef(false)
 
@@ -329,8 +341,10 @@ export default function PortalProfile() {
           accountHolderName: staffUser.bankDetails?.accountHolderName || '',
           bankName: staffUser.bankDetails?.bankName || '',
           accountNumber: staffUser.bankDetails?.accountNumber || '',
+          confirmAccountNumber: staffUser.bankDetails?.accountNumber || '',
           ifscCode: staffUser.bankDetails?.ifscCode || '',
-          branch: staffUser.bankDetails?.branch || ''
+          branch: staffUser.bankDetails?.branch || '',
+          accountType: staffUser.bankDetails?.accountType || 'Savings'
         },
         salaryDetails: {
           annualCtc: staffUser.salaryDetails?.annualCTC || staffUser.salaryDetails?.annualCtc || '',
@@ -411,6 +425,12 @@ export default function PortalProfile() {
     if (form.emergencyContact.phone && (emergencyPhoneLen < 8 || emergencyPhoneLen > 12)) {
       e['emergencyContact.phone'] = 'Enter a valid phone number (8-12 digits)'
     }
+    if (form.bankDetails.ifscCode && !IFSC_REGEX.test(form.bankDetails.ifscCode.toUpperCase())) {
+      e['bankDetails.ifscCode'] = 'Invalid IFSC format. Expected: 4 letters, followed by 0, followed by 6 alphanumeric characters (e.g., UTIB0000249)'
+    }
+    if (form.bankDetails.accountNumber && form.bankDetails.confirmAccountNumber && form.bankDetails.accountNumber !== form.bankDetails.confirmAccountNumber) {
+      e['bankDetails.confirmAccountNumber'] = 'Account numbers do not match'
+    }
     return e
   }
 
@@ -442,7 +462,14 @@ export default function PortalProfile() {
     if (!form.bankDetails.accountHolderName) e['bankDetails.accountHolderName'] = 'Required'
     if (!form.bankDetails.bankName) e['bankDetails.bankName'] = 'Required'
     if (!form.bankDetails.accountNumber) e['bankDetails.accountNumber'] = 'Required'
+    if (!form.bankDetails.confirmAccountNumber) e['bankDetails.confirmAccountNumber'] = 'Confirm Account Number is required'
     if (!form.bankDetails.ifscCode) e['bankDetails.ifscCode'] = 'Required'
+    else if (!IFSC_REGEX.test(form.bankDetails.ifscCode.toUpperCase())) {
+      e['bankDetails.ifscCode'] = 'Invalid IFSC format. Expected: 4 letters, followed by 0, followed by 6 alphanumeric characters (e.g., UTIB0000249)'
+    }
+    if (form.bankDetails.accountNumber && form.bankDetails.confirmAccountNumber && form.bankDetails.accountNumber !== form.bankDetails.confirmAccountNumber) {
+      e['bankDetails.confirmAccountNumber'] = 'Account numbers do not match'
+    }
     DOCUMENT_CONFIG.forEach((doc) => {
       if (doc.required && !documents[doc.type]?.url) {
         e[`documents.${doc.type}`] = `${doc.label} is required`
@@ -460,6 +487,19 @@ export default function PortalProfile() {
     setErrors(v)
     if (Object.keys(v).length > 0) {
       toast.error('Please fix the highlighted fields')
+      // Switch active tab to the first one with an error
+      const errKeys = Object.keys(v)
+      if (errKeys.some(k => ['fullName', 'phone', 'dob', 'gender', 'address.street', 'address.city', 'address.state', 'address.pincode'].includes(k))) {
+        setActiveTab('personal')
+      } else if (errKeys.includes('workLocation')) {
+        setActiveTab('employment')
+      } else if (errKeys.some(k => k.startsWith('emergencyContact.'))) {
+        setActiveTab('emergency')
+      } else if (errKeys.some(k => k.startsWith('bankDetails.'))) {
+        setActiveTab('bank')
+      } else if (errKeys.some(k => k === 'panNumber' || k.startsWith('documents.') || k.startsWith('documents.'))) {
+        setActiveTab('documents')
+      }
       return
     }
 
@@ -480,7 +520,14 @@ export default function PortalProfile() {
         gender: form.gender,
         address: { ...form.address, pincode: form.address.pincode.trim() },
         emergencyContact: { ...form.emergencyContact, phone: form.emergencyContact.phone.replace(/\D/g, '') },
-        bankDetails: { ...form.bankDetails, ifscCode: form.bankDetails.ifscCode.toUpperCase().trim() },
+        bankDetails: {
+          accountHolderName: form.bankDetails.accountHolderName,
+          bankName: form.bankDetails.bankName,
+          accountNumber: form.bankDetails.accountNumber,
+          ifscCode: form.bankDetails.ifscCode.toUpperCase().trim(),
+          branch: form.bankDetails.branch,
+          accountType: form.bankDetails.accountType || 'Savings'
+        },
         salaryDetails: { 
           annualCTC: Number(form.salaryDetails?.annualCtc || staffUser.salaryDetails?.annualCTC || 0),
           baseSalary: Number(form.salaryDetails?.baseSalary || staffUser.salaryDetails?.baseSalary || 0)
@@ -515,10 +562,60 @@ export default function PortalProfile() {
     form.emergencyContact.name && form.emergencyContact.phone &&
     form.bankDetails.accountHolderName && form.bankDetails.bankName &&
     form.bankDetails.accountNumber && form.bankDetails.ifscCode &&
+    form.bankDetails.confirmAccountNumber &&
+    form.bankDetails.accountNumber === form.bankDetails.confirmAccountNumber &&
+    PAN_REGEX.test(form.panNumber) &&
+    IFSC_REGEX.test(form.bankDetails.ifscCode) &&
     allDocumentsUploaded
   )
 
   const isIntern = staffUser?.type === 'Intern'
+
+  const getTabStatus = (tabId) => {
+    const personalKeys = ['fullName', 'phone', 'dob', 'gender', 'address.street', 'address.city', 'address.state', 'address.pincode']
+    const emergencyKeys = ['emergencyContact.name', 'emergencyContact.phone']
+    const bankKeys = ['bankDetails.accountHolderName', 'bankDetails.bankName', 'bankDetails.accountNumber', 'bankDetails.confirmAccountNumber', 'bankDetails.ifscCode']
+    const docKeys = ['panNumber', 'documents.profileImage', 'documents.aadharCard', 'documents.panCard']
+    
+    if (tabId === 'personal') {
+      const hasError = personalKeys.some(k => errors[k])
+      if (hasError) return 'error'
+      
+      const isFilled = form.fullName && form.fullName !== 'Pending Onboarding' && form.phone && form.dob && form.gender && form.address.street && form.address.city && form.address.state && form.address.pincode
+      return isFilled ? 'complete' : 'incomplete'
+    }
+    
+    if (tabId === 'employment') {
+      if (errors.workLocation) return 'error'
+      return form.workLocation ? 'complete' : 'incomplete'
+    }
+    
+    if (tabId === 'emergency') {
+      const hasError = emergencyKeys.some(k => errors[k])
+      if (hasError) return 'error'
+      
+      const isFilled = form.emergencyContact.name && form.emergencyContact.phone
+      return isFilled ? 'complete' : 'incomplete'
+    }
+    
+    if (tabId === 'bank') {
+      const hasError = bankKeys.some(k => errors[k])
+      if (hasError) return 'error'
+      
+      const isFilled = form.bankDetails.accountHolderName && form.bankDetails.bankName && form.bankDetails.accountNumber && form.bankDetails.confirmAccountNumber && form.bankDetails.ifscCode && (form.bankDetails.accountNumber === form.bankDetails.confirmAccountNumber) && IFSC_REGEX.test(form.bankDetails.ifscCode)
+      return isFilled ? 'complete' : 'incomplete'
+    }
+    
+    if (tabId === 'documents') {
+      const hasError = docKeys.some(k => errors[k])
+      if (hasError) return 'error'
+      
+      const isFilled = form.panNumber && PAN_REGEX.test(form.panNumber) && documents.profileImage?.url && documents.aadharCard?.url && documents.panCard?.url
+      return isFilled ? 'complete' : 'incomplete'
+    }
+    
+    return 'incomplete'
+  }
 
   if (!staffUser) {
     return (
@@ -612,6 +709,63 @@ export default function PortalProfile() {
           font-weight: 700;
           color: var(--text);
           text-align: right;
+        }
+        .profile-edit-container {
+          display: flex;
+          gap: 28px;
+          align-items: flex-start;
+          margin-top: 24px;
+        }
+        .profile-edit-sidebar {
+          width: 280px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+        .profile-edit-tab-btn {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 16px;
+          background: transparent;
+          border: none;
+          border-radius: 10px;
+          color: var(--text-light);
+          font-size: 13px;
+          font-weight: 700;
+          text-align: left;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          width: 100%;
+        }
+        .profile-edit-tab-btn:hover {
+          background: var(--bg);
+          color: var(--text);
+        }
+        .profile-edit-tab-btn.active {
+          background: rgba(88, 131, 59, 0.08);
+          color: var(--primary);
+        }
+        .profile-edit-content {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+        @media (max-width: 768px) {
+          .profile-edit-container {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .profile-edit-sidebar {
+            width: 100%;
+          }
         }
       `}</style>
 
@@ -886,6 +1040,10 @@ export default function PortalProfile() {
                   <span className="info-kv-key">IFSC Code</span>
                   <span className="info-kv-val">{staffUser.bankDetails?.ifscCode || '—'}</span>
                 </div>
+                <div className="info-kv-row">
+                  <span className="info-kv-key">Account Type</span>
+                  <span className="info-kv-val">{staffUser.bankDetails?.accountType || 'Savings'}</span>
+                </div>
                 
                 <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
                   <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
@@ -977,322 +1135,461 @@ export default function PortalProfile() {
           />
 
           <form onSubmit={handleSave} style={{ marginTop: 24 }}>
-            <Section title="Employment & Role" subtitle="Official employment status, code, and department details." icon={Briefcase}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
-                <InputField
-                  label="Employee ID / Code"
-                  value={form.employeeId}
-                  onChange={(e) => updateField('employeeId', e.target.value)}
-                  icon={FileDigit}
-                  disabled
-                />
-                <InputField
-                  label="Date of Joining"
-                  value={form.joiningDate}
-                  onChange={(e) => updateField('joiningDate', e.target.value)}
-                  type="date"
-                  icon={Calendar}
-                  disabled
-                />
-                <InputField
-                  label="Department"
-                  value={form.department}
-                  onChange={(e) => updateField('department', e.target.value)}
-                  icon={Landmark}
-                  disabled
-                />
-                <InputField
-                  label="Designation"
-                  value={form.designation}
-                  onChange={(e) => updateField('designation', e.target.value)}
-                  icon={Briefcase}
-                  disabled
-                />
-                <SelectField
-                  label="Employment Type"
-                  value={form.type}
-                  onChange={(v) => updateField('type', v)}
-                  options={[
-                    { value: 'Employee', label: 'Employee' },
-                    { value: 'Intern', label: 'Intern' }
-                  ]}
-                  disabled
-                />
-                <SelectField
-                  label="Work Location"
-                  value={form.workLocation}
-                  onChange={(v) => updateField('workLocation', v)}
-                  options={[
-                    { value: 'Office', label: 'Office' },
-                    { value: 'Remote', label: 'Remote' },
-                    { value: 'Client Site', label: 'Client Site' }
-                  ]}
-                />
+            <div className="profile-edit-container">
+              {/* Sidebar with Tabs */}
+              <div className="profile-edit-sidebar">
+                {TABS.map((tab) => {
+                  const Icon = tab.icon
+                  const status = getTabStatus(tab.id)
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`profile-edit-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Icon size={16} />
+                        <span>{tab.label}</span>
+                      </div>
+                      <div>
+                        {status === 'error' && <AlertCircle size={14} color="#ef4444" />}
+                        {status === 'complete' && <CheckCircle2 size={14} color="var(--primary)" />}
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
-            </Section>
 
-            <Section title="Personal & Contact Information" subtitle="Your primary details and contact information." icon={User}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
-                <InputField
-                  label="Full Name"
-                  value={form.fullName}
-                  onChange={(e) => updateField('fullName', e.target.value)}
-                  required
-                  error={errors.fullName}
-                  icon={User}
-                />
-                <InputField
-                  label="Email"
-                  value={form.email}
-                  onChange={(e) => updateField('email', e.target.value)}
-                  required
-                  icon={Mail}
-                  disabled
-                />
-                <InputField
-                  label="Official Phone Number"
-                  value={form.phone}
-                  onChange={(e) => updateField('phone', e.target.value.replace(/\D/g, '').slice(0, 12))}
-                  required
-                  icon={Phone}
-                  maxLength={12}
-                />
-              </div>
-            </Section>
+              {/* Main Content Area */}
+              <div className="profile-edit-content">
+                {activeTab === 'personal' && (
+                  <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.15 }}>
+                    <Section title="Personal & Contact Information" subtitle="Your primary details and contact information." icon={User}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+                        <InputField
+                          label="Full Name"
+                          value={form.fullName}
+                          onChange={(e) => updateField('fullName', e.target.value)}
+                          required
+                          error={errors.fullName}
+                          icon={User}
+                        />
+                        <InputField
+                          label="Email"
+                          value={form.email}
+                          onChange={(e) => updateField('email', e.target.value)}
+                          required
+                          icon={Mail}
+                          disabled
+                        />
+                        <InputField
+                          label="Official Phone Number"
+                          value={form.phone}
+                          onChange={(e) => updateField('phone', e.target.value.replace(/\D/g, '').slice(0, 12))}
+                          required
+                          icon={Phone}
+                          maxLength={12}
+                        />
+                        <InputField
+                          label="Date of Birth"
+                          value={form.dob}
+                          onChange={(e) => updateField('dob', e.target.value)}
+                          type="date"
+                          required
+                          error={errors.dob}
+                          icon={Calendar}
+                        />
+                        <SelectField
+                          label="Gender"
+                          value={form.gender}
+                          onChange={(v) => updateField('gender', v)}
+                          options={GENDER_OPTIONS}
+                          required
+                          placeholder="Select Gender..."
+                          error={errors.gender}
+                        />
+                      </div>
+                    </Section>
 
-            <Section title="Identity Details" subtitle="Statutory tax and identity information used for salary disbursement and TDS filing." icon={CreditCard}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
-                <InputField
-                  label="PAN Number"
-                  value={form.panNumber}
-                  onChange={(e) => updateField('panNumber', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))}
-                  placeholder="ABCDE1234F"
-                  required
-                  error={errors.panNumber}
-                  hint="Format: ABCDE1234F"
-                  icon={CreditCard}
-                  maxLength={10}
-                />
-                <InputField
-                  label="Date of Birth"
-                  value={form.dob}
-                  onChange={(e) => updateField('dob', e.target.value)}
-                  type="date"
-                  required
-                  error={errors.dob}
-                  icon={Calendar}
-                />
-                <SelectField
-                  label="Gender"
-                  value={form.gender}
-                  onChange={(v) => updateField('gender', v)}
-                  options={GENDER_OPTIONS}
-                  required
-                  placeholder="Select Gender..."
-                  error={errors.gender}
-                />
-              </div>
-            </Section>
-
-            <Section title="Residential Address" subtitle="Your current residential address for official communication and billing." icon={MapPin}>
-              <InputField
-                label="Street / House No."
-                value={form.address.street}
-                onChange={(e) => updateField('address.street', e.target.value)}
-                placeholder="e.g. 123, Main Street, Apartment 4B"
-                required
-                error={errors['address.street']}
-                icon={MapPin}
-              />
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 20 }}>
-                <InputField
-                  label="City"
-                  value={form.address.city}
-                  onChange={(e) => updateField('address.city', e.target.value)}
-                  required
-                  error={errors['address.city']}
-                />
-                <InputField
-                  label="State"
-                  value={form.address.state}
-                  onChange={(e) => updateField('address.state', e.target.value)}
-                  required
-                  error={errors['address.state']}
-                />
-                <InputField
-                  label="Pincode"
-                  value={form.address.pincode}
-                  onChange={(e) => updateField('address.pincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  required
-                  error={errors['address.pincode']}
-                  maxLength={6}
-                  inputMode="numeric"
-                />
-              </div>
-            </Section>
-
-            <Section title="Emergency Contact" subtitle="Person to reach out to in case of work or personal emergencies." icon={User}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
-                <InputField
-                  label="Contact Full Name"
-                  value={form.emergencyContact.name}
-                  onChange={(e) => updateField('emergencyContact.name', e.target.value)}
-                  required
-                  error={errors['emergencyContact.name']}
-                  icon={User}
-                />
-                <InputField
-                  label="Relationship"
-                  value={form.emergencyContact.relationship}
-                  onChange={(e) => updateField('emergencyContact.relationship', e.target.value)}
-                  placeholder="e.g. Spouse, Parent, Sibling"
-                  icon={User}
-                />
-                <InputField
-                  label="Emergency Phone"
-                  value={form.emergencyContact.phone}
-                  onChange={(e) => updateField('emergencyContact.phone', e.target.value.replace(/\D/g, '').slice(0, 12))}
-                  required
-                  error={errors['emergencyContact.phone']}
-                  icon={Phone}
-                  maxLength={12}
-                  inputMode="numeric"
-                />
-              </div>
-            </Section>
-
-            <Section title="Identity Documents" subtitle="Please upload high-resolution images or PDF documents. All documents are mandatory and verified by HR." icon={FileText}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
-                {DOCUMENT_CONFIG.map((doc) => (
-                  <DocumentUpload
-                    key={doc.type}
-                    type={doc.type}
-                    label={doc.label}
-                    hint={doc.hint}
-                    accept={doc.accept}
-                    required={doc.required}
-                    document={documents[doc.type]}
-                    onUpload={handleDocumentUpload}
-                    uploading={uploadingDoc === doc.type}
-                    error={errors[`documents.${doc.type}`]}
-                  />
-                ))}
-              </div>
-            </Section>
-
-            <Section title="Bank Details" subtitle="Provide your official bank account details where your monthly salary will be disbursed." icon={Landmark}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
-                <InputField
-                  label="Account Holder Name"
-                  value={form.bankDetails.accountHolderName}
-                  onChange={(e) => updateField('bankDetails.accountHolderName', e.target.value)}
-                  required
-                  error={errors['bankDetails.accountHolderName']}
-                  icon={User}
-                />
-                <InputField
-                  label="Bank Name"
-                  value={form.bankDetails.bankName}
-                  onChange={(e) => updateField('bankDetails.bankName', e.target.value)}
-                  required
-                  error={errors['bankDetails.bankName']}
-                  icon={Landmark}
-                />
-                <InputField
-                  label="Account Number"
-                  value={form.bankDetails.accountNumber}
-                  onChange={(e) => updateField('bankDetails.accountNumber', e.target.value.replace(/\D/g, ''))}
-                  required
-                  error={errors['bankDetails.accountNumber']}
-                  icon={CreditCard}
-                  inputMode="numeric"
-                />
-                <InputField
-                  label="IFSC Code"
-                  value={form.bankDetails.ifscCode}
-                  onChange={(e) => updateField('bankDetails.ifscCode', e.target.value.toUpperCase().slice(0, 11))}
-                  required
-                  error={errors['bankDetails.ifscCode']}
-                  icon={Hash}
-                  maxLength={11}
-                />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20, marginTop: 20 }}>
-                <InputField
-                  label="Branch Name (Optional)"
-                  value={form.bankDetails.branch}
-                  onChange={(e) => updateField('bankDetails.branch', e.target.value)}
-                  icon={MapPin}
-                />
-                <InputField
-                  label={isIntern ? "Monthly Stipend Structure (₹)" : "Annual CTC Structure (₹)"}
-                  value={isIntern ? form.salaryDetails?.baseSalary : form.salaryDetails?.annualCtc}
-                  type="number"
-                  icon={CreditCard}
-                  disabled
-                />
-              </div>
-            </Section>
-
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '24px 32px',
-              background: requiredComplete ? 'rgba(88,131,59, 0.05)' : 'var(--bg)',
-              borderRadius: 16,
-              border: '1px solid var(--border)',
-              marginBottom: 48,
-              flexWrap: 'wrap',
-              gap: 16
-            }}>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
-                {requiredComplete
-                  ? '🎉 All required fields and documents are complete. Click Save to finalize.'
-                  : '⚠️ Please fill out all required fields and upload all documents before saving.'}
-              </div>
-              <div style={{ display: 'flex', gap: 12 }}>
-                {completed && (
-                  <button
-                    type="button"
-                    onClick={() => setIsEditing(false)}
-                    style={{
-                      padding: '12px 24px',
-                      background: 'var(--surface)',
-                      color: 'var(--text-muted)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 10,
-                      fontWeight: 800,
-                      fontSize: 14,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Cancel
-                  </button>
+                    <Section title="Residential Address" subtitle="Your current residential address for official communication and billing." icon={MapPin}>
+                      <InputField
+                        label="Street / House No."
+                        value={form.address.street}
+                        onChange={(e) => updateField('address.street', e.target.value)}
+                        placeholder="e.g. 123, Main Street, Apartment 4B"
+                        required
+                        error={errors['address.street']}
+                        icon={MapPin}
+                      />
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 20 }}>
+                        <InputField
+                          label="City"
+                          value={form.address.city}
+                          onChange={(e) => updateField('address.city', e.target.value)}
+                          required
+                          error={errors['address.city']}
+                        />
+                        <InputField
+                          label="State"
+                          value={form.address.state}
+                          onChange={(e) => updateField('address.state', e.target.value)}
+                          required
+                          error={errors['address.state']}
+                        />
+                        <InputField
+                          label="Pincode"
+                          value={form.address.pincode}
+                          onChange={(e) => updateField('address.pincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          required
+                          error={errors['address.pincode']}
+                          maxLength={6}
+                          inputMode="numeric"
+                        />
+                      </div>
+                    </Section>
+                  </motion.div>
                 )}
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  type="submit"
-                  disabled={saving}
-                  style={{
-                    padding: '12px 32px',
-                    background: 'var(--primary)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: 10,
-                    fontWeight: 800,
-                    fontSize: 14,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    boxShadow: 'var(--shadow-sm)'
-                  }}
-                >
-                  {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                  Save Profile Changes
-                </motion.button>
+
+                {activeTab === 'employment' && (
+                  <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.15 }}>
+                    <Section title="Employment & Role" subtitle="Official employment status, code, and department details." icon={Briefcase}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
+                        <InputField
+                          label="Employee ID / Code"
+                          value={form.employeeId}
+                          onChange={(e) => updateField('employeeId', e.target.value)}
+                          icon={FileDigit}
+                          disabled
+                        />
+                        <InputField
+                          label="Date of Joining"
+                          value={form.joiningDate}
+                          onChange={(e) => updateField('joiningDate', e.target.value)}
+                          type="date"
+                          icon={Calendar}
+                          disabled
+                        />
+                        <InputField
+                          label="Department"
+                          value={form.department}
+                          onChange={(e) => updateField('department', e.target.value)}
+                          icon={Landmark}
+                          disabled
+                        />
+                        <InputField
+                          label="Designation"
+                          value={form.designation}
+                          onChange={(e) => updateField('designation', e.target.value)}
+                          icon={Briefcase}
+                          disabled
+                        />
+                        <SelectField
+                          label="Employment Type"
+                          value={form.type}
+                          onChange={(v) => updateField('type', v)}
+                          options={[
+                            { value: 'Employee', label: 'Employee' },
+                            { value: 'Intern', label: 'Intern' }
+                          ]}
+                          disabled
+                        />
+                        <SelectField
+                          label="Work Location"
+                          value={form.workLocation}
+                          onChange={(v) => updateField('workLocation', v)}
+                          options={[
+                            { value: 'Office', label: 'Office' },
+                            { value: 'Remote', label: 'Remote' },
+                            { value: 'Client Site', label: 'Client Site' }
+                          ]}
+                        />
+                      </div>
+                    </Section>
+                  </motion.div>
+                )}
+
+                {activeTab === 'emergency' && (
+                  <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.15 }}>
+                    <Section title="Emergency Contact" subtitle="Person to reach out to in case of work or personal emergencies." icon={User}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
+                        <InputField
+                          label="Contact Full Name"
+                          value={form.emergencyContact.name}
+                          onChange={(e) => updateField('emergencyContact.name', e.target.value)}
+                          required
+                          error={errors['emergencyContact.name']}
+                          icon={User}
+                        />
+                        <InputField
+                          label="Relationship"
+                          value={form.emergencyContact.relationship}
+                          onChange={(e) => updateField('emergencyContact.relationship', e.target.value)}
+                          placeholder="e.g. Spouse, Parent, Sibling"
+                          icon={User}
+                        />
+                        <InputField
+                          label="Emergency Phone"
+                          value={form.emergencyContact.phone}
+                          onChange={(e) => updateField('emergencyContact.phone', e.target.value.replace(/\D/g, '').slice(0, 12))}
+                          required
+                          error={errors['emergencyContact.phone']}
+                          icon={Phone}
+                          maxLength={12}
+                          inputMode="numeric"
+                        />
+                      </div>
+                    </Section>
+                  </motion.div>
+                )}
+
+                {activeTab === 'bank' && (
+                  <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.15 }}>
+                    <Section title="Bank Details" subtitle="Provide your official bank account details where your monthly salary will be disbursed." icon={Landmark}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+                        <InputField
+                          label="Account Holder Name"
+                          value={form.bankDetails.accountHolderName}
+                          onChange={(e) => updateField('bankDetails.accountHolderName', e.target.value)}
+                          required
+                          error={errors['bankDetails.accountHolderName']}
+                          icon={User}
+                        />
+                        <InputField
+                          label="Bank Name"
+                          value={form.bankDetails.bankName}
+                          onChange={(e) => updateField('bankDetails.bankName', e.target.value)}
+                          required
+                          error={errors['bankDetails.bankName']}
+                          icon={Landmark}
+                        />
+                        <InputField
+                          label="Account Number"
+                          value={form.bankDetails.accountNumber}
+                          onChange={(e) => updateField('bankDetails.accountNumber', e.target.value.replace(/\D/g, ''))}
+                          required
+                          error={errors['bankDetails.accountNumber']}
+                          icon={CreditCard}
+                          inputMode="numeric"
+                        />
+                        <InputField
+                          label="Confirm Account Number"
+                          value={form.bankDetails.confirmAccountNumber || ''}
+                          onChange={(e) => updateField('bankDetails.confirmAccountNumber', e.target.value.replace(/\D/g, ''))}
+                          required
+                          error={errors['bankDetails.confirmAccountNumber']}
+                          icon={CreditCard}
+                          inputMode="numeric"
+                        />
+                        <InputField
+                          label="IFSC Code"
+                          value={form.bankDetails.ifscCode}
+                          onChange={(e) => updateField('bankDetails.ifscCode', e.target.value.toUpperCase().slice(0, 11))}
+                          required
+                          error={errors['bankDetails.ifscCode']}
+                          icon={Hash}
+                          maxLength={11}
+                          placeholder="e.g. UTIB0000249"
+                          hint="11 character alphanumeric bank code (4 letters, 0, 6 alphanumeric)"
+                        />
+                        <SelectField
+                          label="Account Type"
+                          value={form.bankDetails.accountType || 'Savings'}
+                          onChange={(v) => updateField('bankDetails.accountType', v)}
+                          options={[
+                            { value: 'Savings', label: 'Savings' },
+                            { value: 'Current', label: 'Current' }
+                          ]}
+                          required
+                        />
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20, marginTop: 20 }}>
+                        <InputField
+                          label="Branch Name (Optional)"
+                          value={form.bankDetails.branch}
+                          onChange={(e) => updateField('bankDetails.branch', e.target.value)}
+                          icon={MapPin}
+                        />
+                        <InputField
+                          label={isIntern ? "Monthly Stipend Structure (₹)" : "Annual CTC Structure (₹)"}
+                          value={isIntern ? form.salaryDetails?.baseSalary : form.salaryDetails?.annualCtc}
+                          type="number"
+                          icon={CreditCard}
+                          disabled
+                        />
+                      </div>
+                    </Section>
+                  </motion.div>
+                )}
+
+                {activeTab === 'documents' && (
+                  <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.15 }}>
+                    <Section title="Identity Details" subtitle="Statutory tax and identity information used for salary disbursement and TDS filing." icon={CreditCard}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+                        <InputField
+                          label="PAN Number"
+                          value={form.panNumber}
+                          onChange={(e) => updateField('panNumber', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))}
+                          placeholder="ABCDE1234F"
+                          required
+                          error={errors.panNumber}
+                          hint="Format: ABCDE1234F"
+                          icon={CreditCard}
+                          maxLength={10}
+                        />
+                      </div>
+                    </Section>
+
+                    <Section title="Identity Documents" subtitle="Please upload high-resolution images or PDF documents. All documents are mandatory and verified by HR." icon={FileText}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
+                        {DOCUMENT_CONFIG.map((doc) => (
+                          <DocumentUpload
+                            key={doc.type}
+                            type={doc.type}
+                            label={doc.label}
+                            hint={doc.hint}
+                            accept={doc.accept}
+                            required={doc.required}
+                            document={documents[doc.type]}
+                            onUpload={handleDocumentUpload}
+                            uploading={uploadingDoc === doc.type}
+                            error={errors[`documents.${doc.type}`]}
+                          />
+                        ))}
+                      </div>
+                    </Section>
+                  </motion.div>
+                )}
+
+                {/* Tab Navigation Buttons & Save */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '20px 24px',
+                  background: 'var(--surface)',
+                  borderRadius: 16,
+                  border: '1px solid var(--border)',
+                  marginTop: 10,
+                  flexWrap: 'wrap',
+                  gap: 16
+                }}>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    {activeTab !== 'personal' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const idx = TABS.findIndex(t => t.id === activeTab)
+                          if (idx > 0) setActiveTab(TABS[idx - 1].id)
+                        }}
+                        style={{
+                          padding: '10px 20px',
+                          background: 'var(--surface)',
+                          color: 'var(--text)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 8,
+                          fontWeight: 700,
+                          fontSize: 12,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Back
+                      </button>
+                    )}
+                    {activeTab !== 'documents' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const idx = TABS.findIndex(t => t.id === activeTab)
+                          if (idx >= 0 && idx < TABS.length - 1) setActiveTab(TABS[idx + 1].id)
+                        }}
+                        style={{
+                          padding: '10px 20px',
+                          background: 'var(--primary)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: 8,
+                          fontWeight: 700,
+                          fontSize: 12,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Next
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    {completed && (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditing(false)}
+                        style={{
+                          padding: '10px 20px',
+                          background: 'var(--surface)',
+                          color: 'var(--text-muted)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 8,
+                          fontWeight: 700,
+                          fontSize: 12,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      type="submit"
+                      disabled={saving}
+                      style={{
+                        padding: '10px 24px',
+                        background: 'var(--primary)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 8,
+                        fontWeight: 800,
+                        fontSize: 12,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        boxShadow: 'var(--shadow-sm)'
+                      }}
+                    >
+                      {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                      Save Profile Changes
+                    </motion.button>
+                  </div>
+                </div>
+
+                <div style={{ 
+                  fontSize: 12, 
+                  color: 'var(--text-muted)', 
+                  fontWeight: 600,
+                  padding: '10px 16px',
+                  background: requiredComplete ? 'rgba(88,131,59, 0.04)' : 'rgba(239, 68, 68, 0.04)',
+                  borderRadius: 10,
+                  border: `1px solid ${requiredComplete ? 'rgba(88,131,59, 0.1)' : 'rgba(239, 68, 68, 0.1)'}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}>
+                  {requiredComplete ? (
+                    <>
+                      <CheckCircle2 size={14} color="var(--primary)" />
+                      <span>All required fields are filled. You can save your profile to activate access.</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle size={14} color="#ef4444" />
+                      <span>Please complete all sections (indicated by badges on the tabs) to unlock your portal access.</span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </form>
