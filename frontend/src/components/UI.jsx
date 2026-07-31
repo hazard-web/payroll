@@ -30,7 +30,7 @@ export function InputField({
   }
 
   return (
-    <div className={`form-field ${className}`} style={{ marginBottom: 20 }}>
+    <div className={`form-field ${className}`} style={{ marginBottom: 28 }}>
       {label && (
         <label className="label">
           {label}
@@ -74,7 +74,7 @@ export function SelectField({
   className = '',
 }) {
   return (
-    <div className={className} style={{ marginBottom: 20 }}>
+    <div className={className} style={{ marginBottom: 28 }}>
       {label && (
         <label className="label">
           {label}
@@ -535,7 +535,7 @@ export function StaffSearchDropdown({
   }
 
   return (
-    <div style={{ marginBottom: 20, position: 'relative' }} ref={wrapRef}>
+    <div style={{ marginBottom: 28, position: 'relative' }} ref={wrapRef}>
       {label && (
         <label className="label" style={{ marginBottom: 8, display: 'block' }}>
           {label}

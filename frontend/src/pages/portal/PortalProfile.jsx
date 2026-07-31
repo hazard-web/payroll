@@ -1166,7 +1166,7 @@ export default function PortalProfile() {
                 {activeTab === 'personal' && (
                   <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.15 }}>
                     <Section title="Personal & Contact Information" subtitle="Your primary details and contact information." icon={User}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 28 }}>
                         <InputField
                           label="Full Name"
                           value={form.fullName}
@@ -1222,7 +1222,7 @@ export default function PortalProfile() {
                         error={errors['address.street']}
                         icon={MapPin}
                       />
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 20 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 28 }}>
                         <InputField
                           label="City"
                           value={form.address.city}
@@ -1254,7 +1254,7 @@ export default function PortalProfile() {
                 {activeTab === 'employment' && (
                   <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.15 }}>
                     <Section title="Employment & Role" subtitle="Official employment status, code, and department details." icon={Briefcase}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 28 }}>
                         <InputField
                           label="Employee ID / Code"
                           value={form.employeeId}
@@ -1312,7 +1312,7 @@ export default function PortalProfile() {
                 {activeTab === 'emergency' && (
                   <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.15 }}>
                     <Section title="Emergency Contact" subtitle="Person to reach out to in case of work or personal emergencies." icon={User}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 28 }}>
                         <InputField
                           label="Contact Full Name"
                           value={form.emergencyContact.name}
@@ -1346,7 +1346,7 @@ export default function PortalProfile() {
                 {activeTab === 'bank' && (
                   <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.15 }}>
                     <Section title="Bank Details" subtitle="Provide your official bank account details where your monthly salary will be disbursed." icon={Landmark}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 28 }}>
                         <InputField
                           label="Account Holder Name"
                           value={form.bankDetails.accountHolderName}
@@ -1403,7 +1403,7 @@ export default function PortalProfile() {
                           required
                         />
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20, marginTop: 20 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 28, marginTop: 28 }}>
                         <InputField
                           label="Branch Name (Optional)"
                           value={form.bankDetails.branch}
@@ -1425,7 +1425,7 @@ export default function PortalProfile() {
                 {activeTab === 'documents' && (
                   <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.15 }}>
                     <Section title="Identity Details" subtitle="Statutory tax and identity information used for salary disbursement and TDS filing." icon={CreditCard}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 28 }}>
                         <InputField
                           label="PAN Number"
                           value={form.panNumber}
@@ -1441,7 +1441,7 @@ export default function PortalProfile() {
                     </Section>
 
                     <Section title="Identity Documents" subtitle="Please upload high-resolution images or PDF documents. All documents are mandatory and verified by HR." icon={FileText}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 28 }}>
                         {DOCUMENT_CONFIG.map((doc) => (
                           <DocumentUpload
                             key={doc.type}
