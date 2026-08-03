@@ -7,6 +7,7 @@ const { authStaff } = require('./staffPortal');
 const { auth: authAdmin } = require('./auth');
 const { authCombined } = require('../utils/authMiddleware');
 const { logActivity } = require('../utils/logger');
+const { autoDeleteExpiredLeaves } = require('../utils/leaveCleanup');
 
 // ─────────────────────────────────────────────────────────────
 // STAFF ENDPOINTS
@@ -52,6 +53,7 @@ router.post('/apply', authStaff, async (req, res) => {
 // GET /api/leaves/my-requests — Staff views their requests
 router.get('/my-requests', authStaff, async (req, res) => {
   try {
+    await autoDeleteExpiredLeaves();
     const requests = await LeaveRequest.find({ staff: req.staff._id }).sort({ createdAt: -1 }).lean();
     res.json({ success: true, data: requests });
   } catch (err) {
@@ -117,6 +119,7 @@ router.post('/mark-as-read', authStaff, async (req, res) => {
 // GET /api/leaves/admin/pending — Admin views pending requests
 router.get('/admin/pending', authAdmin, async (req, res) => {
   try {
+    await autoDeleteExpiredLeaves();
     const { staffId, status } = req.query;
     let query = { admin: req.user._id };
     

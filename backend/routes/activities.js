@@ -36,6 +36,7 @@ const Staff = require('../models/Staff');
 const Attendance = require('../models/Attendance');
 const LeaveRequest = require('../models/LeaveRequest');
 const Announcement = require('../models/Announcement');
+const { autoDeleteExpiredLeaves } = require('../utils/leaveCleanup');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/activities/kpi-summary  — FAST: counters only, no array data
@@ -44,6 +45,7 @@ const Announcement = require('../models/Announcement');
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/kpi-summary', protect, async (req, res) => {
   try {
+    await autoDeleteExpiredLeaves();
     const userId = req.user._id;
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -96,6 +98,7 @@ router.get('/kpi-summary', protect, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/dashboard-summary', protect, async (req, res) => {
   try {
+    await autoDeleteExpiredLeaves();
     const userId = req.user._id;
     const now = new Date();
     const lite = req.query.lite === '1';
