@@ -116,6 +116,7 @@ router.get('/dashboard-summary', protect, async (req, res) => {
 
     // Core detail queries — always run
     const coreQueries = [
+      Staff.find({ user: userId }).select('fullName employeeId designation documents.profileImage').lean(),
       Attendance.countDocuments({ admin: userId, date: { $gte: todayStart }, punchOut: null }),
       Attendance.find({ admin: userId, date: { $gte: todayStart } })
         .populate('staff', 'fullName email documents.profileImage')
@@ -145,13 +146,13 @@ router.get('/dashboard-summary', protect, async (req, res) => {
         ];
 
     const [
-      activeCount, todayPunchins, approvedLeaves, pendingLeaves, announcements,
+      staff, activeCount, todayPunchins, approvedLeaves, pendingLeaves, announcements,
       currentMonthly, prevMonthly,
     ] = await Promise.all([...coreQueries, ...monthlyQueries]);
 
     res.json({
       success: true,
-      staff: [], // Skip returning heavy staff list on initial load
+      staff,
       activeCount,
       todayPunchins,
       approvedLeaves,

@@ -614,9 +614,6 @@ export default function Dashboard() {
   const [monthlyLoading, setMonthlyLoading] = useState(false)
   const [monthlyError, setMonthlyError] = useState('')
   const [attendanceSearch, setAttendanceSearch] = useState('')
-  const [absentStaff, setAbsentStaff] = useState([])
-  const [absentLoading, setAbsentLoading] = useState(false)
-  const [totalStaffCount, setTotalStaffCount] = useState(0)
 
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const [kpiLoading, setKpiLoading] = useState(true)
@@ -633,7 +630,8 @@ export default function Dashboard() {
       // Use server counts for immediate KPI display
       setActiveCount(d.activeCount || 0)
       setAnnouncements(d.recentAnnouncements || [])
-      setTotalStaffCount(d.totalStaff || 0)
+      // Approximate totalEmployees from kpi so stat cards show a number
+      setStaffData(Array(d.totalStaff || 0).fill({}))
     } catch (err) {
       console.error('KPI load error:', err)
     } finally {
@@ -652,6 +650,7 @@ export default function Dashboard() {
       const res = await api.get('/activities/dashboard-summary?lite=1', { signal: controller.signal })
       const d = res.data
 
+      setStaffData(d.staff || [])
       setActiveCount(d.activeCount || 0)
       setTodayPunchins(d.todayPunchins || [])
       setApprovedLeaves(d.approvedLeaves || [])
@@ -690,23 +689,6 @@ export default function Dashboard() {
     fetchKPI()
     fetchData()
   }, [fetchKPI, fetchData])
-
-  // Fetch absent staff dynamically when the modal is opened
-  useEffect(() => {
-    if (!showNotActiveModal) return
-    const fetchAbsent = async () => {
-      try {
-        setAbsentLoading(true)
-        const res = await api.get('/activities/absent-staff')
-        setAbsentStaff(res.data?.data || [])
-      } catch (err) {
-        console.error('Failed to fetch absent staff:', err)
-      } finally {
-        setAbsentLoading(false)
-      }
-    }
-    fetchAbsent()
-  }, [showNotActiveModal])
 
   useEffect(() => {
     if (isInitialLoad) return
@@ -768,7 +750,7 @@ export default function Dashboard() {
 
   // Compute Stats (memoized)
   const stats = useMemo(() => {
-    const totalEmployees = totalStaffCount
+    const totalEmployees = staffData.length
     const safeActive = Math.min(Math.max(activeCount, 0), totalEmployees)
     const totalPresentToday = todayPunchins.length
     const today = new Date()
@@ -782,19 +764,21 @@ export default function Dashboard() {
     const approvedOnLeaveToday = approvedLeaves.filter(isLeaveOverlappingToday)
     const onLeave = approvedOnLeaveToday.length
     const validPunchins = todayPunchins.filter(r => r.punchIn)
-    
-    // Absent Count = Total staff count - Present - On Leave
-    const notActiveCount = Math.max(0, totalEmployees - totalPresentToday - onLeave)
-    
+    const punchedInStaffIds = new Set(todayPunchins.map(r => String(r.staff?._id || '')))
+    const onLeaveStaffIds = new Set(
+      approvedOnLeaveToday.flatMap(leave => [String(leave.staff?._id || ''), String(leave.staffId || '')]).filter(Boolean)
+    )
+    const notActiveStaff = staffData.filter(s => !punchedInStaffIds.has(String(s._id)) && !onLeaveStaffIds.has(String(s._id)))
+    const notActiveCount = notActiveStaff.length
     const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
     const ist = new Date(new Date().getTime() + IST_OFFSET_MS)
     const minutesIST = ist.getUTCHours() * 60 + ist.getUTCMinutes()
     const absentCount = minutesIST >= (OFFICE_OPEN_HOUR * 60 + OFFICE_OPEN_MIN) ? notActiveCount : 0
     return {
       totalEmployees, safeActive, totalPresentToday, onLeave,
-      validPunchins, notActiveCount, absentCount, approvedOnLeaveToday,
+      validPunchins, notActiveStaff, notActiveCount, absentCount, approvedOnLeaveToday,
     }
-  }, [totalStaffCount, activeCount, todayPunchins, approvedLeaves])
+  }, [staffData, activeCount, todayPunchins, approvedLeaves])
 
   const sortedAttendance = useMemo(() => {
     return [...todayPunchins].sort((a, b) => {
@@ -978,7 +962,7 @@ export default function Dashboard() {
     )
   }
 
-  const { totalEmployees, safeActive, totalPresentToday, onLeave, latePunchins, notActiveCount, absentCount, approvedOnLeaveToday } = stats
+  const { totalEmployees, safeActive, totalPresentToday, onLeave, latePunchins, notActiveStaff, notActiveCount, absentCount, approvedOnLeaveToday } = stats
   const monthlyTrendPositive = monthlyOverview.trend >= 0
   const monthlyTrendLabel = monthlyOverview.previousPresent === 0 && monthlyOverview.present === 0
     ? '0%'
@@ -1359,13 +1343,9 @@ export default function Dashboard() {
         </div>
         <div style={{ maxHeight: 480, overflowY: 'auto', padding: '8px 0' }}>
           <div style={{ padding: '0 20px 8px', fontSize: 12, fontWeight: 700, color: '#b91c1c', textTransform: 'uppercase' }}>Not Punched In Today</div>
-          {absentLoading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
-              <Loader2 className="animate-spin" size={24} style={{ color: 'var(--primary)' }} />
-            </div>
-          ) : absentStaff.length === 0 ? (
+          {notActiveStaff.length === 0 ? (
             <div style={{ padding: '0 20px 14px', fontSize: 13, color: 'var(--text-muted)' }}>All team members have punched in today.</div>
-          ) : absentStaff.map(person => (
+          ) : notActiveStaff.map(person => (
             <PunchRow
               key={person._id}
               name={person.fullName}
