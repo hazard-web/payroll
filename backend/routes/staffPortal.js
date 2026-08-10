@@ -932,4 +932,121 @@ router.get('/announcements', authStaff, async (req, res) => {
   }
 });
 
+// GET /api/portal/me/documents — Staff fetches their own documents
+router.get('/me/documents', authStaff, async (req, res) => {
+  try {
+    const staff = req.staff;
+    res.json({
+      success: true,
+      documents: {
+        standard: staff.documents || {},
+        additional: staff.additionalDocuments || []
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to fetch documents' });
+  }
+});
+
+// POST /api/portal/me/documents/additional — Staff uploads an additional document
+router.post('/me/documents/additional', authStaff, async (req, res) => {
+  try {
+    const { documentType, data, originalName, notes } = req.body;
+    const staff = req.staff;
+    
+    if (!documentType || !data) {
+      return res.status(400).json({ success: false, message: 'Document type and file data are required' });
+    }
+    
+    const match = data.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) {
+      return res.status(400).json({ success: false, message: 'Invalid file format. Expected base64 data URL.' });
+    }
+    
+    const mimeType = match[1].toLowerCase();
+    const base64Data = match[2];
+    
+    const ALLOWED_MIMES = [
+      'image/jpeg', 'image/png', 'image/webp', 'application/pdf',
+      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+    if (!ALLOWED_MIMES.includes(mimeType)) {
+      return res.status(400).json({ success: false, message: 'Invalid file type. Allowed: JPEG, PNG, WEBP, PDF, DOC, DOCX, TXT, XLS, XLSX' });
+    }
+    
+    const byteSize = Buffer.byteLength(base64Data, 'base64');
+    if (byteSize > 10 * 1024 * 1024) {
+      return res.status(400).json({ success: false, message: 'File size must be under 10MB.' });
+    }
+    
+    let url = data;
+    if (process.env.CLOUDINARY_CLOUD_NAME) {
+      try {
+        url = await uploadBase64(data, `payroll_portal/employee_records/${staff._id}`);
+      } catch (uploadErr) {
+        return res.status(500).json({ success: false, message: `Cloudinary upload failed: ${uploadErr.message}` });
+      }
+    }
+    
+    if (!staff.additionalDocuments) {
+      staff.additionalDocuments = [];
+    }
+    
+    const ext = mimeType === 'application/pdf' ? 'pdf' : mimeType.includes('/') ? mimeType.split('/')[1] : 'bin';
+    const fileName = `${documentType.replace(/\s+/g, '_')}_${Date.now()}.${ext}`;
+    
+    const newDoc = {
+      documentType,
+      fileName,
+      originalName: originalName || fileName,
+      url,
+      uploadedAt: new Date(),
+      notes: notes || ''
+    };
+    
+    staff.additionalDocuments.push(newDoc);
+    await staff.save();
+    
+    const { logActivity } = require('../utils/logger');
+    const actorId = (staff.user && staff.user._id) ? staff.user._id : staff._id;
+    await logActivity(actorId, 'DOCUMENT_UPLOADED', `${staff.fullName} uploaded document (${documentType})`, { staffId: staff._id });
+    
+    res.json({ success: true, message: 'Document uploaded successfully', documents: staff.additionalDocuments });
+  } catch (err) {
+    console.error('Staff document upload error:', err);
+    res.status(500).json({ success: false, message: err.message || 'Upload failed' });
+  }
+});
+
+// DELETE /api/portal/me/documents/additional/:docId — Staff deletes an additional document
+router.delete('/me/documents/additional/:docId', authStaff, async (req, res) => {
+  try {
+    const { docId } = req.params;
+    const staff = req.staff;
+    
+    if (!staff.additionalDocuments) {
+      return res.status(404).json({ success: false, message: 'Document not found' });
+    }
+    
+    const initialLength = staff.additionalDocuments.length;
+    staff.additionalDocuments = staff.additionalDocuments.filter(doc => String(doc._id) !== docId);
+    
+    if (staff.additionalDocuments.length === initialLength) {
+      return res.status(404).json({ success: false, message: 'Document not found' });
+    }
+    
+    await staff.save();
+    
+    const { logActivity } = require('../utils/logger');
+    const actorId = (staff.user && staff.user._id) ? staff.user._id : staff._id;
+    await logActivity(actorId, 'DOCUMENT_DELETED', `${staff.fullName} deleted additional document`, { staffId: staff._id });
+    
+    res.json({ success: true, message: 'Document deleted successfully', documents: staff.additionalDocuments });
+  } catch (err) {
+    console.error('Staff document delete error:', err);
+    res.status(500).json({ success: false, message: err.message || 'Delete failed' });
+  }
+});
+
 module.exports = { router, authStaff };

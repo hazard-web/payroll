@@ -265,6 +265,56 @@ export default function StaffDetail() {
     fullName: '', employeeId: '', email: '', phone: '', designation: '', department: '',
     type: 'Employee', joiningDate: '', annualCTC: '', baseSalary: ''
   })
+  const [docType, setDocType] = useState('Resume')
+  const [uploadingDoc, setUploadingDoc] = useState(false)
+
+  const handleUploadDoc = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (!docType) {
+      toast.error('Please select a document type first')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size exceeds the 10MB limit')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = async () => {
+      const base64Data = reader.result
+      setUploadingDoc(true)
+      try {
+        const res = await api.post(`/staff/${id}/documents`, {
+          name: file.name,
+          type: docType,
+          file: base64Data
+        })
+        setStaff(res.data.data)
+        toast.success('Document uploaded successfully')
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to upload document')
+      } finally {
+        setUploadingDoc(false)
+        e.target.value = ''
+      }
+    }
+    reader.onerror = () => {
+      toast.error('Failed to read file')
+    }
+  }
+
+  const handleDeleteDoc = async (docId) => {
+    if (!window.confirm('Are you sure you want to delete this document?')) return
+    try {
+      const res = await api.delete(`/staff/${id}/documents/${docId}`)
+      setStaff(res.data.data)
+      toast.success('Document deleted successfully')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete document')
+    }
+  }
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -657,7 +707,7 @@ export default function StaffDetail() {
       </div>
 
       <div style={{ marginBottom: 20 }}>
-        <ShellTabBar tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
+        <ShellTabBar tabs={TABS} active={activeTab} onChange={setActiveTab} />
       </div>
 
       <AnimatePresence mode="wait">
@@ -888,6 +938,134 @@ export default function StaffDetail() {
           {/* Card 3: PAN Card */}
           <DocumentCardRow label="PAN Card" document={staff.documents?.panCard} />
         </div>
+      </div>
+
+      {/* ── Additional Documents & Records ── */}
+      <div style={{
+        background: 'var(--surface)',
+        borderRadius: 16,
+        border: '1px solid var(--border)',
+        padding: '24px',
+        marginBottom: 20
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <FileText size={16} color="var(--primary)" />
+            <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', margin: 0 }}>Additional Documents & Records</h3>
+          </div>
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 20px 0' }}>Manage extra files like resumes, payslips, contracts, and application forms.</p>
+        
+        {/* Upload Form Block */}
+        <div style={{
+          display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center',
+          padding: '16px', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)', marginBottom: 20
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Document Type</span>
+            <select
+              value={docType}
+              onChange={e => setDocType(e.target.value)}
+              className="input-field"
+              style={{ height: 36, width: 160 }}
+            >
+              <option value="Resume">Resume</option>
+              <option value="Payslip">Previous Payslip</option>
+              <option value="Contract">Employment Contract</option>
+              <option value="Application">Job Application</option>
+              <option value="Other">Other Document</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+            <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Upload File (PDF, JPEG, PNG, max 10MB)</span>
+            <input
+              type="file"
+              onChange={handleUploadDoc}
+              disabled={uploadingDoc}
+              style={{ fontSize: 12, outline: 'none' }}
+              accept=".pdf,.jpeg,.jpg,.png,.doc,.docx"
+            />
+          </div>
+          {uploadingDoc && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--primary)' }}>
+              <Loader2 className="animate-spin" size={16} /> Uploading...
+            </div>
+          )}
+        </div>
+
+        {/* Documents Grid List */}
+        {!staff.additionalDocuments || staff.additionalDocuments.length === 0 ? (
+          <div style={{
+            border: '1px dashed var(--border)', borderRadius: 12, padding: 32,
+            textAlign: 'center', color: 'var(--text-muted)', fontSize: 12.5
+          }}>
+            No additional documents uploaded yet.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
+            {staff.additionalDocuments.map(doc => (
+              <div key={doc._id} style={{
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                padding: '16px',
+                background: 'var(--bg)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12
+              }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', overflow: 'hidden' }}>
+                  <div style={{
+                    width: 40, height: 40, borderRadius: 8,
+                    background: 'rgba(88, 131, 59, 0.08)', color: 'var(--primary)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                  }}>
+                    <FileText size={18} />
+                  </div>
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{doc.type}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.name}>
+                      {doc.name}
+                    </div>
+                    {doc.uploadedAt && (
+                      <div style={{ fontSize: 10.5, color: 'var(--text-light)', marginTop: 2 }}>
+                        Uploaded {new Date(doc.uploadedAt).toLocaleDateString('en-IN')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  <a
+                    href={doc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-icon"
+                    style={{
+                      width: 28, height: 28, borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      background: 'rgba(88, 131, 59, 0.08)', color: 'var(--primary)', textDecoration: 'none'
+                    }}
+                    title="View Document"
+                  >
+                    <ExternalLink size={14} />
+                  </a>
+                  <button
+                    onClick={() => handleDeleteDoc(doc._id)}
+                    className="btn-icon"
+                    style={{
+                      width: 28, height: 28, borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', border: 'none', cursor: 'pointer'
+                    }}
+                    title="Delete Document"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <style>{`

@@ -169,7 +169,27 @@ router.get('/admin/payroll-summary', authAdmin, async (req, res) => {
     const m = parseInt(month);
     const y = parseInt(year);
 
-    // ── 1. Working days: Mon–Fri in the month, minus company holidays ──────────
+    // ── 1. Check Date of Joining ─────────────────────────────
+    const staff = await Staff.findOne({ _id: staffId, user: req.user._id }).lean();
+    if (!staff) {
+      return res.status(404).json({ success: false, message: 'Staff member not found' });
+    }
+
+    if (staff.joiningDate) {
+      const jDate = new Date(staff.joiningDate);
+      const jYear = jDate.getFullYear();
+      const jMonth = jDate.getMonth() + 1; // 1-12
+      if (y < jYear || (y === jYear && m < jMonth)) {
+        return res.status(400).json({
+          success: false,
+          isBeforeJoining: true,
+          joiningDate: staff.joiningDate,
+          message: `Cannot calculate payroll summary for a period before the employee's date of joining (Joined: ${jDate.toISOString().split('T')[0]})`
+        });
+      }
+    }
+
+    // ── 2. Working days: Mon–Fri in the month, minus company holidays ──────────
     const LeavePolicy = require('../models/LeavePolicy');
     const policy = await LeavePolicy.findOne({ user: req.user._id }).lean();
     const weekendDays = policy?.weekendDays ?? [0, 6]; // 0=Sun, 6=Sat
@@ -775,7 +795,7 @@ router.post('/punch-in', authStaff, async (req, res) => {
 // POST /api/attendance/punch-out
 router.post('/punch-out', authStaff, async (req, res) => {
   try {
-    const { lat, lng, tasks } = req.body;
+    const { lat, lng, tasks, source, reason } = req.body;
     const today = getStartOfDay();
     const now = new Date();
     // Use IST day-of-week for working-day validation
@@ -797,8 +817,8 @@ router.post('/punch-out', authStaff, async (req, res) => {
     syncAttendanceRecord(attendance, now);
     const closeResult = closeAttendanceSession(attendance, {
       endTime: now,
-      source: 'MANUAL',
-      reason: 'Manual punch out'
+      source: source || 'MANUAL',
+      reason: reason || 'Manual punch out'
     });
 
     if (!closeResult.success) {

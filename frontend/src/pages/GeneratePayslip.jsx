@@ -97,6 +97,11 @@ export default function GeneratePayslip() {
       if (staffId) {
         const s = list.find(x => x._id === staffId);
         if (s) {
+          if (!s.profileCompleted) {
+            toast.error(`Cannot generate payslip. ${s.fullName}'s profile is incomplete. Please complete their profile in the Team Directory.`);
+            navigate('/payslips');
+            return;
+          }
           const empType = s.type === 'Employee' ? 'regular' : 'intern';
           setForm(f => ({
             ...f,
@@ -119,7 +124,7 @@ export default function GeneratePayslip() {
         }
       }
     }).catch(console.error)
-  }, [staffId])
+  }, [staffId, navigate])
 
   const [step, setStep] = useState(user?.companyName ? 1 : 0)
   const [form, setForm] = useState(() => {
@@ -184,7 +189,35 @@ export default function GeneratePayslip() {
     if (user.companyName) setStep(s => (s === 0 ? 1 : s));
   }, [user]);
 
+  useEffect(() => {
+    if (location.state?.predefinedStaff) {
+      const s = location.state.predefinedStaff;
+      if (!s.profileCompleted) {
+        toast.error(`Cannot generate payslip. ${s.fullName || 'Employee'}'s profile is incomplete. Please complete their profile in the Team Directory.`);
+        navigate('/staff');
+      } else {
+        setSelectedStaffId(s._id);
+      }
+    }
+  }, [location.state, navigate]);
+
   const [submitting, setSubmitting] = useState(false)
+
+  const dateError = useMemo(() => {
+    if (!form.dateOfJoining || !selectedStaffId) return null;
+    const jDate = new Date(form.dateOfJoining);
+    if (isNaN(jDate.getTime())) return null;
+
+    const jYear = jDate.getFullYear();
+    const jMonth = jDate.getMonth() + 1; // 1-12
+    const payMonthNum = MONTHS.indexOf(form.month) + 1;
+    const payYearNum = parseInt(form.year);
+
+    if (payYearNum < jYear || (payYearNum === jYear && payMonthNum < jMonth)) {
+      return `Selected pay period (${form.month} ${form.year}) is before the employee's date of joining (${jDate.toLocaleDateString('en-IN') || form.dateOfJoining}).`;
+    }
+    return null;
+  }, [form.dateOfJoining, form.month, form.year, selectedStaffId]);
 
 
   // ── Payroll calculation: fetch full breakdown when staff + month + year changes ──
@@ -197,6 +230,13 @@ export default function GeneratePayslip() {
     const start = new Date(year, monthIndex, 1);
     const end = new Date(year, monthIndex + 1, 0);
     const localWorkingDays = countWorkingDays(start, end);
+
+    if (dateError) {
+      setForm(f => ({ ...f, workingDays: 0, paidDays: 0 }));
+      setWorkingDaysPeriod({ count: 0 });
+      setPayrollBreakdown(null);
+      return;
+    }
 
     if (!selectedStaffId) {
       // No staff selected — just show working days, reset paid days
@@ -231,17 +271,20 @@ export default function GeneratePayslip() {
       })
       .finally(() => setAttendanceLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStaffId, form.month, form.year]);
+  }, [selectedStaffId, form.month, form.year, dateError]);
 
 
   const totals = useMemo(() => {
     const annualCTC = parseFloat(form.annualCTC) || 0;
-    const workingDays = parseInt(form.workingDays) || 26;
-    const paidDays = parseInt(form.paidDays) || workingDays;
-    const prorationFactor = workingDays > 0 ? (paidDays / workingDays) : 1;
+    const workingDays = (form.workingDays !== undefined && form.workingDays !== null && form.workingDays !== '') ? parseInt(form.workingDays) : 26;
+    const paidDays = (form.paidDays !== undefined && form.paidDays !== null && form.paidDays !== '') ? parseInt(form.paidDays) : workingDays;
+    const prorationFactor = workingDays > 0 ? (paidDays / workingDays) : 0;
 
     if (form.employmentType === 'intern') {
       const baseMonthly = parseFloat(form.baseSalary) || 0;
+      if (workingDays === 0 || paidDays === 0) {
+        return { basic: 0, hra: 0, special: 0, gross: 0, pf: 0, esi: 0, pt: 0, lossOfPay: baseMonthly, deductions: baseMonthly, net: 0, baseStipend: baseMonthly }
+      }
       const lossOfPay = workingDays > 0 ? Math.round((baseMonthly / workingDays) * Math.max(0, workingDays - paidDays)) : 0;
       const netStipend = baseMonthly - lossOfPay;
       // For interns, set basic/hra/special to 0 and only use stipend field to avoid double counting in backend
@@ -272,7 +315,7 @@ export default function GeneratePayslip() {
     const loan = Math.round(parseFloat(form.loanDeduction) || 0);
 
     const deductions = empPF + esi + pt + tds + loan;
-    const net = Math.round(gross - deductions);
+    const net = Math.max(0, Math.round(gross - deductions));
 
     return { basic, hra, special, gross, pf: empPF, esi, pt, deductions, net, lossOfPay: 0 }
   }, [form.annualCTC, form.baseSalary, form.employmentType, form.workingDays, form.paidDays, form.tds, form.loanDeduction, form.automationEnabled]);
@@ -336,6 +379,7 @@ export default function GeneratePayslip() {
       if (!form.year) { toast.error('Year is required'); return; }
       if (!form.dateOfJoining) { toast.error('Date of Joining is required'); return; }
       if (!form.payDate) { toast.error('Payout Date is required'); return; }
+      if (dateError) { toast.error(dateError); return; }
       if (form.workingDays === undefined || form.workingDays === null || form.workingDays === '' || form.workingDays < 0) {
         toast.error('Working Days is required and must be 0 or more');
         return;
@@ -421,6 +465,10 @@ export default function GeneratePayslip() {
                     placeholder="Search by name or Employee ID…"
                     onSelect={async (s) => {
                       if (!s) return
+                      if (!s.profileCompleted) {
+                        toast.error(`Cannot select ${s.fullName}. Their profile is incomplete. Please complete their profile in the Team Directory.`);
+                        return;
+                      }
                       // The list API strips bankDetails/financials for performance.
                       // Fetch the full record so bank account, PAN, etc. are available.
                       let full = s
@@ -492,6 +540,18 @@ export default function GeneratePayslip() {
                     <InputField label="Date of Joining" required type="date" value={form.dateOfJoining} onChange={e => setForm({...form, dateOfJoining: e.target.value})} icon={Calendar} />
                     <InputField label="Payout Date" required type="date" value={form.payDate} onChange={e => setForm({...form, payDate: e.target.value})} icon={Calendar} />
                   </div>
+                  {dateError && (
+                    <div style={{
+                      margin: '16px 0', padding: '12px 16px',
+                      background: 'rgba(239, 68, 68, 0.07)', borderRadius: 8,
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      color: '#dc2626', fontSize: 12.5, display: 'flex', gap: 10,
+                      alignItems: 'center', fontWeight: 500
+                    }}>
+                      <span style={{ fontSize: 16, lineHeight: 1 }}>⚠️</span>
+                      <span style={{ flex: 1 }}>{dateError}</span>
+                    </div>
+                  )}
                   <div className="panel" style={{ padding: 'var(--space-5)' }}>
                     <div className="form-grid-2" style={{ marginBottom: 0 }}>
                       <InputField

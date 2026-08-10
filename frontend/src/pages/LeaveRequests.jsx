@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import LeavePolicy from './LeavePolicy'
 import {
   Calendar, Clock, Loader2, CheckCircle2, XCircle,
   Search, MessageSquare, Download, ChevronLeft, ChevronRight,
   UserCheck, AlertTriangle, ClipboardList, TrendingUp, MapPin,
-  Briefcase, Save, RotateCcw, FileText, Eye, ShieldCheck
+  Briefcase, Save, RotateCcw, FileText, Eye, ShieldCheck,
+  MoreVertical, ChevronDown
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -44,6 +45,120 @@ const pageStyles = `
   .la-search svg { position:absolute; left:13px; top:50%; transform:translateY(-50%); color:var(--text-light); pointer-events:none; }
   .la-search input { width:100%; padding:8px 12px 8px 38px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:13px; outline:none; }
   .la-search input:focus { border-color:var(--primary); }
+
+  /* Mobile Responsive Dropdown Tabs & Cards */
+  .la-tabs-desktop { display: flex; }
+  .la-tabs-mobile { display: none; position: relative; margin-bottom: 22px; width: 100%; max-width: 320px; }
+  
+  .la-tabs-mobile-btn {
+    width: 100%;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(88,131,59,0.15);
+    transition: all 0.2s ease;
+  }
+  .la-tabs-mobile-btn:hover {
+    background: var(--primary-dark, #496d31);
+  }
+  
+  .la-tabs-mobile-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    z-index: 1000;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .la-tabs-mobile-option {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-light);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+  }
+  .la-tabs-mobile-option:hover {
+    background: var(--bg);
+    color: var(--text);
+  }
+  .la-tabs-mobile-option.active {
+    background: rgba(88,131,59,0.08);
+    color: var(--primary);
+  }
+  
+  .la-tabs-mobile-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    transition: background 0.15s;
+  }
+  .la-tabs-mobile-option.active .la-tabs-mobile-dot {
+    background: var(--primary);
+  }
+  
+  @media (max-width: 768px) {
+    .la-tabs-desktop { display: none !important; }
+    .la-tabs-mobile { display: block !important; }
+    
+    /* Convert table rows to cards on mobile */
+    .la-table-head { display: none !important; }
+    .la-row {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 12px !important;
+      padding: 16px !important;
+      background: var(--surface) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 10px !important;
+      margin-bottom: 12px !important;
+      width: 100% !important;
+    }
+    .la-row > div {
+      width: 100% !important;
+      text-align: left !important;
+    }
+    .la-row > div:nth-child(5) {
+      display: flex !important;
+      flex-direction: row !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      border-top: 1px solid var(--border) !important;
+      padding-top: 10px !important;
+      margin-top: 4px !important;
+    }
+    .la-card {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+  }
 `
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -367,6 +482,13 @@ function AttendanceTab() {
   const [selectedMonthYear, setSelectedMonthYear] = useState(() => {
     return `${now.getMonth() + 1}-${now.getFullYear()}`
   })
+  const [viewMode, setViewMode] = useState('monthly') // 'daily' | 'weekly' | 'monthly'
+  const [selectedDateStr, setSelectedDateStr] = useState(() => now.toISOString().split('T')[0])
+  const [selectedCheckoutSource, setSelectedCheckoutSource] = useState('All') // 'All' | 'MANUAL' | 'AUTO_PUNCH_OUT'
+  const [selectedStaffIds, setSelectedStaffIds] = useState([])
+  const [showStaffDropdown, setShowStaffDropdown] = useState(false)
+  const [staffSearchText, setStaffSearchText] = useState('')
+
   const location = useLocation()
   const [search, setSearch] = useState(() => {
     const params = new URLSearchParams(location.search)
@@ -419,7 +541,7 @@ function AttendanceTab() {
       setAttendanceRecords(attRes.data.data || [])
       setLeaveRequests(leaveRes.data.data || [])
     } catch (err) {
-      toast.error('Failed to load attendance summary')
+      toast.error('Failed to load attendance data')
     } finally {
       setLoading(false)
     }
@@ -428,6 +550,19 @@ function AttendanceTab() {
   useEffect(() => {
     fetchData()
   }, [selectedMonthYear])
+
+  // Sync month filter if date is changed in daily view
+  useEffect(() => {
+    if (viewMode === 'daily' || viewMode === 'weekly') {
+      const d = new Date(selectedDateStr)
+      if (!isNaN(d.getTime())) {
+        const nextMonthYear = `${d.getMonth() + 1}-${d.getFullYear()}`
+        if (nextMonthYear !== selectedMonthYear) {
+          setSelectedMonthYear(nextMonthYear)
+        }
+      }
+    }
+  }, [selectedDateStr, viewMode])
 
   const exportStaffPDF = async (staff) => {
     if (!staff?._id) return
@@ -450,53 +585,39 @@ function AttendanceTab() {
         14, 17
       )
 
-      const totalRec = history.length
-      const fullD = history.filter(r => r.workStatus === 'Full Day').length
-      const halfD = history.filter(r => r.workStatus === 'Half Day').length
-      const totalHrs = history.reduce((s, r) => s + (r.totalHours || 0), 0)
-      doc.setTextColor(50, 50, 50)
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'bold')
-      doc.text(
-        `Total Records: ${totalRec}   Full Days: ${fullD}   Half Days: ${halfD}   Total Hrs: ${totalHrs.toFixed(1)}h`,
-        14, 30
-      )
+      const headers = [['Date', 'Check-In', 'Check-Out', 'Total Hours', 'Overtime', 'Work Status', 'Check-out Source', 'Location In', 'Location Out']]
+      const tableData = history.map(r => {
+        const checkInTime = r.punchIn ? new Date(r.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'
+        const checkOutTime = r.punchOut ? new Date(r.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'
+        const locIn = r.locationIn?.lat ? `${Number(r.locationIn.lat).toFixed(4)}, ${Number(r.locationIn.lng).toFixed(4)}` : '—'
+        const locOut = r.locationOut?.lat ? `${Number(r.locationOut.lat).toFixed(4)}, ${Number(r.locationOut.lng).toFixed(4)}` : '—'
+        const sourceLabel = r.punchOutSource === 'AUTO_PUNCH_OUT' ? 'Auto Closed' : r.punchOut ? 'Manual' : '—'
 
-      const tableRows = history.map((r, i) => {
-        const d = new Date(r.date)
         return [
-          i + 1,
-          d.toLocaleDateString('en-GB'),
-          d.toLocaleDateString('en-GB', { weekday: 'short' }),
-          r.punchIn ? new Date(r.punchIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—',
-          r.punchOut ? new Date(r.punchOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—',
-          r.locationIn?.lat ? `${Number(r.locationIn.lat).toFixed(4)}, ${Number(r.locationIn.lng).toFixed(4)}` : '—',
+          new Date(r.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+          checkInTime,
+          checkOutTime,
           r.totalHours ? `${r.totalHours.toFixed(2)}h` : '—',
-          r.workStatus || r.status || '—'
+          r.overtimeHours ? `${r.overtimeHours.toFixed(2)}h` : '—',
+          r.workStatus || '—',
+          sourceLabel,
+          locIn,
+          locOut
         ]
       })
 
       autoTable(doc, {
-        startY: 35,
-        head: [['#', 'Date', 'Day', 'Login', 'Punch Out', 'Location', 'Worked', 'Status']],
-        body: tableRows,
-        styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [87, 131, 59], textColor: 255, fontStyle: 'bold', fontSize: 8 },
-        alternateRowStyles: { fillColor: [245, 250, 245] },
-        columnStyles: {
-          0: { cellWidth: 8 },
-          1: { cellWidth: 25 },
-          2: { cellWidth: 14 },
-          3: { cellWidth: 25 },
-          4: { cellWidth: 25 },
-          5: { cellWidth: 50 },
-          6: { cellWidth: 25 },
-          7: { cellWidth: 25 }
-        },
+        startY: 28,
+        head: headers,
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: [88, 131, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+        bodyStyles: { fontSize: 8, textColor: [51, 65, 85] },
+        styles: { cellPadding: 3, lineColor: [241, 245, 249], lineWidth: 0.1 },
         didDrawPage: (data) => {
           const pageCount = doc.internal.getNumberOfPages()
-          doc.setFontSize(7)
-          doc.setTextColor(150)
+          doc.setFontSize(8)
+          doc.setTextColor(148, 163, 184)
           doc.text(
             `Page ${data.pageNumber} of ${pageCount}`,
             297 - 14, doc.internal.pageSize.height - 6,
@@ -506,7 +627,8 @@ function AttendanceTab() {
       })
 
       doc.save(`Attendance_${(staff.fullName || 'staff').replace(/\s+/g, '_')}_All_Days.pdf`)
-    } catch {
+    } catch (err) {
+      console.error(err)
       toast.error('Failed to export staff attendance')
     } finally {
       setExportingStaffId(null)
@@ -516,7 +638,6 @@ function AttendanceTab() {
   const exportStaffExcel = async (s) => {
     try {
       setExportingStaffId(s._id)
-      // Fetch full attendance history (all-time), same as PDF export
       const res = await api.get(`/attendance/admin/staff/${s._id}`)
       const history = (res.data?.history || []).sort((a, b) => new Date(a.date) - new Date(b.date))
 
@@ -547,15 +668,12 @@ function AttendanceTab() {
         return `${hrs}h ${String(min).padStart(2, '0')}m`
       }
 
-      // Summary stats
       const fullDays  = history.filter(r => r.workStatus === 'Full Day').length
       const halfDays  = history.filter(r => r.workStatus === 'Half Day').length
       const totalHrs  = history.reduce((sum, r) => sum + (r.totalHours || 0), 0)
 
-      // Build rows — wrap every cell in quotes to handle commas/special chars safely
       const q = (v) => `"${String(v ?? '--').replace(/"/g, '""')}"`
-
-      const headers = ['Date', 'Check-In', 'Check-Out', 'Total Hours', 'Status', 'Location']
+      const headers = ['Date', 'Check-In', 'Check-Out', 'Total Hours', 'Status', 'Check-Out Type', 'Location In', 'Location Out']
 
       const dataRows = history.map(r => [
         q(fmtDateExcel(r.date)),
@@ -563,10 +681,11 @@ function AttendanceTab() {
         q(fmtTimeExcel(r.punchOut)),
         q(fmtHoursExcel(r.totalHours)),
         q(r.workStatus || r.status || '--'),
+        q(r.punchOutSource === 'AUTO_PUNCH_OUT' ? 'Auto Closed' : r.punchOut ? 'Manual' : '--'),
         q(r.locationIn?.lat ? `${Number(r.locationIn.lat).toFixed(4)}, ${Number(r.locationIn.lng).toFixed(4)}` : '--'),
+        q(r.locationOut?.lat ? `${Number(r.locationOut.lat).toFixed(4)}, ${Number(r.locationOut.lng).toFixed(4)}` : '--'),
       ].join(','))
 
-      // Compose CSV with UTF-8 BOM for proper Excel rendering
       const BOM = '\uFEFF'
       const summary = [
         `"Employee: ${s.fullName}"`,
@@ -599,83 +718,166 @@ function AttendanceTab() {
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
       toast.success(`Exported ${history.length} records for ${s.fullName}`)
-    } catch {
+    } catch (err) {
+      console.error(err)
       toast.error('Failed to export attendance data')
     } finally {
       setExportingStaffId(null)
     }
   }
 
-
   const workingDays = getWorkingDaysCount(year, month, [0])
   const departments = ['All', ...new Set(staffList.map(s => s.department).filter(Boolean))]
 
-  const rows = staffList.map(s => {
-    const staffAtt = attendanceRecords.filter(r => r.staff?._id === s._id)
-    const uniqueDatesAtt = []
-    const seenDates = new Set()
-    staffAtt.forEach(r => {
-      const dStr = new Date(r.date).toDateString()
-      if (!seenDates.has(dStr)) {
-        seenDates.add(dStr)
-        uniqueDatesAtt.push(r)
-      }
-    })
-
-    const presentCount = uniqueDatesAtt.filter(r => r.workStatus !== 'Absent' && r.workStatus !== 'LOP').length
-    const lateCount = 0
-
-    const staffLeaves = leaveRequests.filter(req => 
-      req.staff?._id === s._id && 
-      req.status === 'Approved'
-    )
-    let leaveDaysCount = 0
-    staffLeaves.forEach(req => {
-      const start = new Date(req.startDate)
-      const end = new Date(req.endDate)
-      const monthStart = new Date(year, month - 1, 1)
-      const monthEnd = new Date(year, month, 0)
-      const overlapStart = start < monthStart ? monthStart : start
-      const overlapEnd = end > monthEnd ? monthEnd : end
-      if (overlapStart <= overlapEnd) {
-        const diffTime = Math.abs(overlapEnd - overlapStart)
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
-        leaveDaysCount += diffDays
-      }
-    })
-
-    const absentCount = Math.max(0, workingDays - presentCount - leaveDaysCount)
-    const percent = workingDays > 0 ? parseFloat(((presentCount / workingDays) * 100).toFixed(2)) : 0
-
-    let statusText = 'Good'
-    if (percent >= 95) statusText = 'Excellent'
-    else if (percent >= 85) statusText = 'Good'
-    else if (percent >= 70) statusText = 'Average'
-    else statusText = 'Poor'
-
-    return {
-      staff: s,
-      present: presentCount,
-      late: lateCount,
-      leave: leaveDaysCount,
-      absent: absentCount,
-      workingDays,
-      percent,
-      status: statusText
+  // Generate date parameters for selected week (Monday-Sunday)
+  const weekDates = useMemo(() => {
+    const d = new Date(selectedDateStr)
+    if (isNaN(d.getTime())) return []
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1) // Monday adjustment
+    const monday = new Date(d.setDate(diff))
+    const list = []
+    for (let i = 0; i < 7; i++) {
+      const wDay = new Date(monday)
+      wDay.setDate(monday.getDate() + i)
+      list.push(wDay)
     }
-  }).filter(row => {
-    const q = search.toLowerCase()
-    const matchesSearch = !q || row.staff.fullName.toLowerCase().includes(q) || (row.staff.employeeId && row.staff.employeeId.toLowerCase().includes(q))
-    const matchesDept = selectedDept === 'All' || row.staff.department === selectedDept
-    const matchesStatus = selectedStatus === 'All' || row.status === selectedStatus
-    return matchesSearch && matchesDept && matchesStatus
-  })
+    return list
+  }, [selectedDateStr])
+
+  // Process rows data based on current monthly, daily, or weekly query matching
+  const processedRows = useMemo(() => {
+    return staffList.map(s => {
+      // Monthly values
+      const staffAtt = attendanceRecords.filter(r => r.staff?._id === s._id)
+      const uniqueDatesAtt = []
+      const seenDates = new Set()
+      staffAtt.forEach(r => {
+        const dStr = new Date(r.date).toDateString()
+        if (!seenDates.has(dStr)) {
+          seenDates.add(dStr)
+          uniqueDatesAtt.push(r)
+        }
+      })
+      const presentCount = uniqueDatesAtt.filter(r => r.workStatus !== 'Absent' && r.workStatus !== 'LOP').length
+
+      const staffLeaves = leaveRequests.filter(req => 
+        req.staff?._id === s._id && 
+        req.status === 'Approved'
+      )
+      let leaveDaysCount = 0
+      staffLeaves.forEach(req => {
+        const start = new Date(req.startDate)
+        const end = new Date(req.endDate)
+        const monthStart = new Date(year, month - 1, 1)
+        const monthEnd = new Date(year, month, 0)
+        const overlapStart = start < monthStart ? monthStart : start
+        const overlapEnd = end > monthEnd ? monthEnd : end
+        if (overlapStart <= overlapEnd) {
+          const diffTime = Math.abs(overlapEnd - overlapStart)
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+          leaveDaysCount += diffDays
+        }
+      })
+
+      const absentCount = Math.max(0, workingDays - presentCount - leaveDaysCount)
+      const percent = workingDays > 0 ? parseFloat(((presentCount / workingDays) * 100).toFixed(2)) : 0
+
+      let statusText = 'Good'
+      if (percent >= 95) statusText = 'Excellent'
+      else if (percent >= 85) statusText = 'Good'
+      else if (percent >= 70) statusText = 'Average'
+      else statusText = 'Poor'
+
+      // Daily value
+      const targetDate = new Date(selectedDateStr)
+      const dailyRecord = attendanceRecords.find(r => 
+        r.staff?._id === s._id && 
+        new Date(r.date).toDateString() === targetDate.toDateString()
+      )
+
+      let dailyStatus = 'Absent'
+      if (dailyRecord) {
+        dailyStatus = dailyRecord.workStatus || dailyRecord.status || 'Active'
+      } else {
+        const isLeave = leaveRequests.some(req => 
+          req.staff?._id === s._id && 
+          req.status === 'Approved' && 
+          targetDate >= new Date(req.startDate) && 
+          targetDate <= new Date(req.endDate)
+        )
+        if (isLeave) dailyStatus = 'Leave'
+      }
+
+      // Weekly value
+      const weeklyStates = weekDates.map(date => {
+        const rec = attendanceRecords.find(r => 
+          r.staff?._id === s._id && 
+          new Date(r.date).toDateString() === date.toDateString()
+        )
+        if (rec) {
+          return rec.workStatus || rec.status || 'Active'
+        }
+        const isLeave = leaveRequests.some(req => 
+          req.staff?._id === s._id && 
+          req.status === 'Approved' && 
+          date >= new Date(req.startDate) && 
+          date <= new Date(req.endDate)
+        )
+        if (isLeave) return 'Leave'
+        return 'Absent'
+      })
+
+      return {
+        staff: s,
+        present: presentCount,
+        late: 0,
+        leave: leaveDaysCount,
+        absent: absentCount,
+        workingDays,
+        percent,
+        status: statusText,
+        dailyRecord,
+        dailyStatus,
+        weeklyStates
+      }
+    }).filter(row => {
+      const q = search.toLowerCase()
+      const matchesSearch = !q || row.staff.fullName.toLowerCase().includes(q) || (row.staff.employeeId && row.staff.employeeId.toLowerCase().includes(q))
+      const matchesDept = selectedDept === 'All' || row.staff.department === selectedDept
+      
+      let matchesStatus = true
+      if (viewMode === 'monthly') {
+        matchesStatus = selectedStatus === 'All' || row.status === selectedStatus
+      } else if (viewMode === 'daily') {
+        matchesStatus = selectedStatus === 'All' || row.dailyStatus === selectedStatus
+      }
+
+      let matchesCheckout = true
+      if (viewMode === 'daily' && selectedCheckoutSource !== 'All') {
+        if (selectedCheckoutSource === 'MANUAL') {
+          matchesCheckout = !!row.dailyRecord?.punchOut && row.dailyRecord?.punchOutSource !== 'AUTO_PUNCH_OUT'
+        } else if (selectedCheckoutSource === 'AUTO_PUNCH_OUT') {
+          matchesCheckout = row.dailyRecord?.punchOutSource === 'AUTO_PUNCH_OUT'
+        }
+      }
+
+      const matchesStaffFilter = selectedStaffIds.length === 0 || selectedStaffIds.includes(row.staff._id)
+
+      return matchesSearch && matchesDept && matchesStatus && matchesCheckout && matchesStaffFilter
+    })
+  }, [staffList, attendanceRecords, leaveRequests, selectedMonthYear, selectedDateStr, viewMode, search, selectedDept, selectedStatus, selectedCheckoutSource, weekDates, selectedStaffIds])
 
   const resetFilters = () => {
     setSearch('')
     setSelectedDept('All')
     setSelectedStatus('All')
+    setSelectedCheckoutSource('All')
+    setSelectedDateStr(now.toISOString().split('T')[0])
     setSelectedMonthYear(`${now.getMonth() + 1}-${now.getFullYear()}`)
+    setSelectedStaffIds([])
+    setStaffSearchText('')
+    setShowStaffDropdown(false)
   }
 
   const downloadAttendancePDF = () => {
@@ -688,30 +890,60 @@ function AttendanceTab() {
     doc.setFontSize(18)
     doc.setFont("helvetica", "bold")
     doc.setTextColor(30, 41, 59)
-    doc.text("Employee Attendance Report", 14, 20)
     
-    // Subtitle Info
-    const monthName = monthOptions.find(o => o.value === selectedMonthYear)?.label || selectedMonthYear
+    let titleStr = "Employee Attendance Report"
+    let subStr = ""
+    let headers = []
+    let data = []
+
+    if (viewMode === 'monthly') {
+      titleStr = "Monthly Attendance Summary"
+      const monthName = monthOptions.find(o => o.value === selectedMonthYear)?.label || selectedMonthYear
+      subStr = `Report Period: ${monthName}  |  Department: ${selectedDept}`
+      headers = [['Employee Name', 'Emp ID', 'Department', 'Total Present', 'Total Absent', 'Leaves', 'Working Days', 'Attendance %', 'Status']]
+      data = processedRows.map(r => [
+        r.staff.fullName,
+        r.staff.employeeId || '—',
+        r.staff.department || '—',
+        r.present.toString(),
+        r.absent.toString(),
+        r.leave.toString(),
+        r.workingDays.toString(),
+        `${r.percent}%`,
+        r.status
+      ])
+    } else if (viewMode === 'daily') {
+      titleStr = `Daily Attendance Log`
+      subStr = `Date: ${new Date(selectedDateStr).toLocaleDateString('en-IN', { dateStyle: 'long' })}  |  Department: ${selectedDept}`
+      headers = [['Employee Name', 'Emp ID', 'Check-In', 'Check-Out', 'Total Hours', 'Check-Out Type', 'Status']]
+      data = processedRows.map(r => [
+        r.staff.fullName,
+        r.staff.employeeId || '—',
+        r.dailyRecord?.punchIn ? new Date(r.dailyRecord.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—',
+        r.dailyRecord?.punchOut ? new Date(r.dailyRecord.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—',
+        r.dailyRecord?.totalHours ? `${r.dailyRecord.totalHours.toFixed(2)}h` : '—',
+        r.dailyRecord?.punchOutSource === 'AUTO_PUNCH_OUT' ? 'Auto Closed' : r.dailyRecord?.punchOut ? 'Manual' : '—',
+        r.dailyStatus
+      ])
+    } else if (viewMode === 'weekly') {
+      const monStr = weekDates[0].toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+      const sunStr = weekDates[6].toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+      titleStr = `Weekly Attendance Matrix`
+      subStr = `Week: ${monStr} to ${sunStr}  |  Department: ${selectedDept}`
+      headers = [['Employee Name', 'Emp ID', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']]
+      data = processedRows.map(r => [
+        r.staff.fullName,
+        r.staff.employeeId || '—',
+        ...r.weeklyStates.map(state => state === 'Full Day' || state === 'complete' ? 'Present' : state)
+      ])
+    }
+
+    doc.text(titleStr, 14, 20)
     doc.setFontSize(10)
     doc.setFont("helvetica", "normal")
     doc.setTextColor(100, 116, 139)
-    doc.text(`Report Period: ${monthName}  |  Department: ${selectedDept}  |  Generated: ${new Date().toLocaleDateString('en-IN')}`, 14, 28)
+    doc.text(`${subStr}  |  Generated: ${new Date().toLocaleDateString('en-IN')}`, 14, 28)
 
-    // Table headers and data
-    const headers = [['Employee Name', 'Emp ID', 'Department', 'Total Present', 'Total Absent', 'Leaves', 'Working Days', 'Attendance %', 'Status']]
-    const data = rows.map(r => [
-      r.staff.fullName,
-      r.staff.employeeId || '—',
-      r.staff.department || '—',
-      r.present.toString(),
-      r.absent.toString(),
-      r.leave.toString(),
-      r.workingDays.toString(),
-      `${r.percent}%`,
-      r.status
-    ])
-
-    // Generate table
     autoTable(doc, {
       startY: 44,
       head: headers,
@@ -719,17 +951,6 @@ function AttendanceTab() {
       theme: 'striped',
       headStyles: { fillColor: [88, 131, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8.5, halign: 'center' },
       bodyStyles: { fontSize: 7.5, textColor: [51, 65, 85] },
-      columnStyles: {
-        0: { cellWidth: 'auto', fontStyle: 'bold' }, // Employee Name
-        1: { cellWidth: 16, halign: 'center' },     // Emp ID
-        2: { cellWidth: 22, halign: 'center' },     // Department
-        3: { cellWidth: 18, halign: 'center' },     // Total Present
-        4: { cellWidth: 18, halign: 'center' },     // Total Absent
-        5: { cellWidth: 12, halign: 'center' },     // Leaves
-        6: { cellWidth: 20, halign: 'center' },     // Working Days
-        7: { cellWidth: 20, halign: 'center' },     // Attendance %
-        8: { cellWidth: 18, halign: 'center' }      // Status
-      },
       styles: {
         cellPadding: 3.5,
         lineColor: [241, 245, 249],
@@ -737,71 +958,242 @@ function AttendanceTab() {
       }
     })
 
-    // Save PDF
-    doc.save(`Attendance_Report_${selectedMonthYear}.pdf`)
+    doc.save(`Attendance_${viewMode}_Report_${selectedDateStr}.pdf`)
     toast.success('Attendance PDF downloaded successfully!')
   }
 
   const getStatusBadgeStyle = (status) => {
-    if (status === 'Excellent') return { background: '#dcfce7', color: '#15803d' }
-    if (status === 'Good') return { background: '#e0f2fe', color: '#0369a1' }
-    if (status === 'Average') return { background: '#ffedd5', color: '#c2410c' }
-    return { background: '#fee2e2', color: '#b91c1c' }
+    if (status === 'Excellent' || status === 'Full Day' || status === 'complete') return { background: '#e5ebdd', color: '#58833b', border: '1px solid rgba(88,131,59,0.25)' }
+    if (status === 'Good' || status === 'Half Day') return { background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd' }
+    if (status === 'Average' || status === 'Leave' || status === 'Active') return { background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' }
+    return { background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca' }
   }
 
   return (
     <div>
       {/* Filter panel */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
-        <div className="la-search" style={{ flex: '1 1 200px' }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
+        {/* View Mode Dropdown */}
+        <select
+          className="la-month-select"
+          value={viewMode}
+          onChange={e => { setViewMode(e.target.value); setSelectedStatus('All'); }}
+          style={{ height: 34, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', borderRadius: 8 }}
+        >
+          <option value="monthly">Monthly Summary</option>
+          <option value="daily">Daily Log</option>
+          <option value="weekly">Weekly Matrix</option>
+        </select>
+        <div className="la-search" style={{ flex: '1 1 200px', margin: 0 }}>
           <Search size={14} />
           <input 
             placeholder="Search by name or ID..." 
             value={search} 
             onChange={e => setSearch(e.target.value)} 
-            style={{ fontSize: 12, height: 32, paddingLeft: 38 }}
+            style={{ fontSize: 12, height: 34, paddingLeft: 38, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', borderRadius: 8, outline: 'none' }}
           />
         </div>
 
-        <select 
-          className="la-month-select" 
-          value={selectedMonthYear} 
-          onChange={e => setSelectedMonthYear(e.target.value)}
-          style={{ height: 32, fontSize: 12 }}
-        >
-          {monthOptions.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+        {/* Custom Staff Multi-Select Filter */}
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+          <button
+            type="button"
+            onClick={() => setShowStaffDropdown(!showStaffDropdown)}
+            className="la-month-select"
+            style={{
+              height: 34,
+              fontSize: 12,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: '0 12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              color: 'var(--text)'
+            }}
+          >
+            <UserCheck size={14} style={{ color: selectedStaffIds.length > 0 ? 'var(--primary)' : 'var(--text-light)' }} />
+            <span>
+              {selectedStaffIds.length === 0 
+                ? 'Select Employees' 
+                : `Selected (${selectedStaffIds.length})`}
+            </span>
+          </button>
+
+          {showStaffDropdown && (
+            <>
+              {/* Overlay to close on click outside */}
+              <div 
+                style={{ position: 'fixed', inset: 0, zIndex: 110 }} 
+                onClick={() => { setShowStaffDropdown(false); setStaffSearchText(''); }} 
+              />
+              <div style={{
+                position: 'absolute',
+                left: 0,
+                top: '110%',
+                width: 280,
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 10,
+                boxShadow: 'var(--shadow-lg)',
+                zIndex: 120,
+                padding: 12,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8
+              }}>
+                {/* Search inside dropdown */}
+                <input
+                  type="text"
+                  placeholder="Filter name..."
+                  value={staffSearchText}
+                  onChange={e => setStaffSearchText(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '6px 10px',
+                    borderRadius: 6,
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg)',
+                    color: 'var(--text)',
+                    fontSize: 12,
+                    outline: 'none'
+                  }}
+                />
+
+                {/* Quick actions */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 700, color: 'var(--primary)', padding: '2px 4px' }}>
+                  <button 
+                    type="button" 
+                    onClick={() => setSelectedStaffIds(staffList.map(s => s._id))}
+                    style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0 }}
+                  >
+                    Select All
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setSelectedStaffIds([])}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0 }}
+                  >
+                    Clear All
+                  </button>
+                </div>
+
+                {/* Staff List with Checkboxes */}
+                <div style={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 4 }}>
+                  {staffList
+                    .filter(s => s.fullName.toLowerCase().includes(staffSearchText.toLowerCase()) || (s.employeeId && s.employeeId.toLowerCase().includes(staffSearchText.toLowerCase())))
+                    .map(s => {
+                      const isChecked = selectedStaffIds.includes(s._id)
+                      return (
+                        <label key={s._id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text)', cursor: 'pointer', padding: '4px 6px', borderRadius: 6, background: isChecked ? 'var(--bg)' : 'transparent' }}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              if (isChecked) {
+                                setSelectedStaffIds(selectedStaffIds.filter(id => id !== s._id))
+                              } else {
+                                setSelectedStaffIds([...selectedStaffIds, s._id])
+                              }
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          />
+                          <span style={{ fontWeight: 600 }}>{s.fullName}</span>
+                          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>({s.employeeId || 'No ID'})</span>
+                        </label>
+                      )
+                    })}
+                  {staffList.filter(s => s.fullName.toLowerCase().includes(staffSearchText.toLowerCase()) || (s.employeeId && s.employeeId.toLowerCase().includes(staffSearchText.toLowerCase()))).length === 0 && (
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', padding: 12 }}>
+                      No employees match
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {viewMode === 'monthly' ? (
+          <select 
+            className="la-month-select" 
+            value={selectedMonthYear} 
+            onChange={e => setSelectedMonthYear(e.target.value)}
+            style={{ height: 34, fontSize: 12 }}
+          >
+            {monthOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Calendar size={14} style={{ color: 'var(--text-light)' }} />
+            <input
+              type="date"
+              value={selectedDateStr}
+              onChange={e => setSelectedDateStr(e.target.value)}
+              className="la-month-select"
+              style={{ height: 34, fontSize: 12, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', borderRadius: 8, padding: '0 10px' }}
+            />
+          </div>
+        )}
 
         <select 
           className="la-month-select" 
           value={selectedDept} 
           onChange={e => setSelectedDept(e.target.value)}
-          style={{ height: 32, fontSize: 12 }}
+          style={{ height: 34, fontSize: 12 }}
         >
           {departments.map(d => (
             <option key={d} value={d}>{d === 'All' ? 'All Departments' : d}</option>
           ))}
         </select>
 
+        {viewMode === 'daily' && (
+          <select 
+            className="la-month-select" 
+            value={selectedCheckoutSource} 
+            onChange={e => setSelectedCheckoutSource(e.target.value)}
+            style={{ height: 34, fontSize: 12 }}
+          >
+            <option value="All">All Punch-Outs</option>
+            <option value="MANUAL">Manual Checkout</option>
+            <option value="AUTO_PUNCH_OUT">Auto Punched Out</option>
+          </select>
+        )}
+
         <select 
           className="la-month-select" 
           value={selectedStatus} 
           onChange={e => setSelectedStatus(e.target.value)}
-          style={{ height: 32, fontSize: 12 }}
+          style={{ height: 34, fontSize: 12 }}
         >
-          <option value="All">All Status</option>
-          <option value="Excellent">Excellent</option>
-          <option value="Good">Good</option>
-          <option value="Average">Average</option>
-          <option value="Poor">Poor</option>
+          <option value="All">All Statuses</option>
+          {viewMode === 'monthly' ? (
+            <>
+              <option value="Excellent">Excellent</option>
+              <option value="Good">Good</option>
+              <option value="Average">Average</option>
+              <option value="Poor">Poor</option>
+            </>
+          ) : (
+            <>
+              <option value="Full Day">Full Day</option>
+              <option value="Half Day">Half Day</option>
+              <option value="Leave">On Leave</option>
+              <option value="LOP">Absent (LOP)</option>
+              <option value="Active">Currently Punched-In</option>
+            </>
+          )}
         </select>
 
         <button 
           onClick={resetFilters} 
           className="la-filter-btn" 
-          style={{ height: 32, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--surface)', fontWeight: 700 }}
+          style={{ height: 34, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--surface)', fontWeight: 700 }}
         >
           <RotateCcw size={13} /> Reset
         </button>
@@ -809,59 +1201,22 @@ function AttendanceTab() {
         <button 
           onClick={downloadAttendancePDF} 
           className="btn-primary" 
-          style={{ height: 32, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, padding: '0 16px', borderRadius: 8, cursor: 'pointer', marginLeft: 'auto' }}
+          style={{ height: 34, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, padding: '0 16px', borderRadius: 8, cursor: 'pointer', marginLeft: 'auto' }}
         >
-          <Download size={13} /> Download Report (PDF)
+          <Download size={13} /> Export PDF
         </button>
       </div>
 
-      {loading && rows.length === 0 ? (
-        <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13, fontFamily: 'var(--font-display), sans-serif' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employee</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>ID</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Department</th>
-                  <th style={{ padding: '12px 16px', color: '#16a34a', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Present</th>
-                  <th style={{ padding: '12px 16px', color: '#dc2626', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Absent</th>
-                  <th style={{ padding: '12px 16px', color: '#2563eb', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Leave</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Working Days</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Attendance %</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Status</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Array(5).fill(0).map((_, i) => (
-                  <tr key={`skel-${i}`} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
-                        <div style={{ width: 100, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite' }} />
-                      </div>
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 40, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 60, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 30, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 30, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 30, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 30, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 50, height: 14, borderRadius: 4, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 60, height: 18, borderRadius: 10, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}><div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--border)', animation: 'pulse 1.5s infinite', margin: '0 auto' }} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {loading && processedRows.length === 0 ? (
+        <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden', padding: 32, textAlign: 'center' }}>
+          <Loader2 className="animate-spin" size={24} style={{ color: 'var(--primary)', margin: '0 auto 8px' }} />
+          <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading attendance records...</div>
         </div>
-      ) : rows.length === 0 ? (
+      ) : processedRows.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 64, background: 'var(--surface)', borderRadius: 12, border: '1px dashed var(--border)' }}>
           <ClipboardList size={40} color="var(--text-light)" style={{ marginBottom: 12 }} />
           <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>No records found</div>
-          <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Try changing the filters or selected month.</div>
+          <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Try changing the filters or selected dates.</div>
         </div>
       ) : (
         <div style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'visible' }}>
@@ -869,20 +1224,49 @@ function AttendanceTab() {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13, fontFamily: 'var(--font-display), sans-serif' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employee</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>ID</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Department</th>
-                  <th style={{ padding: '12px 16px', color: '#16a34a', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Present</th>
-                  <th style={{ padding: '12px 16px', color: '#dc2626', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Absent</th>
-                  <th style={{ padding: '12px 16px', color: '#2563eb', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Leave</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Working Days</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Attendance %</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Status</th>
-                  <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Actions</th>
+                  {viewMode === 'monthly' && (
+                    <>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employee</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>ID</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Department</th>
+                      <th style={{ padding: '12px 16px', color: '#58833b', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Present</th>
+                      <th style={{ padding: '12px 16px', color: '#b91c1c', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Absent</th>
+                      <th style={{ padding: '12px 16px', color: '#0284c7', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Leave</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Working Days</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Attendance %</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Status</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Actions</th>
+                    </>
+                  )}
+                  {viewMode === 'daily' && (
+                    <>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employee</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>ID</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Check-In</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Check-Out</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Total Hours</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Checkout Type</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Location</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Status</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Actions</th>
+                    </>
+                  )}
+                  {viewMode === 'weekly' && (
+                    <>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employee</th>
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>ID</th>
+                      {weekDates.map(d => (
+                        <th key={d.toISOString()} style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>
+                          {fmtDateShort(d)}
+                        </th>
+                      ))}
+                      <th style={{ padding: '12px 16px', color: 'var(--text-muted)', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Actions</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, index) => (
+                {processedRows.map((row, index) => (
                   <motion.tr 
                     key={row.staff._id} 
                     initial={{ opacity: 0, y: 10 }}
@@ -891,7 +1275,7 @@ function AttendanceTab() {
                     style={{ borderBottom: '1px solid var(--border)' }} 
                     className="table-row-hover"
                   >
-                    {/* Employee */}
+                    {/* Employee Profile info */}
                     <td style={{ padding: '10px 16px', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'nowrap' }}>
                         <Avatar name={row.staff.fullName} src={row.staff.documents?.profileImage?.url} size={30} />
@@ -904,62 +1288,138 @@ function AttendanceTab() {
                       {row.staff.employeeId || '—'}
                     </td>
 
-                    {/* Department */}
-                    <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontWeight: 600, fontSize: 12.5, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                      {row.staff.department || '—'}
-                    </td>
+                    {/* Monthly Mode Specifics */}
+                    {viewMode === 'monthly' && (
+                      <>
+                        <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontWeight: 600, fontSize: 12.5, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                          {row.staff.department || '—'}
+                        </td>
+                        <td style={{ padding: '10px 16px', fontWeight: 700, color: '#58833b', fontSize: 13, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                          {row.present}
+                        </td>
+                        <td style={{ padding: '10px 16px', fontWeight: 700, color: '#b91c1c', fontSize: 13, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                          {row.absent}
+                        </td>
+                        <td style={{ padding: '10px 16px', fontWeight: 700, color: '#0284c7', fontSize: 13, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                          {row.leave}
+                        </td>
+                        <td style={{ padding: '10px 16px', fontWeight: 700, color: 'var(--text-muted)', fontSize: 13, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                          {row.workingDays}
+                        </td>
+                        <td style={{ padding: '10px 16px', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                          <span style={{ fontWeight: 700, color: 'var(--text)', fontSize: 13 }}>{row.percent}%</span>
+                          <div style={{ width: '100%', maxWidth: 75, height: 4, background: 'var(--bg)', borderRadius: 100, margin: '4px auto 0', overflow: 'hidden' }}>
+                            <div style={{
+                              width: `${Math.min(100, row.percent)}%`,
+                              height: '100%',
+                              background: row.status === 'Excellent' || row.status === 'Good' ? '#58833b' : row.status === 'Average' ? '#f97316' : '#ef4444',
+                              borderRadius: 100
+                            }} />
+                          </div>
+                        </td>
+                        <td style={{ padding: '10px 16px', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                          <span 
+                            className="la-pill" 
+                            style={{ 
+                              fontWeight: 700, 
+                              fontSize: 10.5,
+                              padding: '2.5px 7px',
+                              display: 'inline-block',
+                              whiteSpace: 'nowrap',
+                              ...getStatusBadgeStyle(row.status)
+                            }}
+                          >
+                            {row.status}
+                          </span>
+                        </td>
+                      </>
+                    )}
 
-                    {/* Present */}
-                    <td style={{ padding: '10px 16px', fontWeight: 700, color: '#16a34a', fontSize: 13, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                      {row.present}
-                    </td>
+                    {/* Daily Mode Specifics */}
+                    {viewMode === 'daily' && (
+                      <>
+                        <td style={{ padding: '10px 16px', color: 'var(--text)', fontSize: 12.5, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                          {fmtTime(row.dailyRecord?.punchIn)}
+                        </td>
+                        <td style={{ padding: '10px 16px', color: 'var(--text)', fontSize: 12.5, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                          {fmtTime(row.dailyRecord?.punchOut)}
+                        </td>
+                        <td style={{ padding: '10px 16px', fontWeight: 700, color: 'var(--text-dark)', fontSize: 12.5, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                          {row.dailyRecord?.totalHours ? fmtHours(row.dailyRecord.totalHours) : '—'}
+                        </td>
+                        <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontSize: 12, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                          {row.dailyRecord?.punchOutSource === 'AUTO_PUNCH_OUT' ? (
+                            <span style={{ color: '#d97706', fontWeight: 700, background: '#fffbeb', padding: '2px 6px', borderRadius: 4 }}>Auto Closed</span>
+                          ) : row.dailyRecord?.punchOut ? (
+                            <span style={{ color: '#475569', fontWeight: 600 }}>Manual</span>
+                          ) : '—'}
+                        </td>
+                        <td style={{ padding: '10px 16px', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                          {row.dailyRecord?.locationIn?.lat ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                              <a 
+                                href={`https://www.google.com/maps/search/?api=1&query=${row.dailyRecord.locationIn.lat},${row.dailyRecord.locationIn.lng}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="la-map-link"
+                              >
+                                <MapPin size={10} /> Punch In
+                              </a>
+                              {row.dailyRecord?.locationOut?.lat && (
+                                <a 
+                                  href={`https://www.google.com/maps/search/?api=1&query=${row.dailyRecord.locationOut.lat},${row.dailyRecord.locationOut.lng}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="la-map-link"
+                                  style={{ background: '#f0fdf4', color: '#16a34a', borderColor: '#bbf7d0' }}
+                                >
+                                  <MapPin size={10} /> Punch Out
+                                </a>
+                              )}
+                            </div>
+                          ) : '—'}
+                        </td>
+                        <td style={{ padding: '10px 16px', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                          <span 
+                            className="la-pill" 
+                            style={{ 
+                              fontWeight: 700, 
+                              fontSize: 10.5,
+                              padding: '2.5px 7px',
+                              display: 'inline-block',
+                              whiteSpace: 'nowrap',
+                              ...getStatusBadgeStyle(row.dailyStatus)
+                            }}
+                          >
+                            {row.dailyStatus}
+                          </span>
+                        </td>
+                      </>
+                    )}
 
-                    {/* Absent */}
-                    <td style={{ padding: '10px 16px', fontWeight: 700, color: '#dc2626', fontSize: 13, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                      {row.absent}
-                    </td>
+                    {/* Weekly Mode Specifics */}
+                    {viewMode === 'weekly' && (
+                      <>
+                        {row.weeklyStates.map((state, idx) => (
+                          <td key={idx} style={{ padding: '10px 6px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            <span 
+                              className="la-pill" 
+                              style={{ 
+                                fontWeight: 700, 
+                                fontSize: 9.5,
+                                padding: '2px 5px',
+                                display: 'inline-block',
+                                ...getStatusBadgeStyle(state)
+                              }}
+                            >
+                              {state}
+                            </span>
+                          </td>
+                        ))}
+                      </>
+                    )}
 
-                    {/* Leave */}
-                    <td style={{ padding: '10px 16px', fontWeight: 700, color: '#2563eb', fontSize: 13, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                      {row.leave}
-                    </td>
-
-                    {/* Working Days */}
-                    <td style={{ padding: '10px 16px', fontWeight: 700, color: 'var(--text-muted)', fontSize: 13, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                      {row.workingDays}
-                    </td>
-
-                    {/* Attendance % with progress bar */}
-                    <td style={{ padding: '10px 16px', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                      <span style={{ fontWeight: 700, color: 'var(--text)', fontSize: 13 }}>{row.percent}%</span>
-                      <div style={{ width: '100%', maxWidth: 75, height: 4, background: 'var(--bg)', borderRadius: 100, margin: '4px auto 0', overflow: 'hidden' }}>
-                        <div style={{
-                          width: `${Math.min(100, row.percent)}%`,
-                          height: '100%',
-                          background: row.status === 'Excellent' || row.status === 'Good' ? '#22c55e' : row.status === 'Average' ? '#f97316' : '#ef4444',
-                          borderRadius: 100
-                        }} />
-                      </div>
-                    </td>
-
-                    {/* Status badge */}
-                    <td style={{ padding: '10px 16px', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                      <span 
-                        className="la-pill" 
-                        style={{ 
-                          fontWeight: 700, 
-                          fontSize: 10.5,
-                          padding: '2.5px 7px',
-                          display: 'inline-block',
-                          whiteSpace: 'nowrap',
-                          ...getStatusBadgeStyle(row.status)
-                        }}
-                      >
-                        {row.status}
-                      </span>
-                    </td>
-
-                    {/* Actions Dropdown */}
+                    {/* Actions Menu */}
                     <td style={{ padding: '10px 16px', position: 'relative', textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center' }}>
                         <button
@@ -981,7 +1441,7 @@ function AttendanceTab() {
                             cursor: 'pointer'
                           }}
                         >
-                          <span style={{ fontSize: 14, lineHeight: 1, fontWeight: 700 }}>⋮</span>
+                          <MoreVertical size={14} />
                         </button>
 
                         {activeMenuId === row.staff._id && (
@@ -1019,7 +1479,7 @@ function AttendanceTab() {
                         )}
                       </div>
                     </td>
-                    </motion.tr>
+                  </motion.tr>
                 ))}
               </tbody>
             </table>
@@ -1375,7 +1835,17 @@ export default function LeaveRequests() {
   const location = useLocation()
   const isLeave = location.pathname.startsWith('/leave')
   const [activeTab, setActiveTab] = useState(isLeave ? 'leave' : 'attendance')
+  const [dropdownOpen, setDropdownOpen] = useState(false)
   const initialLeaveFilter = location.state?.filterStatus || 'Pending'
+
+  // Sync tab with navigation state/activeTab (e.g. from sidebar sub-menus)
+  useEffect(() => {
+    if (location.state?.activeTab) {
+      setActiveTab(location.state.activeTab)
+    } else {
+      setActiveTab(isLeave ? 'leave' : 'attendance')
+    }
+  }, [location.state?.activeTab, isLeave])
 
   useEffect(() => {
     const id = 'la-page-styles'
@@ -1388,34 +1858,24 @@ export default function LeaveRequests() {
     return () => { const el = document.getElementById(id); if (el) el.remove() }
   }, [])
 
+  const handleTabSelect = (tab) => {
+    setActiveTab(tab)
+    setDropdownOpen(false)
+  }
+
+  const options = isLeave ? [
+    { value: 'leave', label: 'Leave Requests', icon: Calendar },
+    { value: 'policy', label: 'Leave Policy', icon: ShieldCheck }
+  ] : [
+    { value: 'attendance', label: 'Attendance', icon: ClipboardList },
+    { value: 'workingdays', label: 'Working Days', icon: Briefcase }
+  ]
+
+  const activeOption = options.find(o => o.value === activeTab) || options[0]
+  const ActiveIcon = activeOption.icon
+
   return (
     <PageShell style={{ maxWidth: 'none' }}>
-      {/* Tabs */}
-      <div className="la-tabs" style={{ marginBottom:22 }}>
-        {isLeave ? (
-          <>
-            <button className={`la-tab${activeTab === 'leave' ? ' active' : ''}`} onClick={() => setActiveTab('leave')}>
-              <Calendar size={14} style={{ display:'inline', marginRight:6, verticalAlign:'middle' }} />
-              Leave Requests
-            </button>
-            <button className={`la-tab${activeTab === 'policy' ? ' active' : ''}`} onClick={() => setActiveTab('policy')}>
-              <ShieldCheck size={14} style={{ display:'inline', marginRight:6, verticalAlign:'middle' }} />
-              Leave Policy
-            </button>
-          </>
-        ) : (
-          <>
-            <button className={`la-tab${activeTab === 'attendance' ? ' active' : ''}`} onClick={() => setActiveTab('attendance')}>
-              <ClipboardList size={14} style={{ display:'inline', marginRight:6, verticalAlign:'middle' }} />
-              Attendance
-            </button>
-            <button className={`la-tab${activeTab === 'workingdays' ? ' active' : ''}`} onClick={() => setActiveTab('workingdays')}>
-              <Briefcase size={14} style={{ display:'inline', marginRight:6, verticalAlign:'middle' }} />
-              Working Days
-            </button>
-          </>
-        )}
-      </div>
 
       {activeTab === 'leave'        && <LeaveTab initialFilter={initialLeaveFilter} />}
       {activeTab === 'policy'       && <LeavePolicy />}

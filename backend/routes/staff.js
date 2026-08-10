@@ -117,6 +117,7 @@ async function provisionStaffPortalAccess(staff, req, options = {}) {
 }
 
 const { logActivity } = require('../utils/logger');
+const { uploadBase64 } = require('../utils/cloudinary');
 router.get('/', protect, async (req, res) => {
   try {
     const { page = 1, limit = 20, search = '', type = '', sort = 'createdAt', order = 'desc' } = req.query;
@@ -229,8 +230,8 @@ router.post('/', protect, async (req, res) => {
       }
     }
 
-    // ── Duplicate email check: prevent two staff profiles with same email globally ──
-    const emailExists = await Staff.findOne({ email });
+    // ── Duplicate email check: prevent two staff profiles with same email in this company ──
+    const emailExists = await Staff.findOne({ user: req.user._id, email });
     if (emailExists) {
       return res.status(409).json({
         success: false,
@@ -404,8 +405,9 @@ router.put('/:id', protect, async (req, res) => {
       }
       req.body.email = email;
 
-      // ── Duplicate email check on update: ensure no OTHER staff has this email globally ──
+      // ── Duplicate email check on update: ensure no OTHER staff has this email in this company ──
       const emailTaken = await Staff.findOne({
+        user: req.user._id,
         email,
         _id: { $ne: req.params.id }
       });
@@ -582,6 +584,110 @@ router.delete('/:id/revoke-portal', protect, async (req, res) => {
     res.json({ success: true, message: 'Portal access revoked.' });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Server error revoking portal' });
+  }
+});
+
+// POST /api/staff/:id/documents — Admin uploads employee records / files
+router.post('/:id/documents', protect, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { documentType, data, originalName, notes } = req.body;
+    
+    const staff = await Staff.findOne({ _id: id, user: req.user._id });
+    if (!staff) {
+      return res.status(404).json({ success: false, message: 'Staff member not found' });
+    }
+    
+    if (!documentType || !data) {
+      return res.status(400).json({ success: false, message: 'Document type and file data are required' });
+    }
+    
+    const match = data.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) {
+      return res.status(400).json({ success: false, message: 'Invalid file format. Expected base64 data URL.' });
+    }
+    
+    const mimeType = match[1].toLowerCase();
+    const base64Data = match[2];
+    
+    const ALLOWED_MIMES = [
+      'image/jpeg', 'image/png', 'image/webp', 'application/pdf',
+      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+    if (!ALLOWED_MIMES.includes(mimeType)) {
+      return res.status(400).json({ success: false, message: 'Invalid file type. Allowed: JPEG, PNG, WEBP, PDF, DOC, DOCX, TXT, XLS, XLSX' });
+    }
+    
+    const byteSize = Buffer.byteLength(base64Data, 'base64');
+    if (byteSize > 10 * 1024 * 1024) {
+      return res.status(400).json({ success: false, message: 'File size must be under 10MB.' });
+    }
+    
+    let url = data;
+    if (process.env.CLOUDINARY_CLOUD_NAME) {
+      try {
+        url = await uploadBase64(data, `payroll_portal/employee_records/${id}`);
+      } catch (uploadErr) {
+        return res.status(500).json({ success: false, message: `Cloudinary upload failed: ${uploadErr.message}` });
+      }
+    }
+    
+    if (!staff.additionalDocuments) {
+      staff.additionalDocuments = [];
+    }
+    
+    const ext = mimeType === 'application/pdf' ? 'pdf' : mimeType.includes('/') ? mimeType.split('/')[1] : 'bin';
+    const fileName = `${documentType.replace(/\s+/g, '_')}_${Date.now()}.${ext}`;
+    
+    const newDoc = {
+      documentType,
+      fileName,
+      originalName: originalName || fileName,
+      url,
+      uploadedAt: new Date(),
+      notes: notes || ''
+    };
+    
+    staff.additionalDocuments.push(newDoc);
+    await staff.save();
+    
+    await logActivity(req.user._id, 'DOCUMENT_UPLOADED', `Uploaded document (${documentType}) for ${staff.fullName}`, { staffId: id });
+    
+    res.json({ success: true, message: 'Document uploaded successfully', documents: staff.additionalDocuments });
+  } catch (err) {
+    console.error('Admin staff document upload error:', err);
+    res.status(500).json({ success: false, message: err.message || 'Upload failed' });
+  }
+});
+
+// DELETE /api/staff/:id/documents/:docId — Admin deletes employee record / file
+router.delete('/:id/documents/:docId', protect, async (req, res) => {
+  try {
+    const { id, docId } = req.params;
+    const staff = await Staff.findOne({ _id: id, user: req.user._id });
+    if (!staff) {
+      return res.status(404).json({ success: false, message: 'Staff member not found' });
+    }
+    
+    if (!staff.additionalDocuments) {
+      return res.status(404).json({ success: false, message: 'Document not found' });
+    }
+    
+    const initialLength = staff.additionalDocuments.length;
+    staff.additionalDocuments = staff.additionalDocuments.filter(doc => String(doc._id) !== docId);
+    
+    if (staff.additionalDocuments.length === initialLength) {
+      return res.status(404).json({ success: false, message: 'Document not found' });
+    }
+    
+    await staff.save();
+    await logActivity(req.user._id, 'DOCUMENT_DELETED', `Deleted additional document for ${staff.fullName}`, { staffId: id });
+    
+    res.json({ success: true, message: 'Document deleted successfully', documents: staff.additionalDocuments });
+  } catch (err) {
+    console.error('Admin staff document delete error:', err);
+    res.status(500).json({ success: false, message: err.message || 'Delete failed' });
   }
 });
 

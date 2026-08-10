@@ -22,6 +22,40 @@ router.post('/', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Authentication required' });
     }
 
+    const { employeeId, month, year, automationEnabled } = req.body;
+    const lookupId = String(employeeId || '').trim();
+    if (!lookupId) {
+      return res.status(400).json({ success: false, message: 'Employee ID is required' });
+    }
+
+    // Verify employee exists and has a completed profile
+    const staff = await Staff.findOne({ employeeId: lookupId, user: userId });
+    if (!staff) {
+      return res.status(400).json({ success: false, message: `Employee with ID ${lookupId} not found in your directory.` });
+    }
+
+    if (!staff.profileCompleted) {
+      return res.status(400).json({ success: false, message: `Cannot generate payslip. ${staff.fullName || 'Employee'}'s profile is incomplete. Please complete their profile in the Team Directory.` });
+    }
+
+    // Verify date of joining
+    if (staff.joiningDate) {
+      const jDate = new Date(staff.joiningDate);
+      const jYear = jDate.getFullYear();
+      const jMonth = jDate.getMonth() + 1; // 1-12
+      
+      const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const payMonthIndex = MONTHS.indexOf(month) + 1;
+      const payYearNum = parseInt(year);
+
+      if (payYearNum < jYear || (payYearNum === jYear && payMonthIndex < jMonth)) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot generate payslip for a period before the employee's date of joining (${jDate.toISOString().split('T')[0]}).`
+        });
+      }
+    }
+
     // Defensive numeric casting for all numeric fields
     const numericFields = [
       'annualCTC', 'stipend', 'employerPF', 'basicSalary', 'hra',
@@ -31,7 +65,6 @@ router.post('/', async (req, res) => {
       'workingDays', 'paidDays', 'year'
     ];
 
-    const { automationEnabled } = req.body;
     const payslipData = { ...req.body, user: userId };
 
     numericFields.forEach(field => {

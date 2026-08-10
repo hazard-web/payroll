@@ -283,6 +283,7 @@ async function runOfficeClosingAutoClose() {
     }
 
     shift.punchOut   = effectivePunchOut;
+    shift.punchOutSource = 'AUTO_PUNCH_OUT';
     shift.totalHours = totalHours;
     shift.workStatus = workStatus;
     shift.status     = 'flagged';

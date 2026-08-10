@@ -4,7 +4,7 @@ import { useStaffPortal } from '../../context/StaffPortalContext'
 import {
   Save, Loader2, AlertCircle, CheckCircle2, Upload, FileText,
   Mail, Phone, CreditCard, Calendar, User, MapPin, Landmark, ShieldCheck, Hash,
-  FileDigit, Briefcase, Shield, Edit, Download, Plus
+  FileDigit, Briefcase, Shield, Edit, Download, Plus, Trash2
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import api from '../../api'
@@ -62,14 +62,14 @@ const TABS = [
 function Section({ title, subtitle, icon: Icon, children }) {
   return (
     <div className="section-card" style={{ marginBottom: 28 }}>
-      <div className="section-card__header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 16, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="section-card__header" style={{ borderBottom: '1px solid var(--border)', padding: '16px 24px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
         {Icon && <div style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', background: 'var(--bg)', padding: 8, borderRadius: 8 }}><Icon size={18} /></div>}
         <div>
           <h3 className="section-card__title" style={{ margin: 0, fontSize: 16 }}>{title}</h3>
           {subtitle && <p className="section-card__subtitle" style={{ margin: '4px 0 0', fontSize: 12 }}>{subtitle}</p>}
         </div>
       </div>
-      <div className="section-card__body" style={{ padding: 0 }}>
+      <div className="section-card__body" style={{ padding: '0 24px 24px' }}>
         {children}
       </div>
     </div>
@@ -296,6 +296,52 @@ export default function PortalProfile() {
   const [errors, setErrors] = useState({})
   const [documents, setDocuments] = useState({})
   const [uploadingDoc, setUploadingDoc] = useState(null)
+  const [docType, setDocType] = useState('Resume')
+  const [uploadingAdditional, setUploadingAdditional] = useState(false)
+
+  const handleUploadAdditional = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size exceeds the 10MB limit')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = async () => {
+      const base64Data = reader.result
+      setUploadingAdditional(true)
+      try {
+        await api.post('/portal/me/documents/additional', {
+          name: file.name,
+          type: docType,
+          file: base64Data
+        })
+        toast.success('Document uploaded successfully')
+        await refresh()
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to upload document')
+      } finally {
+        setUploadingAdditional(false)
+        e.target.value = ''
+      }
+    }
+    reader.onerror = () => {
+      toast.error('Failed to read file')
+    }
+  }
+
+  const handleDeleteAdditional = async (docId) => {
+    if (!window.confirm('Are you sure you want to delete this document?')) return
+    try {
+      await api.delete(`/portal/me/documents/additional/${docId}`)
+      toast.success('Document deleted successfully')
+      await refresh()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete document')
+    }
+  }
   
   const [isEditing, setIsEditing] = useState(false)
   const [activeTab, setActiveTab] = useState('personal')
@@ -379,7 +425,7 @@ export default function PortalProfile() {
       }
 
       if (refreshed?.profileCompleted && !staffUser?.profileCompleted) {
-        toast.success(`${label} uploaded. Profile is now complete! Redirecting…`)
+        toast.success('Profile completed! Redirecting…')
         setTimeout(() => navigate('/portal/dashboard'), 600)
       } else {
         toast.success(`${label} uploaded successfully`)
@@ -619,7 +665,7 @@ export default function PortalProfile() {
 
   if (!staffUser) {
     return (
-      <PageShell style={{ maxWidth: 'none' }}>
+      <PageShell>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Top Header Card Skeleton */}
           <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: '24px', display: 'flex', gap: 20, alignItems: 'center', marginBottom: 20 }}>
@@ -663,7 +709,7 @@ export default function PortalProfile() {
   }
 
   return (
-    <PageShell style={{ maxWidth: 'none' }}>
+    <PageShell>
       <style>{`
         .detail-panel-card {
           background: var(--surface);
@@ -769,7 +815,8 @@ export default function PortalProfile() {
         }
       `}</style>
 
-      {!isEditing ? (
+      <div style={{ maxWidth: 1000, margin: '0 auto', width: '100%' }}>
+        {!isEditing ? (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           {/* ── Top Header Card ── */}
           <div style={{ 
@@ -1458,6 +1505,111 @@ export default function PortalProfile() {
                         ))}
                       </div>
                     </Section>
+
+                    <Section title="Additional Documents & Records" subtitle="Upload extra files like resumes, payslips, contracts, and other supporting records." icon={Plus}>
+                      <div style={{
+                        display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center',
+                        padding: '16px', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)', marginBottom: 20
+                      }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Document Type</span>
+                          <select
+                            value={docType}
+                            onChange={e => setDocType(e.target.value)}
+                            className="input-field"
+                            style={{ height: 36, width: 160 }}
+                          >
+                            <option value="Resume">Resume</option>
+                            <option value="Payslip">Previous Payslip</option>
+                            <option value="Contract">Employment Contract</option>
+                            <option value="Application">Job Application</option>
+                            <option value="Other">Other Document</option>
+                          </select>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+                          <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Upload File (PDF, JPEG, PNG, max 10MB)</span>
+                          <input
+                            type="file"
+                            onChange={handleUploadAdditional}
+                            disabled={uploadingAdditional}
+                            style={{ fontSize: 12, outline: 'none' }}
+                            accept=".pdf,.jpeg,.jpg,.png,.doc,.docx"
+                          />
+                        </div>
+                        {uploadingAdditional && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--primary)' }}>
+                            <Loader2 className="animate-spin" size={16} /> Uploading...
+                          </div>
+                        )}
+                      </div>
+
+                      {!staffUser?.additionalDocuments || staffUser.additionalDocuments.length === 0 ? (
+                        <div style={{
+                          border: '1px dashed var(--border)', borderRadius: 12, padding: 32,
+                          textAlign: 'center', color: 'var(--text-muted)', fontSize: 12.5
+                        }}>
+                          No additional documents uploaded yet.
+                        </div>
+                      ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+                          {staffUser.additionalDocuments.map(doc => (
+                            <div key={doc._id} style={{
+                              border: '1px solid var(--border)',
+                              borderRadius: 12,
+                              padding: '16px',
+                              background: 'var(--surface)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 12
+                            }}>
+                              <div style={{ display: 'flex', gap: 12, alignItems: 'center', overflow: 'hidden' }}>
+                                <div style={{
+                                  width: 40, height: 40, borderRadius: 8,
+                                  background: 'rgba(88, 131, 59, 0.08)', color: 'var(--primary)',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                                }}>
+                                  <FileText size={18} />
+                                </div>
+                                <div style={{ overflow: 'hidden' }}>
+                                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{doc.type}</div>
+                                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.name}>
+                                    {doc.name}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                <a
+                                  href={doc.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    width: 28, height: 28, borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                    background: 'rgba(88, 131, 59, 0.08)', color: 'var(--primary)', textDecoration: 'none'
+                                  }}
+                                  title="View Document"
+                                >
+                                  <Download size={14} />
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteAdditional(doc._id)}
+                                  style={{
+                                    width: 28, height: 28, borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                    background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', border: 'none', cursor: 'pointer'
+                                  }}
+                                  title="Delete Document"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </Section>
                   </motion.div>
                 )}
 
@@ -1595,6 +1747,7 @@ export default function PortalProfile() {
           </form>
         </motion.div>
       )}
+      </div>
     </PageShell>
   )
 }

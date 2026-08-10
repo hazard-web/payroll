@@ -1,10 +1,11 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Calendar, CheckCircle2, Clock, ListChecks, Loader2, MoreHorizontal, Timer, Play, Square } from 'lucide-react'
+import { ArrowLeft, Calendar, CheckCircle2, Clock, ListChecks, Loader2, MoreHorizontal, Timer, Play, Square, Plus, X, Check } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 import PageShell from '../components/PageShell'
 import { Avatar, StatCard } from '../components/UI'
 import api from '../api'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 
 const FILTER_OPTIONS = [
   { value: 'all', label: 'All Time' },
@@ -159,27 +160,28 @@ export default function StaffPerformanceDetail() {
   const [filter, setFilter] = useState('all')
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
+  const [showAssignModal, setShowAssignModal] = useState(false)
+
+  const fetchStaffPerformance = useCallback(async () => {
+    try {
+      setLoading(true)
+      const params = { filter }
+      if (filter === 'custom' && customStart && customEnd) {
+        params.startDate = customStart
+        params.endDate = customEnd
+      }
+      const res = await api.get(`/attendance/admin/staff/${id}/tasks`, { params })
+      setData(res.data.data)
+    } catch (err) {
+      console.error('Failed to fetch staff performance:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [id, filter, customStart, customEnd])
 
   useEffect(() => {
-    const fetchStaffPerformance = async () => {
-      try {
-        setLoading(true)
-        const params = { filter }
-        if (filter === 'custom' && customStart && customEnd) {
-          params.startDate = customStart
-          params.endDate = customEnd
-        }
-        const res = await api.get(`/attendance/admin/staff/${id}/tasks`, { params })
-        setData(res.data.data)
-      } catch (err) {
-        console.error('Failed to fetch staff performance:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchStaffPerformance()
-  }, [id, filter, customStart, customEnd])
+  }, [fetchStaffPerformance])
 
   const handleFilterChange = (newFilter) => {
     setFilter(newFilter)
@@ -238,13 +240,23 @@ export default function StaffPerformanceDetail() {
 
   return (
     <PageShell>
-      <button
-        type="button"
-        onClick={() => navigate('/performance')}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 20, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-display), sans-serif' }}
-      >
-        <ArrowLeft size={14} /> Back to Team
-      </button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <button
+          type="button"
+          onClick={() => navigate('/performance')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-display), sans-serif' }}
+        >
+          <ArrowLeft size={14} /> Back to Team
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowAssignModal(true)}
+          className="btn-primary"
+          style={{ padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          <Plus size={14} /> Assign Task
+        </button>
+      </div>
 
       {/* Profile Header Box */}
       <div className="panel" style={{ padding: '16px 20px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontFamily: 'var(--font-display), sans-serif' }}>
@@ -327,6 +339,133 @@ export default function StaffPerformanceDetail() {
           </div>
         )}
       </div>
+      <AnimatePresence>
+        {showAssignModal && (
+          <AssignTaskModal
+            staff={staff}
+            onClose={() => setShowAssignModal(false)}
+            onSuccess={fetchStaffPerformance}
+          />
+        )}
+      </AnimatePresence>
     </PageShell>
+  )
+}
+
+function AssignTaskModal({ staff, onClose, onSuccess }) {
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [priority, setPriority] = useState('Medium')
+  const [dueDate, setDueDate] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!title.trim()) { toast.error('Task title is required'); return }
+    setSubmitting(true)
+    try {
+      await api.post('/assigned-tasks/admin', {
+        staffId: staff._id,
+        title: title.trim(),
+        description: description.trim(),
+        priority,
+        dueDate: dueDate || undefined
+      })
+      toast.success(`Task assigned to ${staff.fullName}`)
+      onSuccess?.()
+      onClose()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to assign task')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="lp-modal-overlay" onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)',
+      zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+    }}>
+      <div className="lp-modal" onClick={e => e.stopPropagation()} style={{
+        background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 500, border: '1px solid var(--border)',
+        boxShadow: '0 24px 60px rgba(0,0,0,0.25)', overflow: 'hidden'
+      }}>
+        {/* Header */}
+        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>Assign New Task</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>To: {staff?.fullName}</div>
+          </div>
+          <button onClick={onClose} style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8 }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} style={{ padding: '20px 24px' }}>
+          <div style={{ marginBottom: 16 }}>
+            <label className="lp-label" style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>Task Title *</label>
+            <input
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="e.g. Design Login Page"
+              className="lp-input"
+              required
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box' }}
+            />
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <label className="lp-label" style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>Description</label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Provide context or instructions for this task..."
+              className="lp-input"
+              rows={4}
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+            <div style={{ flex: 1 }}>
+              <label className="lp-label" style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>Priority</label>
+              <select
+                value={priority}
+                onChange={e => setPriority(e.target.value)}
+                className="lp-input"
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }}
+              >
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </select>
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <label className="lp-label" style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>Due Date</label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={e => setDueDate(e.target.value)}
+                className="lp-input"
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box' }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+            <button type="button" onClick={onClose} className="btn-ghost" style={{ padding: '8px 16px', background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
+              Cancel
+            </button>
+            <button type="submit" disabled={submitting} className="btn-primary" style={{ padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+              {submitting ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              Assign Task
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   )
 }

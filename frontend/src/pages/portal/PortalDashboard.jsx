@@ -3,7 +3,7 @@ import {
   LogIn, LogOut, Clock, Loader2, X, Plus, Timer,
   Briefcase, Activity, CheckCircle2, ListChecks,
   Coffee, Zap, Radio, BellRing, Calendar, Megaphone, ChevronLeft, ChevronRight, UserCheck,
-  CloudSun, Sun, Moon, Sparkles, Hourglass, Users, Video, FileText
+  CloudSun, Sun, Moon, Sparkles, Hourglass, Users, Video, FileText, AlertTriangle
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import api from '../../api'
@@ -635,9 +635,38 @@ export default function PortalDashboard() {
 
   const pendingLeavesCount = useMemo(() => leaves.filter(l => l.status === 'Pending').length, [leaves])
 
+  const forgotPunchOutCount = useMemo(() => {
+    return history.filter(r => r.punchOutSource === 'AUTO_PUNCH_OUT').length
+  }, [history])
+
   return (
     <PageShell style={{ maxWidth: 'none' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {forgotPunchOutCount > 0 && (
+          <div style={{
+            background: 'rgba(245, 158, 11, 0.08)',
+            border: '1.5px solid #fde047',
+            borderRadius: 12,
+            padding: '14px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            fontFamily: 'var(--font-display), sans-serif',
+            animation: 'fadeIn 0.5s ease-out'
+          }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: '50%', background: '#fef9c3', color: '#ca8a04',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+            }}>
+              <AlertTriangle size={16} />
+            </div>
+            <div style={{ fontSize: 13.5, color: '#854d0e', lineHeight: 1.4, fontWeight: 500 }}>
+              <span style={{ fontWeight: 800 }}>Forgot Punch-Out Reminder:</span> You forgot to punch out{' '}
+              <span style={{ fontWeight: 800 }}>{forgotPunchOutCount} time(s)</span> this month, and your sessions
+              were closed automatically. Please remember to punch out at the end of your shift to ensure accurate attendance records.
+            </div>
+          </div>
+        )}
 
         {/* ── Row 1: Greeting split cards ── */}
         <div style={{

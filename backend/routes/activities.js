@@ -45,7 +45,8 @@ const { autoDeleteExpiredLeaves } = require('../utils/leaveCleanup');
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/kpi-summary', protect, async (req, res) => {
   try {
-    await autoDeleteExpiredLeaves();
+    // Run expired leave cleanup in background (throttled inside to max once per 30m)
+    autoDeleteExpiredLeaves().catch(err => console.error('Leave cleanup background error:', err));
     const userId = req.user._id;
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -98,7 +99,8 @@ router.get('/kpi-summary', protect, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/dashboard-summary', protect, async (req, res) => {
   try {
-    await autoDeleteExpiredLeaves();
+    // Run expired leave cleanup in background (throttled inside to max once per 30m)
+    autoDeleteExpiredLeaves().catch(err => console.error('Leave cleanup background error:', err));
     const userId = req.user._id;
     const now = new Date();
     const lite = req.query.lite === '1';

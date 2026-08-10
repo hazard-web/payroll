@@ -18,8 +18,24 @@ import GlobalSearch from './GlobalSearch'
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/staff', label: 'Team Management', icon: Users },
-  { to: '/attendance', label: 'Attendance', icon: Clock },
-  { to: '/leave', label: 'Leave', icon: CalendarDays },
+  { 
+    label: 'Attendance', 
+    icon: Clock, 
+    key: 'attendance',
+    subItems: [
+      { to: '/attendance', activeTab: 'attendance', label: 'Attendance' },
+      { to: '/attendance', activeTab: 'workingdays', label: 'Working Days' }
+    ]
+  },
+  { 
+    label: 'Leave', 
+    icon: CalendarDays, 
+    key: 'leave',
+    subItems: [
+      { to: '/leave', activeTab: 'leave', label: 'Leave Requests' },
+      { to: '/leave', activeTab: 'policy', label: 'Leave Policy' }
+    ]
+  },
   { to: '/performance', label: 'Performance', icon: TrendingUp },
   { to: '/tasks', label: 'Work Management', icon: ListTodo },
   { to: '/payslips', label: 'All payslip', icon: List },
@@ -41,19 +57,72 @@ function useMediaQuery(query) {
 export default function Layout() {
   const isMobile = useMediaQuery('(max-width: 1024px)')
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const { user, logout } = useAuth()
-  const { theme, setTheme } = useTheme()
   const location = useLocation()
   const navigate = useNavigate()
+  const [expandedMenu, setExpandedMenu] = useState(() => {
+    if (location.pathname.startsWith('/attendance')) return 'attendance'
+    if (location.pathname.startsWith('/leave')) return 'leave'
+    return null
+  })
+  const { user, logout } = useAuth()
+  const { theme, setTheme } = useTheme()
+
+  const toggleMenu = (menuKey) => {
+    setExpandedMenu(prev => (prev === menuKey ? null : menuKey))
+  }
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/attendance')) {
+      setExpandedMenu('attendance')
+    } else if (location.pathname.startsWith('/leave')) {
+      setExpandedMenu('leave')
+    }
+  }, [location.pathname])
+
+  const isParentActive = (item) => {
+    if (item.to) {
+      if (item.to === '/') return location.pathname === '/'
+      return location.pathname.startsWith(item.to)
+    }
+    if (item.subItems) {
+      return item.subItems.some(sub => {
+        const matchesPath = location.pathname.startsWith(sub.to)
+        if (!matchesPath) return false
+        if (location.state?.activeTab) {
+          return location.state.activeTab === sub.activeTab
+        }
+        if (sub.to === '/attendance') {
+          return sub.activeTab === 'attendance'
+        }
+        if (sub.to === '/leave') {
+          return sub.activeTab === 'leave'
+        }
+        return true
+      })
+    }
+    return false
+  }
 
   const getActiveTitle = () => {
     const path = location.pathname
-    const sorted = [...navItems].sort((a, b) => b.to.length - a.to.length)
+    const sorted = [...navItems].filter(item => item.to).sort((a, b) => b.to.length - a.to.length)
     const matched = sorted.find(item => {
       if (item.to === '/') return path === '/'
       return path.startsWith(item.to)
     })
-    return matched ? matched.label : 'Payroll'
+    if (matched) return matched.label
+
+    // Check subItems
+    for (const item of navItems) {
+      if (item.subItems) {
+        for (const sub of item.subItems) {
+          if (path.startsWith(sub.to)) {
+            return item.label
+          }
+        }
+      }
+    }
+    return 'Payroll'
   }
 
   const getBreadcrumbs = () => {
@@ -644,16 +713,124 @@ export default function Layout() {
             }}>
               {sidebarOpen ? 'Portal Menu' : '•••'}
             </div>
-            {navItems.map(({ to, label, icon: Icon, end }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={end}
-                title={!sidebarOpen ? label : ''}
-                className="sidebar-link"
-                style={({ isActive }) => {
-                  const active = isActive;
-                  return {
+            {navItems.map((item) => {
+              const Icon = item.icon
+              if (item.subItems) {
+                const isExpanded = expandedMenu === item.key
+                const active = isParentActive(item)
+                return (
+                  <div key={item.key} style={{ display: 'flex', flexDirection: 'column', marginBottom: 4 }}>
+                    <button
+                      onClick={() => {
+                        if (!sidebarOpen) {
+                          setSidebarOpen(true)
+                          setExpandedMenu(item.key)
+                        } else {
+                          toggleMenu(item.key)
+                        }
+                      }}
+                      className="sidebar-link"
+                      style={{
+                        width: '100%',
+                        border: 'none',
+                        outline: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: sidebarOpen ? 'space-between' : 'center',
+                        gap: 10,
+                        padding: '9px 12px',
+                        borderRadius: 6,
+                        background: active ? 'var(--sidebar-active)' : 'transparent',
+                        color: active ? 'white' : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        whiteSpace: 'nowrap',
+                        fontSize: 12.5,
+                        fontWeight: active ? 600 : 500,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Icon size={17} opacity={0.8} style={{ flexShrink: 0 }} />
+                        {sidebarOpen && <span>{item.label}</span>}
+                      </div>
+                      {sidebarOpen && (
+                        <ChevronDown 
+                          size={13} 
+                          style={{ 
+                            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', 
+                            transition: 'transform 0.2s',
+                            opacity: 0.7
+                          }} 
+                        />
+                      )}
+                    </button>
+
+                    {sidebarOpen && isExpanded && (
+                      <div style={{ paddingLeft: 12, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {item.subItems.map((sub) => {
+                          const isSubActive = (() => {
+                            const matchesPath = location.pathname.startsWith(sub.to)
+                            if (!matchesPath) return false
+                            if (location.state?.activeTab) {
+                              return location.state.activeTab === sub.activeTab
+                            }
+                            if (sub.to === '/attendance') {
+                              return sub.activeTab === 'attendance'
+                            }
+                            if (sub.to === '/leave') {
+                              return sub.activeTab === 'leave'
+                            }
+                            return true
+                          })()
+
+                          return (
+                            <NavLink
+                              key={sub.label}
+                              to={sub.to}
+                              state={{ activeTab: sub.activeTab }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                padding: '8px 12px',
+                                borderRadius: 6,
+                                textDecoration: 'none',
+                                fontSize: 12,
+                                fontWeight: isSubActive ? 600 : 500,
+                                color: isSubActive ? 'var(--primary)' : 'var(--text-muted)',
+                                background: isSubActive ? 'rgba(88,131,59,0.08)' : 'transparent',
+                                transition: 'all 0.15s ease',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              <div 
+                                style={{ 
+                                  width: 5, 
+                                  height: 5, 
+                                  borderRadius: '50%', 
+                                  background: isSubActive ? 'var(--primary)' : '#94a3b8',
+                                  flexShrink: 0
+                                }} 
+                              />
+                              <span>{sub.label}</span>
+                            </NavLink>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+
+              const active = isParentActive(item)
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  title={!sidebarOpen ? item.label : ''}
+                  className="sidebar-link"
+                  style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: sidebarOpen ? 'flex-start' : 'center',
@@ -668,13 +845,13 @@ export default function Layout() {
                     background: active ? 'var(--sidebar-active)' : 'transparent',
                     transition: 'all 0.2s ease',
                     whiteSpace: 'nowrap'
-                  };
-                }}
-              >
-                <Icon size={17} opacity={0.8} style={{ flexShrink: 0 }} />
-                {sidebarOpen && <span>{label}</span>}
-              </NavLink>
-            ))}
+                  }}
+                >
+                  <Icon size={17} opacity={0.8} style={{ flexShrink: 0 }} />
+                  {sidebarOpen && <span>{item.label}</span>}
+                </NavLink>
+              )
+            })}
           </nav>
 
           <div style={{ padding: '0 14px 14px', borderTop: '1px solid var(--border)', paddingTop: 12 }}>

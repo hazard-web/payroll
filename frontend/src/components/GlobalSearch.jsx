@@ -48,7 +48,12 @@ export default function GlobalSearch({ portal = 'admin' }) {
   const handleSelect = (link) => {
     setIsOpen(false);
     setQuery('');
-    navigate(link);
+    let targetLink = link;
+    if (link.startsWith('/staff/') && window.location.pathname.startsWith('/performance')) {
+      const staffId = link.replace('/staff/', '');
+      targetLink = `/performance/${staffId}`;
+    }
+    navigate(targetLink);
   };
 
   return (

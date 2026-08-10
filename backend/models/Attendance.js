@@ -69,6 +69,11 @@ const attendanceSchema = new mongoose.Schema(
     punchOut: {
       type: Date,
     },
+    punchOutSource: {
+      type: String,
+      enum: ['MANUAL', 'AUTO_PUNCH_OUT', 'SYSTEM'],
+      default: 'MANUAL'
+    },
     sessions: [{
       startTime: { type: Date, required: true },
       endTime: { type: Date },

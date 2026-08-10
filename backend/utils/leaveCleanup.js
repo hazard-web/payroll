@@ -75,12 +75,21 @@ async function autoCleanupOrphanedData() {
   }
 }
 
+let lastCleanupTime = 0;
+const CLEANUP_INTERVAL = 30 * 60 * 1000; // 30 minutes
+
 /**
  * Automatically deletes pending leave requests whose end dates have passed.
  * Also deletes any associated admin notifications to avoid broken reference links.
  * Also triggers the cleanup of any orphaned data for deleted employees.
  */
 async function autoDeleteExpiredLeaves() {
+  const nowTime = Date.now();
+  if (nowTime - lastCleanupTime < CLEANUP_INTERVAL) {
+    return; // Rate limit execution to at most once per 30 minutes
+  }
+  lastCleanupTime = nowTime;
+
   try {
     // 1. Run orphan cleanup first to ensure all references are correct
     await autoCleanupOrphanedData();

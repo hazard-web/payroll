@@ -109,6 +109,14 @@ const staffSchema = new mongoose.Schema(
         uploadedAt: Date,
       },
     },
+    additionalDocuments: [{
+      documentType: { type: String, required: true },
+      fileName: { type: String, required: true },
+      originalName: { type: String, required: true },
+      url: { type: String, required: true },
+      uploadedAt: { type: Date, default: Date.now },
+      notes: String
+    }],
     salaryDetails: {
       annualCTC: {
         type: Number,
@@ -192,7 +200,7 @@ staffSchema.methods.comparePassword = async function (candidatePassword) {
 //  • { user, createdAt }  — admin staff list (sorted by newest)
 //  • { user, employeeId } — duplicate-employee-id check on create + payslip join
 //  • { user, isPortalEnabled } — stats "active portals" count
-staffSchema.index({ email: 1 }, { unique: true });
+staffSchema.index({ user: 1, email: 1 }, { unique: true });
 staffSchema.index({ user: 1, createdAt: -1 });
 staffSchema.index({ user: 1, employeeId: 1 }, { unique: true, sparse: true });
 staffSchema.index({ user: 1, isPortalEnabled: 1 });

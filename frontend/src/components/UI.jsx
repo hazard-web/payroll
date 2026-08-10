@@ -658,16 +658,27 @@ export function StaffSearchDropdown({
                   </div>
                 </div>
 
-                {/* Type badge */}
-                <span style={{
-                  flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 7px',
-                  borderRadius: 999,
-                  background: s.type === 'Intern' ? '#eff6ff' : '#e5ebdd',
-                  color: s.type === 'Intern' ? '#1d4ed8' : '#58833b',
-                  border: `1px solid ${s.type === 'Intern' ? '#bfdbfe' : 'rgba(88,131,59,.25)'}`,
-                }}>
-                  {s.type}
-                </span>
+                {/* Type and profile completeness badges */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                  <span style={{
+                    flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 7px',
+                    borderRadius: 999,
+                    background: s.type === 'Intern' ? '#eff6ff' : '#e5ebdd',
+                    color: s.type === 'Intern' ? '#1d4ed8' : '#58833b',
+                    border: `1px solid ${s.type === 'Intern' ? '#bfdbfe' : 'rgba(88,131,59,.25)'}`,
+                  }}>
+                    {s.type}
+                  </span>
+                  {!s.profileCompleted && (
+                    <span style={{
+                      flexShrink: 0, fontSize: 9, fontWeight: 800, padding: '2px 6px',
+                      borderRadius: 999, background: '#fef2f2', color: '#dc2626',
+                      border: '1px solid #fca5a5', textTransform: 'uppercase', letterSpacing: '0.02em'
+                    }}>
+                      Incomplete
+                    </span>
+                  )}
+                </div>
               </div>
             ))
           )}

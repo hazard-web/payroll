@@ -647,7 +647,7 @@ export default function Dashboard() {
     try {
       setDetailLoading(true)
       setLoadError('')
-      const res = await api.get('/activities/dashboard-summary', { signal: controller.signal })
+      const res = await api.get('/activities/dashboard-summary?lite=1', { signal: controller.signal })
       const d = res.data
 
       setStaffData(d.staff || [])

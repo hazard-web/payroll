@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
   Plus, Briefcase, Loader2, FilePlus, Users, Search, MoreVertical,
-  ArrowDownAZ, ArrowUpZA, ArrowUpDown
+  ArrowDownAZ, ArrowUpZA, ArrowUpDown, Eye, Edit, Clock, FileText, Mail, Trash2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api'
@@ -576,19 +576,19 @@ export default function StaffList() {
                             textAlign: 'left'
                           }}>
                             <DropdownItem onClick={() => { setActiveMenuId(null); navigate(`/staff/${person._id}`); }}>
-                              👁️ View Details
+                              <Eye size={13} /> View Details
                             </DropdownItem>
                             <DropdownItem onClick={(e) => { setActiveMenuId(null); handleEdit(e, person); }}>
-                              ✏️ Edit Employee
+                              <Edit size={13} /> Edit Employee
                             </DropdownItem>
                             <DropdownItem onClick={() => { setActiveMenuId(null); navigate(`/attendance?search=${person.employeeId || person.fullName}`); }}>
-                              📅 Attendance
+                              <Clock size={13} /> Attendance
                             </DropdownItem>
                             <DropdownItem onClick={() => { setActiveMenuId(null); navigate(`/payslips/generate?staffId=${person._id}`); }}>
-                              📄 Generate Payslip
+                              <FileText size={13} /> Generate Payslip
                             </DropdownItem>
                             <DropdownItem onClick={() => { setActiveMenuId(null); handleResendInvite(person._id); }}>
-                              ✉️ Resend Portal Link
+                              <Mail size={13} /> Resend Portal Link
                             </DropdownItem>
                             <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }} />
                             <DropdownItem 
@@ -600,7 +600,7 @@ export default function StaffList() {
                               }} 
                               style={{ color: '#ef4444' }}
                             >
-                              🚫 Deactivate Employee
+                              <Trash2 size={13} style={{ color: '#ef4444' }} /> Deactivate Employee
                             </DropdownItem>
                           </div>
                         </>,

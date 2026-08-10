@@ -1,9 +1,10 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageShell from '../components/PageShell'
-import { Search, Activity, MoreVertical, ChevronUp, ChevronDown } from 'lucide-react'
+import { Search, Activity, MoreVertical, ChevronUp, ChevronDown, Plus, FileText, Check, X, Loader2 } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 import api from '../api'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 
 function initials(name = '') {
   const parts = name.trim().split(/\s+/)
@@ -19,6 +20,7 @@ export default function TeamPerformance() {
   const [activeMenuId, setActiveMenuId] = useState(null)
   const [sortField, setSortField] = useState('fullName')
   const [sortOrder, setSortOrder] = useState('asc')
+  const [assigningStaff, setAssigningStaff] = useState(null)
 
   useEffect(() => {
     const fetchStaffList = async () => {
@@ -199,19 +201,7 @@ export default function TeamPerformance() {
         @media (min-width: 861px) { .tp-mobile-meta { display: none; } }
       `}</style>
 
-      {/* Search Bar */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
-        <div className="tp-search-wrap" style={{ marginTop: 0 }}>
-          <Search size={14} className="tp-search-icon" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search team..."
-            className="tp-search-input"
-          />
-        </div>
-      </div>
+
 
       {/* ── Table ── */}
       {loading && displayStaff.length === 0 ? (
@@ -377,7 +367,7 @@ export default function TeamPerformance() {
                           padding: '4px 0'
                         }}>
                           <button
-                            onClick={() => navigate(`/performance/${staff._id}`)}
+                            onClick={() => { setActiveMenuId(null); navigate(`/performance/${staff._id}`); }}
                             onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
                             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                             style={{
@@ -395,7 +385,28 @@ export default function TeamPerformance() {
                               transition: 'background 0.15s'
                             }}
                           >
-                            📈 View Details
+                            <Activity size={12} /> View Details
+                          </button>
+                          <button
+                            onClick={() => { setActiveMenuId(null); setAssigningStaff(staff); }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            style={{
+                              width: '100%',
+                              textAlign: 'left',
+                              padding: '8px 12px',
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text)',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              transition: 'background 0.15s'
+                            }}
+                          >
+                            <Plus size={12} /> Assign Task
                           </button>
                         </div>
                       )}
@@ -405,6 +416,133 @@ export default function TeamPerformance() {
           ))}
         </div>
       )}
+
+      <AnimatePresence>
+        {assigningStaff && (
+          <AssignTaskModal
+            staff={assigningStaff}
+            onClose={() => setAssigningStaff(null)}
+          />
+        )}
+      </AnimatePresence>
     </PageShell>
+  )
+}
+
+function AssignTaskModal({ staff, onClose, onSuccess }) {
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [priority, setPriority] = useState('Medium')
+  const [dueDate, setDueDate] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!title.trim()) { toast.error('Task title is required'); return }
+    setSubmitting(true)
+    try {
+      await api.post('/assigned-tasks/admin', {
+        staffId: staff._id,
+        title: title.trim(),
+        description: description.trim(),
+        priority,
+        dueDate: dueDate || undefined
+      })
+      toast.success(`Task assigned to ${staff.fullName}`)
+      onSuccess?.()
+      onClose()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to assign task')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="lp-modal-overlay" onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)',
+      zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+    }}>
+      <div className="lp-modal" onClick={e => e.stopPropagation()} style={{
+        background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 500, border: '1px solid var(--border)',
+        boxShadow: '0 24px 60px rgba(0,0,0,0.25)', overflow: 'hidden'
+      }}>
+        {/* Header */}
+        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>Assign New Task</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>To: {staff?.fullName}</div>
+          </div>
+          <button onClick={onClose} style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8 }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} style={{ padding: '20px 24px' }}>
+          <div style={{ marginBottom: 16 }}>
+            <label className="lp-label" style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>Task Title *</label>
+            <input
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="e.g. Design Login Page"
+              className="lp-input"
+              required
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box' }}
+            />
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <label className="lp-label" style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>Description</label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Provide context or instructions for this task..."
+              className="lp-input"
+              rows={4}
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+            <div style={{ flex: 1 }}>
+              <label className="lp-label" style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>Priority</label>
+              <select
+                value={priority}
+                onChange={e => setPriority(e.target.value)}
+                className="lp-input"
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }}
+              >
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </select>
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <label className="lp-label" style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>Due Date</label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={e => setDueDate(e.target.value)}
+                className="lp-input"
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box' }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+            <button type="button" onClick={onClose} className="btn-ghost" style={{ padding: '8px 16px', background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
+              Cancel
+            </button>
+            <button type="submit" disabled={submitting} className="btn-primary" style={{ padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+              {submitting ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              Assign Task
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   )
 }

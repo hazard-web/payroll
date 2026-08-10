@@ -67,6 +67,42 @@ export default function PortalLayout() {
     }
   }, [staffUser])
 
+  // Inactivity timeout monitor (15 minutes)
+  useEffect(() => {
+    if (!staffUser) return
+
+    let timeoutId
+    const INACTIVITY_TIMEOUT = 15 * 60 * 1000 // 15 minutes
+
+    const handleTimeout = async () => {
+      toast('You have been logged out due to inactivity.', { icon: '⏳', duration: 5000 })
+      try {
+        await api.post('/attendance/punch-out', {
+          source: 'AUTO_PUNCH_OUT',
+          reason: 'Inactivity logout auto-punch'
+        })
+      } catch (e) {
+        // Suppress if they were not clocked in
+      }
+      logout()
+    }
+
+    const resetTimer = () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      timeoutId = setTimeout(handleTimeout, INACTIVITY_TIMEOUT)
+    }
+
+    resetTimer()
+
+    const events = ['mousemove', 'keypress', 'click', 'scroll', 'touchstart']
+    events.forEach(name => window.addEventListener(name, resetTimer))
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      events.forEach(name => window.removeEventListener(name, resetTimer))
+    }
+  }, [staffUser, logout])
+
   useEffect(() => {
     setSidebarOpen(!window.matchMedia('(max-width: 1024px)').matches)
   }, [])

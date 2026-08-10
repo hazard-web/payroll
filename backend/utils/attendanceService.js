@@ -247,6 +247,7 @@ function closeAttendanceSession(attendance, { endTime = new Date(), source = 'MA
   attendance.overtimeHours = Math.max(0, parseFloat((attendance.totalHours - DEFAULT_STANDARD_HOURS).toFixed(2)));
   attendance.workStatus = determineWorkStatus(attendance.totalHours);
   attendance.status = attendance.totalHours >= DEFAULT_STANDARD_HOURS ? 'complete' : 'incomplete';
+  attendance.punchOutSource = source || 'MANUAL';
   attendance.notes = attendance.notes || '';
 
   return {
@@ -325,6 +326,7 @@ function autoCloseStaleAttendance(attendance) {
   attendance.overtimeHours = Math.max(0, parseFloat((totalHours - DEFAULT_STANDARD_HOURS).toFixed(2)));
   attendance.workStatus    = determineWorkStatus(totalHours);
   attendance.status        = totalHours >= DEFAULT_STANDARD_HOURS ? 'complete' : 'incomplete';
+  attendance.punchOutSource = 'AUTO_PUNCH_OUT';
   attendance.lastAutoPunchOutAt     = effectiveEnd;
   attendance.lastAutoPunchOutReason = 'System: Auto punch-out at 11:59 PM IST — no manual punch-out recorded';
 

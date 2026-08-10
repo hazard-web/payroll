@@ -151,23 +151,38 @@ router.post('/admin/respond', authAdmin, async (req, res) => {
     const leave = await LeaveRequest.findOne({ _id: id, admin: req.user._id });
     if (!leave) return res.status(404).json({ success: false, message: 'Request not found' });
     
+    const prevStatus = leave.status;
     leave.status = status;
     leave.adminNotes = adminNotes;
     await leave.save();
     
-    // If approved, deduct from balance if applicable
-    if (status === 'Approved') {
+    // If approved and wasn't previously approved, deduct from balance
+    if (status === 'Approved' && prevStatus !== 'Approved') {
       const staff = await Staff.findById(leave.staff);
-      const days = Math.ceil((leave.endDate - leave.startDate) / (1000 * 60 * 60 * 24)) + 1;
-      
-      if (leave.type === 'Casual') {
-        staff.leaveBalance.casual -= days;
-      } else if (leave.type === 'Sick') {
-        staff.leaveBalance.sick -= days;
+      if (staff) {
+        const days = Math.ceil((leave.endDate - leave.startDate) / (1000 * 60 * 60 * 24)) + 1;
+        if (!staff.leaveBalance) staff.leaveBalance = { casual: 12, sick: 12 };
+        if (leave.type === 'Casual') {
+          staff.leaveBalance.casual = (staff.leaveBalance.casual || 0) - days;
+        } else if (leave.type === 'Sick') {
+          staff.leaveBalance.sick = (staff.leaveBalance.sick || 0) - days;
+        }
+        await staff.save();
       }
-      // Custom leave doesn't necessarily deduct from standard quota but could be tracked elsewhere
-      
-      await staff.save();
+    } 
+    // If rejected/pending but was previously approved, restore balance
+    else if (status !== 'Approved' && prevStatus === 'Approved') {
+      const staff = await Staff.findById(leave.staff);
+      if (staff) {
+        const days = Math.ceil((leave.endDate - leave.startDate) / (1000 * 60 * 60 * 24)) + 1;
+        if (!staff.leaveBalance) staff.leaveBalance = { casual: 12, sick: 12 };
+        if (leave.type === 'Casual') {
+          staff.leaveBalance.casual = (staff.leaveBalance.casual || 0) + days;
+        } else if (leave.type === 'Sick') {
+          staff.leaveBalance.sick = (staff.leaveBalance.sick || 0) + days;
+        }
+        await staff.save();
+      }
     }
 
     // Mark related notifications as read
