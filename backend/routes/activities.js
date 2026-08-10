@@ -116,7 +116,6 @@ router.get('/dashboard-summary', protect, async (req, res) => {
 
     // Core detail queries — always run
     const coreQueries = [
-      Staff.find({ user: userId }).select('fullName employeeId email documents.profileImage').lean(),
       Attendance.countDocuments({ admin: userId, date: { $gte: todayStart }, punchOut: null }),
       Attendance.find({ admin: userId, date: { $gte: todayStart } })
         .populate('staff', 'fullName email documents.profileImage')
@@ -146,13 +145,13 @@ router.get('/dashboard-summary', protect, async (req, res) => {
         ];
 
     const [
-      staff, activeCount, todayPunchins, approvedLeaves, pendingLeaves, announcements,
+      activeCount, todayPunchins, approvedLeaves, pendingLeaves, announcements,
       currentMonthly, prevMonthly,
     ] = await Promise.all([...coreQueries, ...monthlyQueries]);
 
     res.json({
       success: true,
-      staff,
+      staff: [], // Skip returning heavy staff list on initial load
       activeCount,
       todayPunchins,
       approvedLeaves,
@@ -164,6 +163,47 @@ router.get('/dashboard-summary', protect, async (req, res) => {
   } catch (err) {
     console.error('Dashboard summary error:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch dashboard summary' });
+  }
+});
+
+// GET /api/activities/absent-staff — On-demand absent staff list
+router.get('/absent-staff', protect, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const now = new Date();
+
+    // 1. Fetch all registered staff members of this company
+    const staffList = await Staff.find({ user: userId })
+      .select('fullName employeeId designation documents.profileImage')
+      .lean();
+
+    // 2. Fetch today's punchins
+    const punchins = await Attendance.find({ admin: userId, date: { $gte: todayStart } })
+      .select('staff')
+      .lean();
+    const punchedInIds = new Set(punchins.map(p => String(p.staff)));
+
+    // 3. Fetch approved leaves overlapping today
+    const leaves = await LeaveRequest.find({
+      admin: userId,
+      status: 'Approved',
+      startDate: { $lte: now },
+      endDate: { $gte: now }
+    }).select('staff').lean();
+    const onLeaveIds = new Set(leaves.map(l => String(l.staff)));
+
+    // 4. Filter out staff who punched in or are on leave today
+    const absentStaff = staffList.filter(s => !punchedInIds.has(String(s._id)) && !onLeaveIds.has(String(s._id)));
+
+    res.json({
+      success: true,
+      data: absentStaff
+    });
+  } catch (err) {
+    console.error('Failed to fetch absent staff:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch absent staff list' });
   }
 });
 
