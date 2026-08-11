@@ -233,55 +233,50 @@ export default function PortalLayout() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)', transition: 'all 0.3s' }}>
-      {/* Mobile Overlay */}
-      {isMobile && sidebarOpen && (
-        <div 
-          onClick={() => setSidebarOpen(false)}
-          style={{ 
-            position: 'fixed', inset: 0, background: 'rgba(26, 26, 26, 0.5)', 
-            zIndex: 100, backdropFilter: 'blur(4px)', transition: 'all 0.3s'
-          }}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside style={{
-        width: isMobile ? 'var(--sidebar-w)' : (sidebarOpen ? 'var(--sidebar-w)' : 'var(--sidebar-mini-w)'),
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)', transition: 'all 0.3s' }}>
+      {/* Header Container */}
+      <header style={{
+        height: 'var(--header-h)',
         background: 'var(--sidebar-bg)',
+        borderBottom: '1px solid var(--border)',
         display: 'flex',
-        flexDirection: 'column',
-        position: 'fixed',
-        top: 0, left: 0, bottom: 0,
-        zIndex: 120,
-        transform: (isMobile && !sidebarOpen) ? 'translateX(-100%)' : 'translateX(0)',
-        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-        borderRight: '1px solid var(--border)',
-        overflow: 'hidden'
+        alignItems: 'center',
+        position: 'sticky', 
+        top: 0, 
+        zIndex: 130,
+        backdropFilter: 'blur(8px)',
       }}>
-        {/* Brand Header */}
+        {/* Brand Logo & Name Container (with separator border on right) */}
         <div style={{
-          height: 'var(--header-h)',
-          padding: sidebarOpen ? '0 24px' : '0 12px',
+          width: isMobile ? 'auto' : (sidebarOpen ? 'var(--sidebar-w)' : 'var(--sidebar-mini-w)'),
+          height: '100%',
+          padding: sidebarOpen ? '0 16px 0 24px' : '0 12px',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 8,
-          borderBottom: '1px solid var(--border)',
+          justifyContent: sidebarOpen ? 'space-between' : 'center',
+          borderRight: isMobile ? 'none' : '1px solid var(--border)',
+          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          boxSizing: 'border-box',
+          flexShrink: 0,
+          position: 'relative'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div 
+            onClick={!sidebarOpen ? toggleSidebar : undefined}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: !sidebarOpen ? 'pointer' : 'default' }}
+            title={!sidebarOpen ? "Expand sidebar" : ""}
+          >
             {staffUser?.companyLogo ? (
               <img
                 src={staffUser.companyLogo}
                 alt="Company Logo"
-                style={{ width: 34, height: 34, borderRadius: 9, flexShrink: 0, objectFit: 'contain', background: 'white', padding: 2, border: '1px solid var(--border)' }}
+                style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'contain', background: 'white', padding: 1, border: '1px solid var(--border)', flexShrink: 0 }}
               />
             ) : (
               <div style={{
-                width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+                width: 28, height: 28, borderRadius: 6, flexShrink: 0,
                 background: 'var(--primary)', color: 'white',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontWeight: 800, fontSize: 14,
+                fontWeight: 800, fontSize: 13,
               }}>
                 {(staffUser?.companyName || 'B').charAt(0).toUpperCase()}
               </div>
@@ -290,13 +285,14 @@ export default function PortalLayout() {
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ minWidth: 0 }}>
                 <div style={{
                   fontFamily: 'var(--font-display)',
-                  fontSize: 14, fontWeight: 800,
+                  fontSize: 16,
+                  fontWeight: 800,
                   color: 'var(--text)',
                   whiteSpace: 'nowrap',
                   letterSpacing: '-0.02em',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  maxWidth: 135
+                  maxWidth: 160
                 }} title={staffUser?.companyName || 'Team Portal'}>
                   {staffUser?.companyName || 'Team Portal'}
                 </div>
@@ -304,414 +300,265 @@ export default function PortalLayout() {
             )}
           </div>
           
-          {!isMobile && (
+          {sidebarOpen && !isMobile && (
             <button 
               onClick={toggleSidebar} 
               style={{ 
-                background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', 
-                cursor: 'pointer', padding: 6, borderRadius: 8,
+                background: 'none', border: 'none', color: 'var(--text-muted)', 
+                cursor: 'pointer', padding: 4, borderRadius: 4,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'all 0.2s',
-                marginLeft: 0
+                transition: 'all 0.2s'
               }}
-              className="btn-hover"
-            >
-              {sidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
-            </button>
-          )}
-
-          {isMobile && (
-            <button 
-              onClick={() => setSidebarOpen(false)} 
-              style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', padding: 6, borderRadius: 8 }}
-              className="btn-hover"
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+              title="Collapse sidebar"
             >
               <ChevronLeft size={16} />
             </button>
           )}
-        </div>
 
-        {/* Navigation Sidebar */}
-        <nav style={{ padding: '24px 16px', flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-          <div style={{ 
-            fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', 
-            letterSpacing: '0.1em', padding: sidebarOpen ? '0 12px 14px' : '0 0 14px', 
-            textTransform: 'uppercase', textAlign: sidebarOpen ? 'left' : 'center',
-            whiteSpace: 'nowrap'
-          }}>
-            {sidebarOpen ? 'Portal Menu' : '•••'}
-          </div>
-          {navItems.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              title={!sidebarOpen ? label : ''}
-              className="sidebar-link"
-              style={({ isActive }) => ({
+          {!sidebarOpen && !isMobile && (
+            <button
+              onClick={toggleSidebar}
+              title="Expand sidebar"
+              style={{
+                position: 'absolute',
+                left: 'calc(var(--sidebar-mini-w) - 1px)',
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: '50%',
+                width: 18,
+                height: 18,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                gap: 10,
-                padding: '9px 12px',
-                borderRadius: 6,
-                marginBottom: 4,
-                textDecoration: 'none',
-                fontSize: 12.5,
-                fontWeight: isActive ? 600 : 500,
-                color: isActive ? 'white' : 'var(--text-muted)',
-                background: isActive ? 'var(--sidebar-active)' : 'transparent',
-                transition: 'all 0.2s ease',
-                whiteSpace: 'nowrap'
-              })}
-            >
-              <Icon size={17} opacity={0.8} style={{ flexShrink: 0 }} />
-              {sidebarOpen && <span>{label}</span>}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* User Profile Hook */}
-        <div style={{ padding: '0 14px 14px', borderTop: '1px solid var(--border)', paddingTop: 12 }}>
-          {sidebarOpen ? (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 12,
-              padding: '10px 12px',
-            }}>
-              {staffUser?.documents?.profileImage?.url ? (
-                <img
-                  src={staffUser.documents.profileImage.url}
-                  alt={staffUser.fullName}
-                  style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, objectFit: 'cover', border: '1px solid var(--border)' }}
-                  title={staffUser.fullName}
-                />
-              ) : (
-                <div style={{
-                  width: 36, height: 36, borderRadius: 9, flexShrink: 0,
-                  background: 'var(--primary)', color: 'white',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontWeight: 800, fontSize: 15,
-                }} title={staffUser?.fullName}>
-                  {(staffUser?.fullName || 'E').charAt(0).toUpperCase()}
-                </div>
-              )}
-
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {staffUser?.fullName || 'Employee'}
-                </div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {staffUser?.email || 'email'}
-                </div>
-              </div>
-
-              <button
-                onClick={logout}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 28,
-                  height: 28,
-                  borderRadius: 6,
-                  color: 'var(--text-muted)',
-                  transition: 'all 0.2s',
-                  flexShrink: 0
-                }}
-                title="Sign Out"
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'; e.currentTarget.style.color = '#ef4444'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-              >
-                <LogOut size={15} />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={logout}
-              title="Sign Out"
-              style={{
-                width: '100%', background: 'transparent', color: 'var(--text-muted)',
-                border: '1px solid var(--border)', borderRadius: 8,
-                padding: '8px 0', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'all 0.2s'
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+                boxShadow: 'var(--shadow-sm)',
+                zIndex: 140
               }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.2)'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
             >
-              <LogOut size={14} />
+              <ChevronRight size={12} />
             </button>
           )}
         </div>
-      </aside>
 
-      {/* Main Framework */}
-      <main style={{ 
-        marginLeft: isMobile ? 0 : (sidebarOpen ? 'var(--sidebar-w)' : 'var(--sidebar-mini-w)'), 
-        flex: 1, 
-        display: 'flex', 
-        flexDirection: 'column',
-        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-        minWidth: 0
-      }}>
-        
-        {/* Universal Header */}
-        <header style={{
-          height: 'var(--header-h)', 
-          background: 'var(--surface)', 
-          borderBottom: '1px solid var(--border)',
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'space-between', 
-          padding: '0 clamp(16px, 4vw, 32px)',
-          position: 'sticky', 
-          top: 0, 
-          zIndex: 80,
-          backdropFilter: 'blur(8px)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            {isMobile && (
-              <button 
-                onClick={toggleSidebar}
-                style={{ 
-                  background: 'var(--bg)', border: '1px solid var(--border)', 
-                  color: 'var(--text)', cursor: 'pointer', 
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: 40, height: 40, borderRadius: 12, transition: 'all 0.2s'
-                }}
-                className="btn-hover"
-              >
-                <Menu size={20} />
-              </button>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
-              {getBreadcrumbs().map((crumb, idx, arr) => {
-                const isLast = idx === arr.length - 1
-                return (
-                  <div key={crumb.to} style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text)' }}>
-                    {idx > 0 && <span style={{ color: 'var(--text-light)', opacity: 0.5, fontSize: 11 }}>/</span>}
-                    {isLast ? (
-                      <span style={{ color: 'var(--text)', fontWeight: 700 }}>{crumb.label}</span>
-                    ) : (
-                      <span 
-                        onClick={() => navigate(crumb.to)}
-                        className="hover-primary"
-                        style={{ cursor: 'pointer', color: 'var(--text-muted)', transition: 'color 0.15s' }}
-                      >
-                        {crumb.label}
-                      </span>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+        {/* Universal Breadcrumbs Header */}
+        <div style={{ display: 'flex', alignItems: 'center', flex: 1, paddingLeft: 24, fontSize: 13, fontWeight: 600 }}>
+          {isMobile && (
+            <button 
+              onClick={toggleSidebar}
+              style={{ 
+                background: 'var(--bg)', border: '1px solid var(--border)', 
+                color: 'var(--text)', cursor: 'pointer', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 40, height: 40, borderRadius: 12, transition: 'all 0.2s',
+                marginRight: 16
+              }}
+              className="btn-hover"
+            >
+              <Menu size={20} />
+            </button>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {getBreadcrumbs().map((crumb, idx, arr) => {
+              const isLast = idx === arr.length - 1
+              return (
+                <div key={crumb.to} style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text)' }}>
+                  {idx > 0 && <span style={{ color: 'var(--text-light)', opacity: 0.5, fontSize: 11 }}>/</span>}
+                  {isLast ? (
+                    <span style={{ color: 'var(--text)', fontWeight: 700 }}>{crumb.label}</span>
+                  ) : (
+                    <span 
+                      onClick={() => navigate(crumb.to)}
+                      className="hover-primary"
+                      style={{ cursor: 'pointer', color: 'var(--text-muted)', transition: 'color 0.15s' }}
+                    >
+                      {crumb.label}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Right Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingRight: 'clamp(16px, 4vw, 32px)' }}>
+          <GlobalSearch portal="team" />
+
+          {/* Announcement Megaphone in Red */}
+          <div style={{ position: 'relative' }}>
+            <button 
+              onClick={() => {
+                setShowAnnouncements(!showAnnouncements);
+                if(!showAnnouncements) fetchAnnouncements();
+              }}
+              style={{
+                background: 'var(--bg)', border: '1px solid var(--border)', 
+                color: '#ef4444', cursor: 'pointer', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 40, height: 40, borderRadius: 12, transition: 'all 0.2s',
+                position: 'relative'
+              }}
+              className="btn-hover"
+            >
+              <Radio size={20} />
+              {announcements.some(a => !a.isRead) && (
+                <span style={{ position: 'absolute', top: -3, right: -3, display: 'flex', height: 10, width: 10 }}>
+                  <span className="animate-ping" style={{ position: 'absolute', inlineSize: '100%', blockSize: '100%', borderRadius: '50%', background: '#ef4444', opacity: 0.75 }} />
+                  <span style={{ position: 'relative', borderRadius: '50%', inlineSize: 10, blockSize: 10, background: '#ef4444' }} />
+                </span>
+              )}
+            </button>
+
+            <AnimatePresence>
+              {showAnnouncements && (
+                <>
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 110 }} onClick={() => setShowAnnouncements(false)} />
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    style={{
+                      position: 'absolute', top: 46, right: 0, width: 380,
+                      background: 'var(--surface)', borderRadius: 14,
+                      boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)',
+                      zIndex: 120, overflow: 'hidden'
+                    }}
+                  >
+                    <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Recent Announcements</h4>
+                    </div>
+                    <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+                      {announcements.length === 0 ? (
+                        <div style={{ padding: '24px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                          No announcements yet
+                        </div>
+                      ) : (
+                        announcements.map((a) => (
+                          <div key={a._id} style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                              <span style={{
+                                fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                                background: a.priority === 'High' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                                color: a.priority === 'High' ? '#ef4444' : '#3b82f6'
+                              }}>
+                                {a.priority}
+                              </span>
+                              <span style={{ fontSize: 10, color: 'var(--text-light)' }}>
+                                {new Date(a.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <h5 style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{a.title}</h5>
+                            <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>{a.message}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Notifications Megaphone in Primary color */}
+          <div style={{ position: 'relative' }}>
+            <button 
+              onClick={() => {
+                setShowNotif(!showNotif);
+                if(!showNotif) fetchNotifications();
+              }}
+              style={{
+                background: 'var(--bg)', border: '1px solid var(--border)', 
+                color: 'var(--text)', cursor: 'pointer', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 40, height: 40, borderRadius: 12, transition: 'all 0.2s',
+                position: 'relative'
+              }}
+              className="btn-hover"
+            >
+              <Bell size={20} />
+              {notifications.some(n => !n.isRead) && (
+                <span style={{ position: 'absolute', top: -3, right: -3, display: 'flex', height: 10, width: 10 }}>
+                  <span className="animate-ping" style={{ position: 'absolute', inlineSize: '100%', blockSize: '100%', borderRadius: '50%', background: 'var(--primary)', opacity: 0.75 }} />
+                  <span style={{ position: 'relative', borderRadius: '50%', inlineSize: 10, blockSize: 10, background: 'var(--primary)' }} />
+                </span>
+              )}
+            </button>
+
+            <AnimatePresence>
+              {showNotif && (
+                <>
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 110 }} onClick={() => setShowNotif(false)} />
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    style={{
+                      position: 'absolute', top: 46, right: 0, width: 340,
+                      background: 'var(--surface)', borderRadius: 14,
+                      boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)',
+                      zIndex: 120, overflow: 'hidden'
+                    }}
+                  >
+                    <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Notifications</h4>
+                      {notifications.some(n => !n.isRead) && (
+                        <button 
+                          onClick={markAllAsRead}
+                          style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+                    <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+                      {notifLoading ? (
+                        <div style={{ padding: '24px 20px', display: 'flex', justifyContent: 'center' }}><Loader2 className="animate-spin" size={20} /></div>
+                      ) : notifications.length === 0 ? (
+                        <div style={{ padding: '24px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>No notifications</div>
+                      ) : (
+                        notifications.map((n) => {
+                          const typeMap = {
+                            TASK: { icon: CheckCheck, bg: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' },
+                            LEAVE: { icon: CalendarDays, bg: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' },
+                            PAYSLIP: { icon: FileText, bg: 'rgba(168, 85, 247, 0.1)', color: '#a855f7' },
+                            OTHER: { icon: Bell, bg: 'rgba(249, 115, 22, 0.1)', color: '#f97316' }
+                          }
+                          const { icon: Icon, bg, color } = typeMap[n.type] || typeMap.OTHER
+                          return (
+                            <div
+                              key={n._id}
+                              onClick={() => !n.isRead && markAsRead(n._id)}
+                              style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', background: n.isRead ? 'var(--surface)' : 'var(--bg-alt)', cursor: n.isRead ? 'default' : 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start' }}
+                            >
+                              <div style={{ width: 36, height: 36, borderRadius: 9, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <Icon size={16} color={color} />
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>{n.message}</div>
+                                <div style={{ fontSize: 10, color: 'var(--text-light)', marginTop: 4, fontWeight: 600 }}>
+                                  {new Date(n.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                              </div>
+                              {!n.isRead && <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--primary)', flexShrink: 0, marginTop: 5 }} />}
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <GlobalSearch portal="team" />
-            {/* Announcement Megaphone in Red */}
-            <div style={{ position: 'relative' }}>
-              <button 
-                onClick={() => {
-                  setShowAnnouncements(!showAnnouncements);
-                  if(!showAnnouncements) fetchAnnouncements();
-                }}
-                style={{
-                  background: 'var(--bg)', border: '1px solid var(--border)', 
-                  color: '#ef4444', cursor: 'pointer', 
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: 40, height: 40, borderRadius: 12, transition: 'all 0.2s',
-                  position: 'relative'
-                }}
-                className="btn-hover"
-              >
-                <Radio size={20} />
-                {announcements.length > 0 && (
-                  <span style={{ position: 'absolute', top: -4, right: -4, width: 10, height: 10, background: '#ef4444', borderRadius: '50%', border: '2px solid var(--surface)' }} />
-                )}
-              </button>
-
-              <AnimatePresence>
-                {showAnnouncements && (
-                  <>
-                    <div style={{ position: 'fixed', inset: 0, zIndex: 90 }} onClick={() => setShowAnnouncements(false)} />
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      style={{
-                        position: 'absolute', top: '100%', right: 0, marginTop: 12,
-                        width: 320, background: 'var(--surface)', borderRadius: 14,
-                        border: '1px solid var(--border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.12)',
-                        zIndex: 100, overflow: 'hidden'
-                      }}
-                    >
-                      <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <Radio size={15} color="#ef4444" />
-                          <span style={{ fontWeight: 800, fontSize: 13, color: '#ef4444' }}>Announcements</span>
-                        </div>
-                      </div>
-                      <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-                        {announcements.length === 0 ? (
-                          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-                            <Radio size={26} style={{ opacity: 0.3, display: 'block', margin: '0 auto 8px', color: '#ef4444' }} />
-                            No active announcements.
-                          </div>
-                        ) : (
-                          announcements.map((a) => (
-                            <div 
-                              key={a._id}
-                              style={{ 
-                                padding: '12px 16px', 
-                                borderBottom: '1px solid var(--border)',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: 4,
-                                textAlign: 'left'
-                              }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{
-                                  fontSize: 8,
-                                  fontWeight: 800,
-                                  textTransform: 'uppercase',
-                                  padding: '1px 5px',
-                                  borderRadius: 4,
-                                  background: a.priority === 'Urgent' ? '#fef2f2' : a.priority === 'Important' ? '#fffbeb' : '#f0fdf4',
-                                  color: a.priority === 'Urgent' ? '#ef4444' : a.priority === 'Important' ? '#d97706' : '#22c55e',
-                                  border: `1px solid ${a.priority === 'Urgent' ? '#fca5a5' : a.priority === 'Important' ? '#fcd34d' : '#86efac'}`
-                                }}>
-                                  {a.priority}
-                                </span>
-                                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                                  {new Date(a.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                                </span>
-                              </div>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>
-                                {a.title}
-                              </div>
-                              <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-                                {a.message}
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Notification Bell */}
-            <div style={{ position: 'relative' }}>
-              <button 
-                onClick={() => {
-                  setShowNotif(!showNotif);
-                  if(!showNotif) fetchNotifications();
-                }}
-                style={{
-                  background: 'var(--bg)', border: '1px solid var(--border)', 
-                  color: 'var(--text)', cursor: 'pointer', 
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: 40, height: 40, borderRadius: 12, transition: 'all 0.2s',
-                  position: 'relative'
-                }}
-                className="btn-hover"
-              >
-                <Bell size={20} />
-                {notifications.filter(n => !n.isRead).length > 0 && (
-                  <span style={{ position: 'absolute', top: -4, right: -4, width: 18, height: 18, background: 'var(--primary)', color: 'white', fontSize: 10, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, border: '2px solid var(--surface)' }}>
-                    {notifications.filter(n => !n.isRead).length}
-                  </span>
-                )}
-              </button>
-
-              <AnimatePresence>
-                {showNotif && (
-                  <>
-                    <div style={{ position: 'fixed', inset: 0, zIndex: 90 }} onClick={() => setShowNotif(false)} />
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      style={{
-                        position: 'absolute', top: '100%', right: 0, marginTop: 12,
-                        width: 340, background: 'var(--surface)', borderRadius: 14,
-                        border: '1px solid var(--border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.12)',
-                        zIndex: 100, overflow: 'hidden'
-                      }}
-                    >
-                      <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <Bell size={15} color="var(--primary)" />
-                          <span style={{ fontWeight: 800, fontSize: 13, color: 'var(--primary)' }}>Notifications</span>
-                          {notifications.filter(n => !n.isRead).length > 0 && (
-                            <span style={{ background: 'var(--primary)', color: 'white', borderRadius: 20, fontSize: 10, fontWeight: 800, padding: '2px 7px' }}>
-                              {notifications.filter(n => !n.isRead).length}
-                            </span>
-                          )}
-                        </div>
-                        <button onClick={markAllAsRead} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', fontSize: 11, fontWeight: 700 }}>
-                          <CheckCheck size={12} /> Mark all read
-                        </button>
-                      </div>
-                      <div style={{ maxHeight: 380, overflowY: 'auto' }}>
-                        {notifLoading ? (
-                          <div style={{ padding: 40, textAlign: 'center' }}>
-                            <Loader2 size={22} style={{ animation: 'spin 1s linear infinite', color: 'var(--text-muted)' }} />
-                          </div>
-                        ) : notifications.length === 0 ? (
-                          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-                            <Bell size={26} style={{ opacity: 0.3, display: 'block', margin: '0 auto 8px' }} />
-                            No notifications yet
-                          </div>
-                        ) : (
-                          notifications.map((n) => {
-                            const typeMap = {
-                              LEAVE_REQUEST:  { icon: CalendarDays, bg: '#e0f2fe', color: '#0369a1' },
-                              PAYSLIP_PUSHED: { icon: FileText,     bg: '#e5ebdd', color: '#58833b' },
-                              PROFILE_UPDATE: { icon: User,         bg: '#f3e8ff', color: '#7e22ce' },
-                              ATTENDANCE_ALERT:{ icon: AlertTriangle, bg: '#fee2e2', color: '#dc2626' },
-                              OTHER:          { icon: Bell,         bg: 'var(--bg)', color: 'var(--text-muted)' },
-                            }
-                            const { icon: Icon, bg, color } = typeMap[n.type] || typeMap.OTHER
-                            return (
-                              <div
-                                key={n._id}
-                                onClick={() => !n.isRead && markAsRead(n._id)}
-                                style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', background: n.isRead ? 'var(--surface)' : 'var(--bg-alt)', cursor: n.isRead ? 'default' : 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start' }}
-                              >
-                                <div style={{ width: 36, height: 36, borderRadius: 9, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                  <Icon size={16} color={color} />
-                                </div>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>{n.message}</div>
-                                  <div style={{ fontSize: 10, color: 'var(--text-light)', marginTop: 4, fontWeight: 600 }}>
-                                    {new Date(n.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                  </div>
-                                </div>
-                                {!n.isRead && <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--primary)', flexShrink: 0, marginTop: 5 }} />}
-                              </div>
-                            )
-                          })
-                        )}
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {deferredPrompt && (
               <button
                 onClick={handleInstallClick}
@@ -727,36 +574,191 @@ export default function PortalLayout() {
                 <Monitor size={20} />
               </button>
             )}
-            </div>
-
-            {/* Theme toggle single button */}
-            <button
-              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-              className="btn-hover"
-              style={{
-                background: 'var(--bg)', border: '1px solid var(--border)',
-                color: 'var(--text)', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: 40, height: 40, borderRadius: 12, transition: 'all 0.2s'
-              }}
-              title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
-            >
-              {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-            </button>
           </div>
-        </header>
+
+          {/* Theme toggle single button */}
+          <button
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+            className="btn-hover"
+            style={{
+              background: 'var(--bg)', border: '1px solid var(--border)',
+              color: 'var(--text)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 40, height: 40, borderRadius: 12, transition: 'all 0.2s'
+            }}
+            title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+          >
+            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+          </button>
+        </div>
+      </header>
+
+      {/* Main Content & Sidebar Wrapper */}
+      <div style={{ display: 'flex', flex: 1, position: 'relative' }}>
+        {/* Mobile Overlay */}
+        {isMobile && sidebarOpen && (
+          <div 
+            onClick={() => setSidebarOpen(false)}
+            style={{ 
+              position: 'fixed', inset: 0, background: 'rgba(26, 26, 26, 0.5)', 
+              zIndex: 100, backdropFilter: 'blur(4px)', transition: 'all 0.3s'
+            }}
+          />
+        )}
+
+        {/* Sidebar */}
+        <aside style={{
+          width: isMobile ? 'var(--sidebar-w)' : (sidebarOpen ? 'var(--sidebar-w)' : 'var(--sidebar-mini-w)'),
+          background: 'var(--sidebar-bg)',
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'fixed',
+          top: 'var(--header-h)', left: 0, bottom: 0,
+          zIndex: 120,
+          transform: (isMobile && !sidebarOpen) ? 'translateX(-100%)' : 'translateX(0)',
+          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          borderRight: '1px solid var(--border)',
+          overflow: 'hidden'
+        }}>
+          {/* Navigation Sidebar */}
+          <nav style={{ padding: '24px 16px', flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+            <div style={{ 
+              fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', 
+              letterSpacing: '0.1em', padding: sidebarOpen ? '0 12px 14px' : '0 0 14px', 
+              textTransform: 'uppercase', textAlign: sidebarOpen ? 'left' : 'center',
+              whiteSpace: 'nowrap'
+            }}>
+              {sidebarOpen ? 'Portal Menu' : '•••'}
+            </div>
+            {navItems.map(({ to, label, icon: Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                title={!sidebarOpen ? label : ''}
+                className="sidebar-link"
+                style={({ isActive }) => ({
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: sidebarOpen ? 'flex-start' : 'center',
+                  gap: 10,
+                  padding: '9px 12px',
+                  borderRadius: 6,
+                  marginBottom: 4,
+                  textDecoration: 'none',
+                  fontSize: 12.5,
+                  fontWeight: isActive ? 600 : 500,
+                  color: isActive ? 'white' : 'var(--text-muted)',
+                  background: isActive ? 'var(--sidebar-active)' : 'transparent',
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap'
+                })}
+              >
+                <Icon size={17} opacity={0.8} style={{ flexShrink: 0 }} />
+                {sidebarOpen && <span>{label}</span>}
+              </NavLink>
+            ))}
+          </nav>
+
+          {/* User Profile Hook */}
+          <div style={{ padding: '0 14px 14px', borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+            {sidebarOpen ? (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                padding: '10px 12px',
+              }}>
+                {staffUser?.documents?.profileImage?.url ? (
+                  <img
+                    src={staffUser.documents.profileImage.url}
+                    alt={staffUser.fullName}
+                    style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, objectFit: 'cover', border: '1px solid var(--border)' }}
+                    title={staffUser.fullName}
+                  />
+                ) : (
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+                    background: 'var(--primary)', color: 'white',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 800, fontSize: 15,
+                  }} title={staffUser?.fullName}>
+                    {(staffUser?.fullName || 'E').charAt(0).toUpperCase()}
+                  </div>
+                )}
+
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {staffUser?.fullName || 'Employee'}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {staffUser?.email || 'email'}
+                  </div>
+                </div>
+
+                <button
+                  onClick={logout}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 28,
+                    height: 28,
+                    borderRadius: 6,
+                    color: 'var(--text-muted)',
+                    transition: 'all 0.2s',
+                    flexShrink: 0
+                  }}
+                  title="Sign Out"
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'; e.currentTarget.style.color = '#ef4444'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                >
+                  <LogOut size={15} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={logout}
+                title="Sign Out"
+                style={{
+                  width: '100%', background: 'transparent', color: 'var(--text-muted)',
+                  border: '1px solid var(--border)', borderRadius: 8,
+                  padding: '8px 0', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.2)'; }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+              >
+                <LogOut size={14} />
+              </button>
+            )}
+          </div>
+        </aside>
 
         {/* Global Body */}
-        <div className="page-viewport" style={{ flex: 1, position: 'relative' }}>
-          <AnimatePresence mode="wait">
-            <PageTransition key={location.pathname}>
-              <Outlet />
-            </PageTransition>
-          </AnimatePresence>
-        </div>
-      </main>
-
-
+        <main style={{ 
+          marginLeft: isMobile ? 0 : (sidebarOpen ? 'var(--sidebar-w)' : 'var(--sidebar-mini-w)'), 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column',
+          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          minWidth: 0
+        }}>
+          <div className="page-viewport" style={{ flex: 1, position: 'relative' }}>
+            <AnimatePresence mode="wait">
+              <PageTransition key={location.pathname}>
+                <Outlet />
+              </PageTransition>
+            </AnimatePresence>
+          </div>
+        </main>
+      </div>
     </div>
   )
 }

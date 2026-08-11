@@ -65,29 +65,11 @@ const PageLoader = () => (
 )
 
 // ─────────────────────────────────────────────
-// Full-screen loader shown while auth is resolving
-// ─────────────────────────────────────────────
-const FullPageLoader = () => (
-  <div style={{
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'var(--bg, #f4f6fa)',
-    flexDirection: 'column',
-    gap: 16,
-  }}>
-    <div className="pa-loader" />
-    <p style={{ color: 'var(--text-muted, #6b7280)', fontSize: 14, fontWeight: 500 }}>Loading…</p>
-  </div>
-)
-
-// ─────────────────────────────────────────────
 // Guard for Corporate Portal
 // ─────────────────────────────────────────────
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
-  if (loading) return <FullPageLoader />
+  if (loading) return null
   if (!user) return <Navigate to="/login" replace />
   return children
 }
@@ -98,7 +80,7 @@ function ProtectedRoute({ children }) {
 function PortalProtectedRoute({ children }) {
   const { staffUser, loading } = useStaffPortal()
   const location = useLocation()
-  if (loading) return <FullPageLoader />
+  if (loading) return null
   if (!staffUser) return <Navigate to="/portal/login" replace />
   if (staffUser.mustChangePassword && location.pathname !== '/portal/change-password') {
     return <Navigate to="/portal/change-password" replace />

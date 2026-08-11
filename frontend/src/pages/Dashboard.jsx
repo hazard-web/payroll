@@ -95,7 +95,30 @@ const buildMonthOptions = (count = 18) => {
 }
 
 // ── Attention Required (Unified Table representation) ───────────────
-const AttentionRequired = ({ notActiveStaff = [], approvedOnLeaveToday = [], pendingLeaves = [], fetchData }) => {
+const AttentionSkeleton = () => (
+  <div style={{ display: 'flex', flexDirection: 'column' }}>
+    {Array(3).fill(0).map((_, i) => (
+      <div key={i} style={{ padding: '12px 20px', display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.6fr 60px', gap: 12, alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="skeleton" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+          <div className="skeleton" style={{ width: 80, height: 12, borderRadius: 4 }} />
+        </div>
+        <div>
+          <div className="skeleton" style={{ width: 70, height: 16, borderRadius: 999 }} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div className="skeleton" style={{ width: 120, height: 11, borderRadius: 4 }} />
+          <div className="skeleton" style={{ width: 90, height: 9, borderRadius: 4 }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <div className="skeleton" style={{ width: 24, height: 24, borderRadius: 4 }} />
+        </div>
+      </div>
+    ))}
+  </div>
+)
+
+const AttentionRequired = ({ notActiveStaff = [], approvedOnLeaveToday = [], pendingLeaves = [], fetchData, loading }) => {
   const navigate = useNavigate()
   const [openDropdownId, setOpenDropdownId] = useState(null)
   const [composer, setComposer] = useState({
@@ -216,7 +239,9 @@ const AttentionRequired = ({ notActiveStaff = [], approvedOnLeaveToday = [], pen
       </div>
 
       <div className="scroll-list" style={{ flex: 1, maxHeight: 270, minHeight: 160, overflowY: 'auto' }}>
-        {attentionItems.length === 0 ? (
+        {loading ? (
+          <AttentionSkeleton />
+        ) : attentionItems.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', color: 'var(--text-muted)', textAlign: 'center' }}>
             <div style={{ fontSize: 12, fontWeight: 600 }}>No attention items today. All clear!</div>
           </div>
@@ -616,28 +641,8 @@ export default function Dashboard() {
   const [attendanceSearch, setAttendanceSearch] = useState('')
 
   const isFirstMonthlyFetch = useRef(true)
-  const [kpiLoading, setKpiLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(true)
 
-  // ── Phase 1: Fast KPI fetch (counters only, <100ms on Atlas) ─────────────
-  // Renders stat cards immediately. Called first on mount.
-  const fetchKPI = useCallback(async () => {
-    try {
-      setKpiLoading(true)
-      setLoadError('')
-      const res = await api.get('/activities/kpi-summary')
-      const d = res.data
-      // Use server counts for immediate KPI display
-      setActiveCount(d.activeCount || 0)
-      setAnnouncements(d.recentAnnouncements || [])
-      // Approximate totalEmployees from kpi so stat cards show a number
-      setStaffData(Array(d.totalStaff || 0).fill({}))
-    } catch (err) {
-      console.error('KPI load error:', err)
-    } finally {
-      setKpiLoading(false)
-    }
-  }, [])
 
   // ── Phase 2: Full detail fetch (lists, punch-ins, leaves) ────────────────
   // Called right after KPI so tables populate progressively.
@@ -683,11 +688,10 @@ export default function Dashboard() {
     return () => clearInterval(t)
   }, [])
 
-  // On mount: fire KPI first (renders stat cards fast), then detail in parallel
+  // On mount: fire detail fetch
   useEffect(() => {
-    fetchKPI()
     fetchData()
-  }, [fetchKPI, fetchData])
+  }, [fetchData])
 
   useEffect(() => {
     if (isFirstMonthlyFetch.current) {
@@ -943,7 +947,7 @@ export default function Dashboard() {
 
 
 
-  if (kpiLoading) return <PageLoading label="Loading dashboard…" />
+  if (detailLoading) return <PageLoading label="Loading dashboard…" />
 
   if (loadError) {
     return (
@@ -1269,6 +1273,7 @@ export default function Dashboard() {
           approvedOnLeaveToday={approvedOnLeaveToday}
           pendingLeaves={pendingLeaves}
           fetchData={fetchData}
+          loading={detailLoading}
         />
 
         {/* Recent Punch-In */}

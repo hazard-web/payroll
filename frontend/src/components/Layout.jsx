@@ -337,30 +337,41 @@ export default function Layout() {
             style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: !sidebarOpen ? 'pointer' : 'default' }}
             title={!sidebarOpen ? "Expand sidebar" : ""}
           >
-            {/* SVG Logo */}
-            <svg width="26" height="26" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-              <rect x="4" y="6" width="16" height="18" rx="3" fill="var(--primary)" opacity="0.35" transform="rotate(-5 12 15)" />
-              <rect x="8" y="4" width="16" height="18" rx="3" fill="url(#logo-grad)" />
-              <line x1="12" y1="9" x2="20" y2="9" stroke="white" strokeWidth="2" strokeLinecap="round" />
-              <line x1="12" y1="13" x2="20" y2="13" stroke="white" strokeWidth="2" strokeLinecap="round" />
-              <line x1="12" y1="17" x2="17" y2="17" stroke="white" strokeWidth="2" strokeLinecap="round" />
-              <defs>
-                <linearGradient id="logo-grad" x1="8" y1="4" x2="24" y2="22" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="var(--primary)" />
-                  <stop offset="1" stopColor="var(--primary)" style={{ filter: 'brightness(0.9)' }} />
-                </linearGradient>
-              </defs>
-            </svg>
+            {/* dynamic company logo or fallback SVG logo */}
+            {user?.companyLogo ? (
+              <img
+                src={user.companyLogo}
+                alt="Logo"
+                style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'contain', background: 'white', padding: 1, border: '1px solid var(--border)', flexShrink: 0 }}
+              />
+            ) : (
+              <svg width="26" height="26" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                <rect x="4" y="6" width="16" height="18" rx="3" fill="var(--primary)" opacity="0.35" transform="rotate(-5 12 15)" />
+                <rect x="8" y="4" width="16" height="18" rx="3" fill="url(#logo-grad)" />
+                <line x1="12" y1="9" x2="20" y2="9" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                <line x1="12" y1="13" x2="20" y2="13" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                <line x1="12" y1="17" x2="17" y2="17" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                <defs>
+                  <linearGradient id="logo-grad" x1="8" y1="4" x2="24" y2="22" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="var(--primary)" />
+                    <stop offset="1" stopColor="var(--primary)" style={{ filter: 'brightness(0.9)' }} />
+                  </linearGradient>
+                </defs>
+              </svg>
+            )}
             {sidebarOpen && (
               <span style={{
                 fontFamily: 'var(--font-display)',
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: 800,
                 color: 'var(--text)',
                 whiteSpace: 'nowrap',
-                letterSpacing: '-0.02em'
-              }}>
-                Payroll
+                letterSpacing: '-0.02em',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: 160
+              }} title={user?.companyName || 'BDA Technologies'}>
+                {user?.companyName || 'BDA Technologies'}
               </span>
             )}
           </div>
