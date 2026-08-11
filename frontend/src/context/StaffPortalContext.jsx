@@ -28,7 +28,9 @@ function decodeJwtPayload(token) {
 
 export function StaffPortalProvider({ children }) {
   const [staffUser, setStaffUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    return typeof window !== 'undefined' ? !!localStorage.getItem('staffToken') : false;
+  });
 
   const initAuth = useCallback(async () => {
     const token = localStorage.getItem('staffToken');

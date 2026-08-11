@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import {
@@ -615,7 +615,7 @@ export default function Dashboard() {
   const [monthlyError, setMonthlyError] = useState('')
   const [attendanceSearch, setAttendanceSearch] = useState('')
 
-  const [isInitialLoad, setIsInitialLoad] = useState(true)
+  const isFirstMonthlyFetch = useRef(true)
   const [kpiLoading, setKpiLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(true)
 
@@ -664,7 +664,6 @@ export default function Dashboard() {
 
       setMonthlyAttendance(d.currentMonthly || [])
       setPreviousMonthlyAttendance(d.prevMonthly || [])
-      setIsInitialLoad(false)
     } catch (err) {
       console.error('Dashboard load error:', err)
       setLoadError(
@@ -691,7 +690,10 @@ export default function Dashboard() {
   }, [fetchKPI, fetchData])
 
   useEffect(() => {
-    if (isInitialLoad) return
+    if (isFirstMonthlyFetch.current) {
+      isFirstMonthlyFetch.current = false
+      return
+    }
 
     const controller = new AbortController()
     const fetchMonthlyAttendance = async () => {
@@ -726,7 +728,7 @@ export default function Dashboard() {
 
     fetchMonthlyAttendance()
     return () => controller.abort()
-  }, [attendanceMonth, isInitialLoad])
+  }, [attendanceMonth])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -768,7 +770,7 @@ export default function Dashboard() {
     const onLeaveStaffIds = new Set(
       approvedOnLeaveToday.flatMap(leave => [String(leave.staff?._id || ''), String(leave.staffId || '')]).filter(Boolean)
     )
-    const notActiveStaff = staffData.filter(s => !punchedInStaffIds.has(String(s._id)) && !onLeaveStaffIds.has(String(s._id)))
+    const notActiveStaff = staffData.filter(s => s._id && !punchedInStaffIds.has(String(s._id)) && !onLeaveStaffIds.has(String(s._id)))
     const notActiveCount = notActiveStaff.length
     const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
     const ist = new Date(new Date().getTime() + IST_OFFSET_MS)

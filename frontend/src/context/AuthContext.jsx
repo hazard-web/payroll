@@ -7,7 +7,9 @@ export const useAuth = () => useContext(AuthContext)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => {
+    return typeof window !== 'undefined' ? !!localStorage.getItem('token') : false
+  })
 
   // useCallback keeps these function identities stable across renders
   // so consumers that depend on them (useEffect deps, etc.) don't re-fire.

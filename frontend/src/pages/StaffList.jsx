@@ -104,9 +104,6 @@ export default function StaffList() {
     }
   }, [])
 
-  // Initial load
-  useEffect(() => { fetchStaff(1, search, filterType, sortField, sortOrder) }, [])
-
   // Debounced search + type filter + sort — resets to page 1
   useEffect(() => {
     clearTimeout(searchTimer.current)
@@ -114,7 +111,7 @@ export default function StaffList() {
       setPage(1)
       setHasMore(true)
       fetchStaff(1, search, filterType, sortField, sortOrder)
-    }, 350)
+    }, search ? 350 : 0)
     return () => clearTimeout(searchTimer.current)
   }, [search, filterType, sortField, sortOrder])
 
