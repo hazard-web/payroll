@@ -17,12 +17,12 @@ const FILTER_OPTIONS = [
 ]
 
 const formatDate = (value) => {
-  if (!value) return '—'
+  if (!value) return '-'
   return new Date(value).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 const formatTime = (value) => {
-  if (!value) return '—'
+  if (!value) return '-'
   return new Date(value).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
 }
 
@@ -81,7 +81,7 @@ const TaskRow = ({ task, index }) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span>{task.project || '—'}</span>
+            <span>{task.project || '-'}</span>
             {task.source === 'ASSIGNED' ? (
               <span style={{
                 fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 6,
@@ -276,7 +276,7 @@ export default function StaffPerformanceDetail() {
           <StatCard icon={MoreHorizontal} label="Pending" value={summary.pending} color="#475569" />
           <StatCard icon={Clock} label="In Progress" value={summary.inProgress} color="#c2410c" />
           <StatCard icon={CheckCircle2} label="Completed" value={summary.completed} color="#58833b" />
-          <StatCard icon={Timer} label="Total Hours" value={summary.totalHours !== undefined ? `${summary.totalHours.toFixed(1)}h` : '—'} color="#7c3aed" />
+          <StatCard icon={Timer} label="Total Hours" value={summary.totalHours !== undefined ? `${summary.totalHours.toFixed(1)}h` : '-'} color="#7c3aed" />
         </div>
       </div>
 

@@ -1,0 +1,263 @@
+.hrs-page {
+  --hrs-blue: #0091ff;
+  --hrs-text: #0b1220;
+  --hrs-muted: #5c6370;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(165deg, #f3f6fa 0%, #eef2f7 45%, #f8fafc 100%);
+  color: var(--hrs-text);
+  font-family: 'Nunito Sans', 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.hrs-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 28px;
+}
+
+.hrs-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hrs-brand strong {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.hrs-mark {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+
+.hrs-mark i {
+  display: block;
+  border-radius: 2px;
+}
+
+.hrs-progress {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--hrs-muted);
+}
+
+.hrs-main {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 8px 16px 32px;
+}
+
+.hrs-card {
+  width: 100%;
+  max-width: 560px;
+  padding: 32px 32px 28px;
+  border: 1px solid #e4e8ee;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(15, 23, 32, 0.06);
+}
+
+.hrs-eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hrs-blue);
+}
+
+.hrs-card h1 {
+  margin: 0 0 10px;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.hrs-sub {
+  margin: 0 0 24px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--hrs-muted);
+}
+
+.hrs-label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #333;
+}
+
+.hrs-input {
+  display: block;
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 0 12px;
+  height: 44px;
+  border: 1px solid #d5dbe3;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 15px;
+  color: var(--hrs-text);
+  box-sizing: border-box;
+  outline: none;
+}
+
+.hrs-hint {
+  margin: -8px 0 16px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--hrs-muted);
+}
+
+.hrs-input:focus {
+  border-color: var(--hrs-blue);
+  box-shadow: 0 0 0 1px var(--hrs-blue);
+}
+
+.hrs-textarea {
+  height: auto;
+  padding: 10px 12px;
+  resize: vertical;
+  min-height: 84px;
+}
+
+.hrs-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.hrs-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 46px;
+  margin-top: 8px;
+  border: none;
+  border-radius: 4px;
+  background: var(--hrs-blue);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.hrs-primary:hover:not(:disabled) {
+  background: #0080e0;
+}
+
+.hrs-primary:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.hrs-ghost {
+  height: 46px;
+  padding: 0 18px;
+  border: 1px solid #d5dbe3;
+  border-radius: 4px;
+  background: #fff;
+  color: #333;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.hrs-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.hrs-actions .hrs-primary {
+  flex: 1;
+  margin-top: 0;
+}
+
+.hrs-modules {
+  list-style: none;
+  margin: 0 0 24px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hrs-modules li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 14px 14px;
+  border: 1px solid #e8ecf1;
+  border-radius: 8px;
+  background: #fafbfc;
+}
+
+.hrs-step-num {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #e8f4ff;
+  color: var(--hrs-blue);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.hrs-modules h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.hrs-modules p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--hrs-muted);
+}
+
+.hrs-foot {
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hrs-muted);
+}
+
+@media (max-width: 640px) {
+  .hrs-card {
+    padding: 24px 18px;
+  }
+
+  .hrs-row {
+    grid-template-columns: 1fr;
+  }
+
+  .hrs-top {
+    padding: 16px 18px;
+  }
+
+  .hrs-card h1 {
+    font-size: 24px;
+  }
+}

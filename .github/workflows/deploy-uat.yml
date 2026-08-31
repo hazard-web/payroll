@@ -1,0 +1,106 @@
+# UAT testers — not production.
+# Flow: development → uat → production
+# Push to `uat` → UAT Vercel + UAT Hostinger (matching UI + API).
+#
+# GitHub → Settings → Environments → create `uat`
+# Put these secrets on the **uat** environment (not production):
+#   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID, VITE_API_BASE_URL
+#   HOSTINGER_HOST, HOSTINGER_USER, HOSTINGER_SSH_KEY, HOSTINGER_APP_DIR
+# Optional env variable: HOSTINGER_SSH_PORT (default 22)
+#
+# UAT Vercel project + UAT Hostinger app + separate MongoDB (or DB name).
+
+name: Deploy UAT
+
+on:
+  push:
+    branches: [uat]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-uat
+  cancel-in-progress: false
+
+jobs:
+  frontend:
+    name: Vercel UAT
+    runs-on: ubuntu-latest
+    environment: uat
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+      - name: Pull Vercel project
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      - name: Build
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+      - name: Deploy
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  backend:
+    name: Hostinger UAT
+    runs-on: ubuntu-latest
+    environment: uat
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pack backend
+        run: |
+          tar -czf backend-release.tgz \
+            --exclude=node_modules \
+            --exclude=.env \
+            --exclude=.env.local \
+            --exclude='*.log' \
+            -C backend .
+      - name: Copy release
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          port: ${{ vars.HOSTINGER_SSH_PORT || 22 }}
+          source: backend-release.tgz
+          target: /tmp
+      - name: Install and restart
+        uses: appleboy/ssh-action@v1.2.1
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          port: ${{ vars.HOSTINGER_SSH_PORT || 22 }}
+          script: |
+            set -e
+            APP_DIR="${{ secrets.HOSTINGER_APP_DIR }}"
+            test -n "$APP_DIR"
+            mkdir -p "$APP_DIR"
+            tar -xzf /tmp/backend-release.tgz -C "$APP_DIR"
+            rm -f /tmp/backend-release.tgz
+            cd "$APP_DIR"
+            if [ ! -f .env ]; then
+              echo "Missing $APP_DIR/.env — create it from backend/.env.example before first deploy."
+              exit 1
+            fi
+            command -v node
+            command -v npm
+            command -v pm2 >/dev/null || npm install -g pm2
+            npm ci --omit=dev
+            pm2 startOrReload ecosystem.config.js --update-env
+            pm2 save
+            pm2 status

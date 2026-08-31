@@ -1,0 +1,267 @@
+.pn-shell.pulse-shell {
+  background: #f4f2ec;
+  color: #1c1917;
+}
+
+.pn-mark.pulse-rail-logo {
+  width: 40px;
+  height: 40px;
+  margin: 0 4px 0 0;
+}
+
+.pn-mid {
+  background: #f4f2ec;
+}
+
+.pn-nav.ant-layout-sider,
+.pn-list.ant-layout-sider {
+  background: #fff !important;
+  border-right: 1px solid #e6e1d8;
+}
+
+.pn-nav-inner {
+  height: 100%;
+  padding: 12px 10px 8px;
+}
+
+.pn-nav-search.ant-input-affix-wrapper {
+  margin: 0 6px 10px;
+  width: auto;
+  border-radius: 8px;
+  background: #f4f2ec;
+  border-color: #e6e1d8;
+}
+
+.pn-nav .ant-menu-inline {
+  border-inline-end: 0 !important;
+  background: transparent;
+}
+
+.pn-nav .ant-menu-item-selected {
+  box-shadow: inset 3px 0 0 #1a5f4a;
+}
+
+.pn-nav .ant-menu-item-group-title {
+  padding-inline: 16px 8px;
+}
+
+.pn-group-plus {
+  font-size: 12px;
+  color: #8a847c;
+  cursor: pointer;
+}
+
+.pn-nav-foot {
+  margin-top: auto;
+  padding: 8px 6px;
+}
+
+.pn-nav-foot .ant-btn.is-active,
+.pn-nav-foot .ant-btn:hover {
+  background: #e8f2ee;
+  color: #1a5f4a;
+}
+
+.pn-list-inner {
+  height: 100%;
+  padding: 16px 14px 12px;
+  overflow: auto;
+}
+
+.pn-list-title.ant-typography {
+  margin: 0;
+  font-weight: 700;
+}
+
+.pn-list-head .is-on,
+.pn-list-head .ant-btn.is-on {
+  color: #1a5f4a;
+}
+
+.pn-segmented {
+  margin: 8px 0 16px;
+}
+
+.pn-note-list.ant-list,
+.pn-note-list .ant-list-items {
+  width: 100%;
+}
+
+.pn-note-item.ant-list-item {
+  display: block;
+  padding: 0 0 12px;
+  border: 0;
+}
+
+.pn-note-card.ant-card {
+  width: 100%;
+  border: 1px solid #e6e1d8;
+  box-shadow: 0 6px 16px rgba(28, 25, 23, 0.05);
+}
+
+.pn-note-card .ant-card-body {
+  padding: 12px;
+}
+
+.pn-note-card.is-mint { background: #e7f3ec; }
+.pn-note-card.is-butter { background: #fff4c4; }
+.pn-note-card.is-sky { background: #e4f0fb; }
+.pn-note-card.is-blush { background: #fbe8e4; }
+.pn-note-card.is-cream { background: #f4f2ec; }
+.pn-note-card.is-lilac { background: #f0e8f6; }
+
+.pn-note-card.is-open {
+  outline: 2px solid #1a5f4a;
+}
+
+.pn-note-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.pn-note-text {
+  margin: 0 0 8px !important;
+  color: #1c1917;
+  overflow-wrap: anywhere;
+}
+
+.pn-note-meta {
+  font-size: 12px;
+}
+
+.pn-note-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  flex: none;
+  background:
+    linear-gradient(135deg, #1a5f4a 0 50%, transparent 50%),
+    linear-gradient(225deg, #c4b394 0 50%, #e6c85a 50%);
+}
+
+.pn-body.pulse-body {
+  padding: 0 !important;
+  display: flex !important;
+  overflow: auto;
+  background: #fff;
+}
+
+.pn-empty {
+  width: 100%;
+  min-height: 100%;
+  padding: 48px 24px;
+  background: #fff;
+}
+
+.pn-empty-title.ant-typography {
+  margin: 0 0 40px;
+  font-weight: 650;
+  color: #1c1917;
+}
+
+.pn-actions {
+  max-width: 432px;
+}
+
+.pn-action-card.ant-card {
+  height: 92px;
+  border: 0;
+  background: #ece9e2;
+  cursor: pointer;
+}
+
+.pn-action-card .ant-card-body {
+  height: 100%;
+  padding: 12px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pn-action-card .anticon {
+  font-size: 26px;
+  color: #1a5f4a;
+}
+
+.pn-action-card .ant-typography {
+  color: #1a5f4a;
+  font-weight: 600;
+}
+
+.pn-action-card:hover {
+  background: #e8f2ee;
+}
+
+.pn-page {
+  width: 100%;
+  min-height: 100%;
+  padding: 24px 28px;
+  background: #fff;
+}
+
+.pn-page-title.ant-typography,
+.pn-board-title.ant-typography {
+  margin: 0;
+  font-weight: 700;
+}
+
+.pn-board-page {
+  background: #f4f2ec;
+}
+
+.pn-board-title {
+  text-align: center;
+  width: 100%;
+}
+
+.pn-board-tools {
+  margin: -28px 0 16px;
+}
+
+.pn-board-cols {
+  min-height: calc(100vh - 180px);
+}
+
+.pn-board-col.ant-card {
+  min-height: 420px;
+}
+
+.pn-board-col.is-focus {
+  background: #f8f6f1;
+}
+
+.pn-editor-pane {
+  width: 100%;
+  min-height: 100%;
+  padding: 20px 36px 48px;
+  background: #fff;
+}
+
+.pn-title.ant-input-lg {
+  font-size: 28px;
+  font-weight: 700;
+  padding-inline: 0;
+}
+
+.pn-body-input.ant-input,
+.pn-editor-pane textarea.ant-input {
+  font-size: 16px;
+  line-height: 1.65;
+  padding-inline: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (max-width: 1100px) {
+  .pn-nav.ant-layout-sider {
+    display: none;
+  }
+}
+
+@media (max-width: 800px) {
+  .pn-list.ant-layout-sider {
+    width: 100% !important;
+    max-width: 100%;
+    flex: none !important;
+  }
+}

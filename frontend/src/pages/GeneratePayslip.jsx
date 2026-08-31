@@ -54,7 +54,7 @@ function PreviewRow({ label, value, type = 'normal', isDeduction }) {
         {typeof value === 'number' ? (
           <AnimatedNumber value={parseFloat(value || 0)} decimals={0} />
         ) : (
-          value || '—'
+          value || '-'
         )}
       </span>
     </div>
@@ -74,7 +74,7 @@ export default function GeneratePayslip() {
   const [workingDaysPeriod, setWorkingDaysPeriod] = useState(null)
   const [payrollBreakdown, setPayrollBreakdown] = useState(null) // { workingDays, presentDays, paidLeaveDays, lwpDays, absentDays, paidDays }
 
-  // Helper: count Mon–Fri days between two dates (inclusive)
+  // Helper: count Mon-Fri days between two dates (inclusive)
   function countWorkingDays(start, end) {
     let count = 0;
     const cur = new Date(start);
@@ -226,7 +226,7 @@ export default function GeneratePayslip() {
     const year = parseInt(form.year);
     if (monthIndex === -1 || !year) return;
 
-    // Always compute working days locally (Mon–Fri for the month)
+    // Always compute working days locally (Mon-Fri for the month)
     const start = new Date(year, monthIndex, 1);
     const end = new Date(year, monthIndex + 1, 0);
     const localWorkingDays = countWorkingDays(start, end);
@@ -239,14 +239,14 @@ export default function GeneratePayslip() {
     }
 
     if (!selectedStaffId) {
-      // No staff selected — just show working days, reset paid days
+      // No staff selected - just show working days, reset paid days
       setForm(f => ({ ...f, workingDays: localWorkingDays, paidDays: 0 }));
       setWorkingDaysPeriod({ count: localWorkingDays });
       setPayrollBreakdown(null);
       return;
     }
 
-    // Staff selected — fetch full payroll summary from backend
+    // Staff selected - fetch full payroll summary from backend
     setAttendanceLoading(true);
     setPayrollBreakdown(null);
     api.get('/attendance/admin/payroll-summary', {
@@ -555,7 +555,7 @@ export default function GeneratePayslip() {
                   <div className="panel" style={{ padding: 'var(--space-5)' }}>
                     <div className="form-grid-2" style={{ marginBottom: 0 }}>
                       <InputField
-                        label={`Working Days — ${form.month} ${form.year}`}
+                        label={`Working Days - ${form.month} ${form.year}`}
                         required
                         type="number"
                         min="0"
@@ -591,7 +591,7 @@ export default function GeneratePayslip() {
                         border: '1px solid var(--border)',
                       }}>
                         <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>
-                          Payroll Breakdown — {form.month} {form.year}
+                          Payroll Breakdown - {form.month} {form.year}
                         </div>
                         {[
                           { label: 'Working Days',  value: payrollBreakdown.workingDays,  color: 'var(--text)',       bold: false },
@@ -619,7 +619,7 @@ export default function GeneratePayslip() {
 
                     {!attendanceLoading && !payrollBreakdown && workingDaysPeriod && (
                       <p style={{ margin: '10px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>
-                        📅 {workingDaysPeriod.count} working days (Mon–Fri) in <strong>{form.month} {form.year}</strong>.
+                        📅 {workingDaysPeriod.count} working days (Mon-Fri) in <strong>{form.month} {form.year}</strong>.
                         {!selectedStaffId && ' Select an employee to auto-calculate Paid Days.'}
                       </p>
                     )}
@@ -708,7 +708,7 @@ export default function GeneratePayslip() {
             </div>
 
             <div style={{ marginBottom: 32 }}>
-              <PreviewRow label="Identity Code" value={form.employeeId || '—'} />
+              <PreviewRow label="Identity Code" value={form.employeeId || '-'} />
               {form.employmentType === 'intern' ? (
                 <>
                   <PreviewRow label="Monthly Stipend (Base)" value={totals.baseStipend} />

@@ -1,0 +1,191 @@
+.af-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  pointer-events: none;
+}
+
+.af-backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgba(28, 25, 23, 0.28);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.af-panel {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: min(420px, 100vw);
+  background: transparent;
+  pointer-events: auto;
+  font-family: var(--ant-font-family, 'IBM Plex Sans', system-ui, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  transform-origin: top right;
+  will-change: transform;
+  display: flex;
+  flex-direction: column;
+}
+
+.af-panel-inner {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px var(--ant-color-border, #e6e1d8),
+    0 12px 40px rgba(28, 25, 23, 0.14);
+  padding: 16px 18px 20px;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+.af-panel-inner::-webkit-scrollbar {
+  width: 6px;
+}
+
+.af-panel-inner::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 99px;
+}
+
+.af-caret {
+  position: absolute;
+  top: -9px;
+  right: var(--af-caret-right, 7px);
+  width: 18px;
+  height: 10px;
+  background: #fff;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  filter: drop-shadow(0 -1px 1px rgba(28, 25, 23, 0.08));
+  z-index: 2;
+  pointer-events: none;
+}
+
+.af-search.ant-input-affix-wrapper {
+  margin-bottom: 18px;
+  border-radius: 8px;
+  background: #f4f2ec;
+  border-color: #e6e1d8;
+  box-shadow: none;
+}
+
+.af-search.ant-input-affix-wrapper:hover,
+.af-search.ant-input-affix-wrapper-focused,
+.af-search.ant-input-affix-wrapper-focused:hover,
+.af-search.ant-input-outlined:focus-within {
+  background: #fff;
+  border-color: #e6e1d8 !important;
+  box-shadow: none !important;
+  outline: none;
+}
+
+.af-section-label.ant-typography {
+  display: block;
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ant-color-text-secondary, #6b6560);
+}
+
+.af-featured.ant-card {
+  margin-bottom: 18px;
+  border-color: var(--ant-color-border, #e6e1d8);
+  background: #f8f6f1;
+}
+
+.af-featured .ant-card-body {
+  padding: 12px 14px;
+}
+
+.af-featured-copy .ant-typography {
+  margin: 0 !important;
+}
+
+.af-featured-copy .ant-btn-link {
+  padding: 0;
+  height: auto;
+  font-weight: 600;
+}
+
+.af-featured-copy .ant-btn-link:hover,
+.af-featured-copy .ant-btn-link:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.af-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.af-app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-height: 88px;
+  border: none;
+  background: transparent;
+  padding: 12px 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.af-app:hover {
+  background: #f4f2ec;
+}
+
+.af-app:focus-visible {
+  outline: 2px solid #1a5f4a;
+  outline-offset: 2px;
+}
+
+.af-app-avatar.ant-avatar {
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+
+.af-app-mark {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+}
+
+.af-app-name.ant-typography {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  max-width: 100%;
+  color: var(--ant-color-text, #1c1917);
+}
+
+@media (max-width: 520px) {
+  .af-panel {
+    left: 0;
+    right: 0 !important;
+    width: 100vw;
+    bottom: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .af-panel,
+  .af-backdrop {
+    transition: none !important;
+  }
+}

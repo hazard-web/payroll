@@ -26,15 +26,15 @@ const TYPE_META = {
 
 // ── Helpers ───────────────────────────────────────────────────
 function fmtTime(ts) {
-  if (!ts) return '—'
+  if (!ts) return '-'
   return new Date(ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
 }
 function fmtDate(d) {
-  if (!d) return '—'
+  if (!d) return '-'
   return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 function relativeDate(d) {
-  if (!d) return '—'
+  if (!d) return '-'
   const diff = Math.floor((Date.now() - new Date(d)) / 86400000)
   if (diff === 0) return 'Today'
   if (diff === 1) return 'Yesterday'
@@ -411,7 +411,7 @@ export default function StaffSupport() {
                   >
                     {/* Team */}
                     <td style={{ padding: '13px 18px', whiteSpace: 'nowrap' }}>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{req.staff?.fullName || '—'}</div>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{req.staff?.fullName || '-'}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>{req.staff?.employeeId || ''}</div>
                     </td>
 
@@ -597,7 +597,7 @@ export default function StaffSupport() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                      <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text)' }}>{viewModal.staff?.fullName || '—'}</div>
+                      <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text)' }}>{viewModal.staff?.fullName || '-'}</div>
                       <StatusPill status={viewModal.status} />
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>

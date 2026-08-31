@@ -1,7 +1,7 @@
 import { Component } from 'react'
 
 /**
- * ErrorBoundary — catches any uncaught render error in the React tree and
+ * ErrorBoundary - catches any uncaught render error in the React tree and
  * shows a friendly fallback instead of a blank page. Without this, a
  * single throw anywhere in the tree silently kills the whole UI, and the
  * user sees "the app isn't working" with no way to debug.
@@ -28,7 +28,7 @@ export default class ErrorBoundary extends Component {
   }
 
   handleReload = () => {
-    // Clear caches and reload — useful when the error is a stale chunk
+    // Clear caches and reload - useful when the error is a stale chunk
     // (e.g. service worker serving an old index.html for a new route).
     if ('caches' in window) {
       caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)))

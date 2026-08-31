@@ -3,7 +3,7 @@ const router = express.Router();
 const ActivityLog = require('../models/ActivityLog');
 const { auth: protect } = require('./auth');
 
-// GET /api/activities — List all workspace activities
+// GET /api/activities - List all workspace activities
 router.get('/', protect, async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
@@ -39,7 +39,7 @@ const Announcement = require('../models/Announcement');
 const { autoDeleteExpiredLeaves } = require('../utils/leaveCleanup');
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GET /api/activities/kpi-summary  — FAST: counters only, no array data
+// GET /api/activities/kpi-summary  - FAST: counters only, no array data
 // Uses countDocuments exclusively so Atlas can answer from index stats (<100ms).
 // The frontend calls this FIRST to render KPI stat cards immediately.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ router.get('/kpi-summary', protect, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GET /api/activities/dashboard-summary — Full detail data (lists + monthly)
+// GET /api/activities/dashboard-summary - Full detail data (lists + monthly)
 // Supports ?lite=1 to skip heavy monthly attendance aggregation.
 // Called AFTER kpi-summary so the page already feels interactive.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -114,7 +114,7 @@ router.get('/dashboard-summary', protect, async (req, res) => {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    // Core detail queries — always run
+    // Core detail queries - always run
     const coreQueries = [
       Staff.find({ user: userId }).select('fullName employeeId designation documents.profileImage').lean(),
       Attendance.countDocuments({ admin: userId, date: { $gte: todayStart }, punchOut: null }),
@@ -131,7 +131,7 @@ router.get('/dashboard-summary', protect, async (req, res) => {
       Announcement.find({ user: userId }).sort({ createdAt: -1 }).limit(3).lean(),
     ];
 
-    // Monthly queries — skip when ?lite=1 (called again separately)
+    // Monthly queries - skip when ?lite=1 (called again separately)
     const monthlyQueries = lite
       ? [Promise.resolve([]), Promise.resolve([])]
       : [
@@ -167,7 +167,7 @@ router.get('/dashboard-summary', protect, async (req, res) => {
   }
 });
 
-// GET /api/activities/absent-staff — On-demand absent staff list
+// GET /api/activities/absent-staff - On-demand absent staff list
 router.get('/absent-staff', protect, async (req, res) => {
   try {
     const userId = req.user._id;

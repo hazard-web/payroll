@@ -114,10 +114,10 @@ payslipSchema.methods.getPeriodLabel = function () {
 };
 
 // Indexes for the hottest payslip queries:
-//  • { user, createdAt: -1 } — list-page default sort
-//  • { user, month, year } — month/year filter on list and bulk-email
-//  • { user, employeeId, year, month } — "is this employee paid this month?" (idempotency check)
-//  • { employeeId, isPushedToPortal } — staff portal payslip feed
+//  • { user, createdAt: -1 } - list-page default sort
+//  • { user, month, year } - month/year filter on list and bulk-email
+//  • { user, employeeId, year, month } - "is this employee paid this month?" (idempotency check)
+//  • { employeeId, isPushedToPortal } - staff portal payslip feed
 payslipSchema.index({ user: 1, createdAt: -1 });
 payslipSchema.index({ user: 1, month: 1, year: 1 });
 payslipSchema.index({ user: 1, employeeId: 1, year: 1, month: 1 });

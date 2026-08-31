@@ -314,11 +314,11 @@ export default function TeamPerformance() {
                 {staff.fullName}
               </div>
 
-              <div className="tp-cell tp-col-id" style={{ textAlign: 'left' }}>{staff.employeeId || '—'}</div>
-              <div className="tp-cell tp-col-role" style={{ textAlign: 'left' }}>{staff.designation || '—'}</div>
-              <div className="tp-cell tp-col-dept" style={{ textAlign: 'left' }}>{staff.department || '—'}</div>
+              <div className="tp-cell tp-col-id" style={{ textAlign: 'left' }}>{staff.employeeId || '-'}</div>
+              <div className="tp-cell tp-col-role" style={{ textAlign: 'left' }}>{staff.designation || '-'}</div>
+              <div className="tp-cell tp-col-dept" style={{ textAlign: 'left' }}>{staff.department || '-'}</div>
               <div className="tp-cell tp-col-score" style={{ fontWeight: 700, color: 'var(--primary)', fontSize: 11, textAlign: 'left' }}>
-                {staff.performanceScore > 0 ? `${staff.performanceScore}%` : '—'}
+                {staff.performanceScore > 0 ? `${staff.performanceScore}%` : '-'}
               </div>
 
               {/* Mobile collapsed meta */}

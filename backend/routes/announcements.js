@@ -5,7 +5,7 @@ const { auth } = require('./auth');
 const { logActivity } = require('../utils/logger');
 
 // ─────────────────────────────────────────────────────────────
-// GET /api/announcements — List all announcements for admin
+// GET /api/announcements - List all announcements for admin
 // ─────────────────────────────────────────────────────────────
 router.get('/', auth, async (req, res) => {
   try {
@@ -30,7 +30,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/announcements — Create a new announcement
+// POST /api/announcements - Create a new announcement
 // ─────────────────────────────────────────────────────────────
 router.post('/', auth, async (req, res) => {
   try {
@@ -89,7 +89,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// PUT /api/announcements/:id — Update an announcement
+// PUT /api/announcements/:id - Update an announcement
 // ─────────────────────────────────────────────────────────────
 router.put('/:id', auth, async (req, res) => {
   try {
@@ -152,7 +152,7 @@ router.put('/:id', auth, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// DELETE /api/announcements/:id — Delete an announcement
+// DELETE /api/announcements/:id - Delete an announcement
 // ─────────────────────────────────────────────────────────────
 router.delete('/:id', auth, async (req, res) => {
   try {
@@ -182,7 +182,7 @@ router.delete('/:id', auth, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// PUT /api/announcements/:id/toggle — Toggle active / inactive
+// PUT /api/announcements/:id/toggle - Toggle active / inactive
 // ─────────────────────────────────────────────────────────────
 router.put('/:id/toggle', auth, async (req, res) => {
   try {

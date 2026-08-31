@@ -472,7 +472,7 @@ export default function PortalLeave() {
                         {req.type}
                       </div>
                       <div style={{ color: 'var(--text-muted)', fontSize: 11.5 }}>
-                        {new Date(req.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – {new Date(req.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                        {new Date(req.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} - {new Date(req.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                       </div>
                       <div style={{ fontWeight: 600 }}>
                         {reqDays}d

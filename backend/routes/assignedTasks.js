@@ -6,7 +6,7 @@ const AssignedTask = require('../models/AssignedTask');
 const Staff = require('../models/Staff');
 const { uploadBase64 } = require('../utils/cloudinary');
 
-// GET /api/assigned-tasks/admin — Get all assigned tasks (for Admin)
+// GET /api/assigned-tasks/admin - Get all assigned tasks (for Admin)
 router.get('/admin', authAdmin, async (req, res) => {
   try {
     const tasks = await AssignedTask.find()
@@ -19,7 +19,7 @@ router.get('/admin', authAdmin, async (req, res) => {
   }
 });
 
-// POST /api/assigned-tasks/admin — Assign a new task (for Admin)
+// POST /api/assigned-tasks/admin - Assign a new task (for Admin)
 router.post('/admin', authAdmin, async (req, res) => {
   try {
     const { staffId, title, description, priority, dueDate, projectUrl, attachment } = req.body;
@@ -63,7 +63,7 @@ router.post('/admin', authAdmin, async (req, res) => {
   }
 });
 
-// DELETE /api/assigned-tasks/admin/:id — Delete an assigned task (for Admin)
+// DELETE /api/assigned-tasks/admin/:id - Delete an assigned task (for Admin)
 router.delete('/admin/:id', authAdmin, async (req, res) => {
   try {
     const task = await AssignedTask.findByIdAndDelete(req.params.id);
@@ -76,7 +76,7 @@ router.delete('/admin/:id', authAdmin, async (req, res) => {
   }
 });
 
-// PATCH /api/assigned-tasks/admin/:id/status — Update assigned task status (for Admin)
+// PATCH /api/assigned-tasks/admin/:id/status - Update assigned task status (for Admin)
 router.patch('/admin/:id/status', authAdmin, async (req, res) => {
   try {
     const { status } = req.body;
@@ -104,7 +104,7 @@ router.patch('/admin/:id/status', authAdmin, async (req, res) => {
   }
 });
 
-// GET /api/assigned-tasks/staff — Get tasks assigned to the authenticated staff member
+// GET /api/assigned-tasks/staff - Get tasks assigned to the authenticated staff member
 router.get('/staff', authStaff, async (req, res) => {
   try {
     const tasks = await AssignedTask.find({ staff: req.staff._id }).sort({ createdAt: -1 }).lean();
@@ -114,7 +114,7 @@ router.get('/staff', authStaff, async (req, res) => {
   }
 });
 
-// PATCH /api/assigned-tasks/staff/:id/status — Update assigned task status
+// PATCH /api/assigned-tasks/staff/:id/status - Update assigned task status
 router.patch('/staff/:id/status', authStaff, async (req, res) => {
   try {
     const { status } = req.body;

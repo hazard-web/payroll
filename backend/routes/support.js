@@ -22,7 +22,7 @@ const getStartOfDay = (dateString = null) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/support — Staff submits a support request
+// POST /api/support - Staff submits a support request
 // ─────────────────────────────────────────────────────────────
 router.post('/', authStaff, async (req, res) => {
   try {
@@ -73,7 +73,7 @@ router.post('/', authStaff, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// GET /api/support/me — Staff views their own requests
+// GET /api/support/me - Staff views their own requests
 // ─────────────────────────────────────────────────────────────
 router.get('/me', authStaff, async (req, res) => {
   try {
@@ -89,7 +89,7 @@ router.get('/me', authStaff, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// GET /api/support/admin — Admin views all support requests
+// GET /api/support/admin - Admin views all support requests
 // ─────────────────────────────────────────────────────────────
 router.get('/admin', authAdmin, async (req, res) => {
   try {
@@ -107,7 +107,7 @@ router.get('/admin', authAdmin, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// GET /api/support/admin/:id/context — Fetch type-specific context
+// GET /api/support/admin/:id/context - Fetch type-specific context
 // ─────────────────────────────────────────────────────────────
 router.get('/admin/:id/context', authAdmin, async (req, res) => {
   try {
@@ -154,7 +154,7 @@ router.get('/admin/:id/context', authAdmin, async (req, res) => {
           .lean();
       }
     }
-    // For IT/Technical, HR/Policy, Other — message is sufficient, no linked data
+    // For IT/Technical, HR/Policy, Other - message is sufficient, no linked data
 
     res.json({ success: true, data: context });
   } catch (err) {
@@ -164,7 +164,7 @@ router.get('/admin/:id/context', authAdmin, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// PUT /api/support/admin/:id/approve — Approve + conditionally reset punch-out
+// PUT /api/support/admin/:id/approve - Approve + conditionally reset punch-out
 // ─────────────────────────────────────────────────────────────
 router.put('/admin/:id/approve', authAdmin, async (req, res) => {
   try {
@@ -199,7 +199,7 @@ router.put('/admin/:id/approve', authAdmin, async (req, res) => {
     if (adminNote) supportRequest.adminNote = adminNote;
     await supportRequest.save();
 
-    // Notify staff — message varies by type
+    // Notify staff - message varies by type
     const approvalMessages = {
       'Attendance / Punch Issue': 'Your punch-out reset has been approved. You can now punch out again.',
       'Leave Request Issue': 'Your leave-related support request has been approved.',
@@ -226,7 +226,7 @@ router.put('/admin/:id/approve', authAdmin, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// PUT /api/support/admin/:id/reject — Reject support request
+// PUT /api/support/admin/:id/reject - Reject support request
 // ─────────────────────────────────────────────────────────────
 router.put('/admin/:id/reject', authAdmin, async (req, res) => {
   try {

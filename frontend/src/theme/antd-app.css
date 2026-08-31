@@ -1,0 +1,77 @@
+.hr-shell {
+  min-height: 100vh;
+  background: var(--ant-color-bg-layout, #f4f2ec);
+}
+
+.hr-shell .ant-layout-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--ant-color-border, #e6e1d8);
+  line-height: 1;
+}
+
+.hr-shell .ant-layout-sider {
+  border-right: 1px solid var(--ant-color-border, #e6e1d8);
+}
+
+.hr-shell .ant-layout-content {
+  padding: 24px;
+  min-width: 0;
+}
+
+.hr-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.hr-brand img,
+.hr-brand .people-os-mark {
+  flex-shrink: 0;
+}
+
+.hr-brand-name {
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.hr-header-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hr-stat-card {
+  cursor: pointer;
+  height: 100%;
+}
+
+.hr-stat-card .ant-statistic-content-value {
+  font-family: 'IBM Plex Serif', Georgia, serif;
+  letter-spacing: -0.03em;
+}
+
+.hr-user-card {
+  margin: 8px;
+  padding: 12px;
+  border: 1px solid var(--ant-color-border, #e6e1d8);
+  border-radius: 12px;
+}
+
+@media (max-width: 768px) {
+  .hr-shell .ant-layout-content {
+    padding: 16px;
+  }
+}

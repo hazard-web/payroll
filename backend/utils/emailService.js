@@ -67,7 +67,7 @@ async function createSMTPTransporter() {
 
     try {
       await transporter.verify();
-      console.log(`✅ Gmail SMTP verified — real emails will be sent (user=${emailUser})`);
+      console.log(`✅ Gmail SMTP verified - real emails will be sent (user=${emailUser})`);
     } catch (verifyErr) {
       // Log a clear hint so devs know how to fix credentials
       console.warn('⚠️  Gmail SMTP verify() failed.');
@@ -224,7 +224,7 @@ async function sendPayslipEmail(payslip) {
   const mailOptions = {
     from: buildFromAddress(payslip.companyName),
     to: payslip.employeeEmail,
-    subject: `Salary Slip for ${payslip.month} ${payslip.year} — ${payslip.companyName}`,
+    subject: `Salary Slip for ${payslip.month} ${payslip.year} - ${payslip.companyName}`,
     html: buildEmailHTML(payslip),
     attachments: [
       {
@@ -345,7 +345,7 @@ function buildEmailHTML(payslip) {
 // ─────────────────────────────────────────────────────────────
 async function sendPasswordResetEmail(user, token, origin, customLink, kind = 'admin') {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.warn('⚠️ Email credentials missing — using Ethereal test SMTP for password reset email.');
+    console.warn('⚠️ Email credentials missing - using Ethereal test SMTP for password reset email.');
   }
 
   const finalAppUrl = (origin || '').replace(/\/$/, '') ||
@@ -362,7 +362,7 @@ async function sendPasswordResetEmail(user, token, origin, customLink, kind = 'a
   const adminEmail  = escapeHtml(user.email);
 
   const subject = isStaff
-    ? `Password Reset Request – ${companyName} Staff Portal`
+    ? `Password Reset Request - ${companyName} Staff Portal`
     : 'Reset Your PaySlip Pro Password';
 
   const greetingName = isStaff
@@ -487,7 +487,7 @@ async function sendPasswordResetEmail(user, token, origin, customLink, kind = 'a
           <tr>
             <td bgcolor="#f9fafb" style="padding:18px 48px;text-align:center;border-top:1px solid #f3f4f6;">
               <p style="margin:0;color:#9ca3af;font-size:11px;line-height:1.6;">
-                This is an automated email — please do not reply to this message.<br/>
+                This is an automated email - please do not reply to this message.<br/>
                 &copy; ${new Date().getFullYear()} ${isStaff ? companyName : 'PaySlip Pro'}. All rights reserved.
               </p>
             </td>
@@ -747,7 +747,7 @@ async function sendTeamMemberOnboarding(staff, setupUrl) {
     from: buildFromAddress(companyName),
     to,
     replyTo: sanitizeEmailValue(process.env.EMAIL_FROM) || sanitizeEmailValue(process.env.EMAIL_USER),
-    subject: 'Welcome to Payroll Portal – Set Up Your Account',
+    subject: 'Welcome to Payroll Portal - Set Up Your Account',
     html: buildTeamMemberOnboardingEmailHTML(staff, setupUrl),
     text: buildTeamMemberOnboardingEmailText(staff, setupUrl),
   };
@@ -759,7 +759,7 @@ async function sendTeamMemberOnboarding(staff, setupUrl) {
     'X-Mailer': 'PaySlip Pro Mailer',
     'X-Entity-ID': `payslip-pro-${Date.now()}`,
   };
-  // Force From display name to match sender domain — fixes Gmail spam delivery
+  // Force From display name to match sender domain - fixes Gmail spam delivery
   mailOptions.from = buildFromAddress('PaySlip Pro');
 
   try {
@@ -1001,4 +1001,64 @@ async function sendPunchOutReminderEmail(staff, loginUrl, details = {}) {
   }
 }
 
-module.exports = { sendPayslipEmail, sendVerificationEmail, sendPasswordResetEmail, sendStaffProvisionEmail, sendTeamMemberOnboarding, sendPunchOutReminderEmail };
+/**
+ * Pulse invite — accept link sets password and joins the organization.
+ */
+async function sendPulseInviteEmail({ to, inviteUrl, companyName, role, invitedByName }) {
+  const transporter = await createSMTPTransporter();
+  const org = companyName || 'your organization';
+  const roleLabel = role === 'admin' ? 'Admin' : 'Member';
+  const fromName = invitedByName || 'Pulse';
+
+  const mailOptions = {
+    from: buildFromAddress('Pulse'),
+    to,
+    subject: `You're invited to ${org} on Pulse`,
+    html: `
+<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#f5f0e8;font-family:Segoe UI,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e8e0d4;">
+          <tr>
+            <td style="background:#1A5F4A;padding:28px 32px;">
+              <p style="margin:0;color:#c8e6d9;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;">Pulse</p>
+              <h1 style="margin:8px 0 0;color:#fff;font-size:22px;font-weight:600;">You're invited</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 32px;color:#1a1a1a;font-size:15px;line-height:1.55;">
+              <p style="margin:0 0 12px;"><strong>${fromName}</strong> invited you to join <strong>${org}</strong> as a <strong>${roleLabel}</strong>.</p>
+              <p style="margin:0 0 24px;color:#555;">Accept the invite to set your password and open My Space.</p>
+              <p style="margin:0 0 28px;">
+                <a href="${inviteUrl}" style="display:inline-block;background:#1A5F4A;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;">Accept invite</a>
+              </p>
+              <p style="margin:0;font-size:12px;color:#888;word-break:break-all;">Or open this link:<br/>${inviteUrl}</p>
+              <p style="margin:20px 0 0;font-size:12px;color:#888;">This link expires in 7 days.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `,
+  };
+
+  const info = await sendMailWithRetry(transporter, mailOptions);
+  console.log(`✅ Pulse invite email sent to: ${to}`);
+  return info;
+}
+
+module.exports = {
+  sendPayslipEmail,
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendStaffProvisionEmail,
+  sendTeamMemberOnboarding,
+  sendPunchOutReminderEmail,
+  sendPulseInviteEmail,
+};

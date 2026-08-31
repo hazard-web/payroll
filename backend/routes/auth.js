@@ -5,10 +5,13 @@ const User = require('../models/User');
 const crypto = require('crypto');
 const { sendVerificationEmail } = require('../utils/emailService');
 const { buildVerifyLink, buildResetLink } = require('../utils/urlHelper');
+const { DEFAULT_GENDER, extractIndiaState } = require('../utils/indiaLocation');
+const { publicUserWithApps } = require('../utils/pulseAuth');
+const { assertAllowedCompanyEmail, resolveCompanyDomain } = require('../utils/companyDomain');
 
 // In-process JWT → User cache.
 // Same token tends to be reused on every protected request; hitting Mongo
-// each time adds a 30–80ms round-trip plus a bcrypt-shaped hydration cost.
+// each time adds a 30-80ms round-trip plus a bcrypt-shaped hydration cost.
 // We cache the lean User doc keyed by token; TTL is short so password
 // changes or account deletion still propagate quickly.
 const AUTH_CACHE_TTL_MS = 30 * 1000;
@@ -43,6 +46,15 @@ const auth = async (req, res, next) => {
     // Hot path: same token on every request → cache hit
     const cached = authCacheGet(token);
     if (cached) {
+      const cachedDomain = assertAllowedCompanyEmail(cached.email);
+      if (!cachedDomain.ok) {
+        authCache.delete(token);
+        return res.status(403).json({
+          success: false,
+          code: 'COMPANY_DOMAIN_REQUIRED',
+          message: cachedDomain.message,
+        });
+      }
       req.user = cached;
       req.token = token;
       return next();
@@ -54,6 +66,15 @@ const auth = async (req, res, next) => {
 
     if (!user) throw new Error();
 
+    const domainCheck = assertAllowedCompanyEmail(user.email);
+    if (!domainCheck.ok) {
+      return res.status(403).json({
+        success: false,
+        code: 'COMPANY_DOMAIN_REQUIRED',
+        message: domainCheck.message,
+      });
+    }
+
     authCacheSet(token, user);
     req.user = user;
     req.token = token;
@@ -64,46 +85,78 @@ const auth = async (req, res, next) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/auth/register — Register a new company
+// POST /api/auth/register - Bootstrap first admin only (invite-only after)
 // ─────────────────────────────────────────────────────────────
 router.post('/register', async (req, res, next) => {
   try {
+    const existingCount = await User.countDocuments();
+    if (existingCount > 0) {
+      return res.status(403).json({
+        success: false,
+        code: 'INVITE_ONLY',
+        message: 'Pulse is invite-only. Ask your admin for an invite link.',
+      });
+    }
+
     const email = req.body.email?.trim().toLowerCase();
-    const { password, companyName, companyAddress } = req.body;
+    const { password, companyName, companyAddress, companyPhone } = req.body;
 
     if (!email) {
       return res.status(400).json({ success: false, message: 'Email is required' });
     }
 
-    // Check if user exists
+    const domainCheck = assertAllowedCompanyEmail(email);
+    if (!domainCheck.ok) {
+      return res.status(403).json({
+        success: false,
+        code: 'COMPANY_DOMAIN_REQUIRED',
+        message: domainCheck.message,
+      });
+    }
+
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ success: false, message: 'Email already registered' });
 
     const verificationToken = crypto.randomBytes(32).toString('hex');
-    const verificationExpires = Date.now() + 24 * 3600000; // 24 hours
+    const verificationExpires = Date.now() + 24 * 3600000;
 
+    const address = companyAddress || '';
     const user = new User({
       email,
       password,
-      companyName: companyName || undefined,
-      companyAddress: companyAddress || undefined,
+      companyName: companyName || '',
+      companyAddress: address,
+      companyPhone: companyPhone || '',
+      companyEmail: email,
+      companyDomain: resolveCompanyDomain(),
+      companyCIN: '',
+      companyGST: '',
+      companyWebsite: '',
+      companyLogo: '',
+      gender: DEFAULT_GENDER,
+      country: 'India',
+      state: extractIndiaState(address),
+      role: 'admin',
+      onboardingCompleted: false,
+      pulseSetupCompleted: false,
       verificationToken,
-      verificationExpires
+      verificationExpires,
+      isVerified: true,
     });
     await user.save();
+    user.organizationId = user._id;
+    await user.save();
 
-    // Send verification email (awaiting for Vercel stability)
     try {
-      // Use centralized URL helper — never use request origin for verification links
       const verifyUrl = buildVerifyLink(verificationToken);
       await sendVerificationEmail(user, verificationToken, verifyUrl);
     } catch (emailErr) {
       console.error('📧 Email failed to send:', emailErr);
     }
-    
-    res.status(201).json({ 
-      success: true, 
-      message: 'Registration successful! Please check your email to verify your account.' 
+
+    res.status(201).json({
+      success: true,
+      message: 'Admin account created. You can sign in now.',
     });
   } catch (err) {
     console.error('Register error:', err);
@@ -112,7 +165,43 @@ router.post('/register', async (req, res, next) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/auth/login — Login to company account
+// POST /api/auth/check-email - Does this company account exist?
+// ─────────────────────────────────────────────────────────────
+router.post('/check-email', async (req, res, next) => {
+  try {
+    const email = req.body.email?.trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    const domainCheck = assertAllowedCompanyEmail(email);
+    if (!domainCheck.ok) {
+      return res.status(403).json({
+        success: false,
+        exists: false,
+        code: 'COMPANY_DOMAIN_REQUIRED',
+        message: domainCheck.message,
+      });
+    }
+
+    const user = await User.findOne({ email }).select('_id').lean();
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        exists: false,
+        message: 'No account found with this email address',
+      });
+    }
+
+    return res.json({ success: true, exists: true });
+  } catch (err) {
+    console.error('Check email error:', err);
+    return next(err);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/auth/login - Login to company account
 // ─────────────────────────────────────────────────────────────
 router.post('/login', async (req, res, next) => {
   try {
@@ -121,6 +210,15 @@ router.post('/login', async (req, res, next) => {
 
     if (!email || !password) {
       return res.status(400).json({ success: false, message: 'Email and password are required' });
+    }
+
+    const domainCheck = assertAllowedCompanyEmail(email);
+    if (!domainCheck.ok) {
+      return res.status(403).json({
+        success: false,
+        code: 'COMPANY_DOMAIN_REQUIRED',
+        message: domainCheck.message,
+      });
     }
 
     // Project only what we need: skip the embedded 50KB base64 logo by
@@ -141,6 +239,8 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
+    if (!user.companyDomain) user.companyDomain = resolveCompanyDomain();
+
     const isProduction = process.env.NODE_ENV === 'production';
     const skipEmailVerification =
       process.env.SKIP_EMAIL_VERIFICATION === 'true' ||
@@ -151,10 +251,18 @@ router.post('/login', async (req, res, next) => {
     }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'fallback_secret', { expiresIn: '7d' });
+
+    // Ensure legacy accounts have an organization root
+    if (!user.organizationId) {
+      user.organizationId = user._id;
+      if (!user.role) user.role = 'admin';
+    }
+    if (user.isModified()) await user.save();
+
     res.json({
       success: true,
       token,
-      user: { email: user.email, companyName: user.companyName },
+      user: await publicUserWithApps(user),
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -163,7 +271,7 @@ router.post('/login', async (req, res, next) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// GET /api/auth/verify-email — Verify account
+// GET /api/auth/verify-email - Verify account
 // ─────────────────────────────────────────────────────────────
 router.get('/verify-email', async (req, res) => {
   console.log(`🔍 Verification Request: ${req.url}`);
@@ -229,18 +337,56 @@ router.get('/verify-email', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// GET /api/auth/profile — Get company profile (always fresh from DB)
+// GET /api/auth/profile - Get company profile (always fresh from DB)
 // ─────────────────────────────────────────────────────────────
 router.get('/profile', auth, async (req, res) => {
   try {
-    // Always fetch fresh from DB — never serve stale auth-cache data here.
-    // The auth cache is keyed by token and has a 30 s TTL, which means a
-    // user who just updated their profile could get stale values back.
+    // Always fetch fresh from DB - never serve stale auth-cache data here.
     const user = await User.findById(req.user._id)
-      .select('-password -verificationToken -verificationExpires -resetPasswordToken -resetPasswordExpires')
-      .lean();
+      .select('-password -verificationToken -verificationExpires -resetPasswordToken -resetPasswordExpires');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    res.json({ success: true, user });
+
+    let dirty = false;
+    if (!user.gender) {
+      user.gender = DEFAULT_GENDER;
+      dirty = true;
+    }
+    if (!user.country) {
+      user.country = 'India';
+      dirty = true;
+    }
+    if (!user.state) {
+      const fromAddress = extractIndiaState(user.companyAddress || '');
+      if (fromAddress) {
+        user.state = fromAddress;
+        dirty = true;
+      }
+    }
+    if (!user.organizationId) {
+      user.organizationId = user._id;
+      dirty = true;
+    }
+    if (!user.role) {
+      user.role = 'admin';
+      dirty = true;
+    }
+    if (dirty) await user.save();
+
+    const { listActiveGrantsForEmail } = require('../utils/appCatalog');
+    const assignedApps = await listActiveGrantsForEmail(user.email);
+    const safe = user.toObject();
+    safe.onboardingCompleted = safe.onboardingCompleted !== false;
+    if (safe.pulseSetupCompleted == null) {
+      safe.pulseSetupCompleted = false;
+    }
+    if (!safe.role) safe.role = 'admin';
+    if (!safe.organizationId) safe.organizationId = safe._id;
+    safe.assignedApps = assignedApps;
+    safe.assignedAppCount = assignedApps.length;
+    // Keep JWT auth cache in sync after admin resets / field changes.
+    if (req.token) authCacheSet(req.token, safe);
+    res.set('Cache-Control', 'no-store');
+    res.json({ success: true, user: safe });
   } catch (err) {
     console.error('Get profile error:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch profile' });
@@ -248,7 +394,7 @@ router.get('/profile', auth, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// PUT /api/auth/profile — Update company profile & logo
+// PUT /api/auth/profile - Update company profile & logo
 // ─────────────────────────────────────────────────────────────
 router.put('/profile', auth, async (req, res, next) => {
   try {
@@ -257,10 +403,106 @@ router.put('/profile', auth, async (req, res, next) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    const allowedFields = ['companyName', 'companyAddress', 'companyPhone', 'companyEmail', 'companyCIN', 'companyGST', 'companyWebsite', 'companyLogo'];
+    const allowedFields = [
+      'companyName', 'companyAddress', 'companyPhone', 'companyEmail',
+      'companyCIN', 'companyGST', 'companyWebsite', 'companyDomain', 'companyLogo', 'industry',
+      'firstName', 'lastName', 'avatarUrl', 'displayName', 'gender',
+      'country', 'state', 'timezone', 'language',
+    ];
     allowedFields.forEach(field => {
       if (req.body[field] !== undefined) user[field] = req.body[field];
     });
+
+    if (!user.gender) user.gender = DEFAULT_GENDER;
+    if (!user.country) user.country = 'India';
+    if (req.body.companyAddress !== undefined && !req.body.state) {
+      const fromAddress = extractIndiaState(user.companyAddress || '');
+      if (fromAddress) user.state = fromAddress;
+    }
+
+    // Normalize / replace additionalEmails when provided
+    if (Array.isArray(req.body.additionalEmails)) {
+      const primary = String(user.email || '').toLowerCase().trim();
+      const seen = new Set([primary]);
+      const cleaned = [];
+      for (const item of req.body.additionalEmails) {
+        const address = String(item?.email || item || '')
+          .toLowerCase()
+          .trim();
+        if (!address || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+          return res.status(400).json({ success: false, message: 'Enter a valid email address.' });
+        }
+        const extraDomain = assertAllowedCompanyEmail(address);
+        if (!extraDomain.ok) {
+          return res.status(403).json({
+            success: false,
+            code: 'COMPANY_DOMAIN_REQUIRED',
+            message: extraDomain.message,
+          });
+        }
+        if (seen.has(address)) continue;
+        seen.add(address);
+        cleaned.push({
+          email: address,
+          createdAt: item?.createdAt ? new Date(item.createdAt) : new Date(),
+        });
+      }
+      // Block addresses already used as another account's primary email
+      if (cleaned.length) {
+        const taken = await User.findOne({
+          email: { $in: cleaned.map((e) => e.email) },
+          _id: { $ne: user._id },
+        }).select('email');
+        if (taken) {
+          return res.status(409).json({
+            success: false,
+            message: `${taken.email} is already linked to another People OS account.`,
+          });
+        }
+      }
+      user.additionalEmails = cleaned;
+    }
+
+    // Promote an additional email to primary (login identity)
+    if (req.body.primaryEmail) {
+      const nextPrimary = String(req.body.primaryEmail || '')
+        .toLowerCase()
+        .trim();
+      if (!nextPrimary || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextPrimary)) {
+        return res.status(400).json({ success: false, message: 'Enter a valid email address.' });
+      }
+      const primaryDomain = assertAllowedCompanyEmail(nextPrimary);
+      if (!primaryDomain.ok) {
+        return res.status(403).json({
+          success: false,
+          code: 'COMPANY_DOMAIN_REQUIRED',
+          message: primaryDomain.message,
+        });
+      }
+      const currentPrimary = String(user.email || '').toLowerCase().trim();
+      if (nextPrimary !== currentPrimary) {
+        const extras = Array.isArray(user.additionalEmails)
+          ? user.additionalEmails.map((e) => String(e.email || '').toLowerCase())
+          : [];
+        if (!extras.includes(nextPrimary)) {
+          return res.status(400).json({
+            success: false,
+            message: 'That email is not on your account. Add it first.',
+          });
+        }
+        const clash = await User.findOne({ email: nextPrimary, _id: { $ne: user._id } }).select('_id');
+        if (clash) {
+          return res.status(409).json({
+            success: false,
+            message: 'That email is already used by another account.',
+          });
+        }
+        const rest = extras.filter((e) => e !== nextPrimary);
+        if (currentPrimary) rest.unshift(currentPrimary);
+        user.email = nextPrimary;
+        user.additionalEmails = [...new Set(rest)].map((email) => ({ email, createdAt: new Date() }));
+      }
+    }
 
     await user.save();
 
@@ -269,7 +511,14 @@ router.put('/profile', auth, async (req, res, next) => {
     const token = req.token;
     if (token) authCache.delete(token);
 
-    res.json({ success: true, message: 'Profile updated', user: user.toObject() });
+    const safe = user.toObject();
+    delete safe.password;
+    delete safe.verificationToken;
+    delete safe.verificationExpires;
+    delete safe.resetPasswordToken;
+    delete safe.resetPasswordExpires;
+
+    res.json({ success: true, message: 'Profile updated', user: safe });
   } catch (err) {
     console.error('Profile update error:', err);
     return next(err);
@@ -277,12 +526,138 @@ router.put('/profile', auth, async (req, res, next) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/auth/forgot-password — Send reset link to email
+// POST /api/auth/complete-onboarding - HR org setup wizard finish
+// ─────────────────────────────────────────────────────────────
+router.post('/complete-onboarding', auth, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const companyName = String(req.body.companyName || '').trim();
+    if (!companyName) {
+      return res.status(400).json({ success: false, message: 'Organization name is required.' });
+    }
+
+    user.companyName = companyName;
+    if (req.body.companyAddress !== undefined) user.companyAddress = String(req.body.companyAddress || '').trim();
+    if (req.body.companyPhone !== undefined) user.companyPhone = String(req.body.companyPhone || '').trim();
+    if (req.body.companyEmail !== undefined) user.companyEmail = String(req.body.companyEmail || '').trim();
+    if (req.body.companyDomain !== undefined) {
+      user.companyDomain = String(req.body.companyDomain || '').trim().toLowerCase().replace(/^@/, '');
+    }
+    if (req.body.industry !== undefined) user.industry = String(req.body.industry || '').trim();
+
+    if (!user.gender) user.gender = DEFAULT_GENDER;
+    if (!user.country) user.country = 'India';
+    const fromAddress = extractIndiaState(user.companyAddress || '');
+    if (fromAddress) user.state = fromAddress;
+    else if (req.body.state) user.state = String(req.body.state || '').trim();
+
+    user.onboardingCompleted = true;
+    if (!user.role) user.role = 'admin';
+    if (!user.organizationId) user.organizationId = user._id;
+    const derivedDomain = resolveCompanyDomain();
+    if (derivedDomain) user.companyDomain = derivedDomain;
+    await user.save();
+
+    const token = req.token;
+    if (token) authCache.delete(token);
+
+    const safe = await publicUserWithApps(user);
+
+    res.json({ success: true, message: 'Organization setup complete', user: safe });
+  } catch (err) {
+    console.error('Complete onboarding error:', err);
+    return next(err);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/auth/pulse-setup - Pulse product company setup
+// ─────────────────────────────────────────────────────────────
+router.post('/pulse-setup', auth, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const companyName = String(req.body.companyName || '').trim();
+    const industry = String(req.body.industry || '').trim();
+    const employeeCount = String(req.body.employeeCount || '').trim();
+    let portalId = String(req.body.portalId || '').trim().slice(0, 50);
+
+    if (!companyName) {
+      return res.status(400).json({ success: false, message: 'Company name is required.' });
+    }
+    if (!industry) {
+      return res.status(400).json({ success: false, message: 'Industry is required.' });
+    }
+    if (!employeeCount) {
+      return res.status(400).json({ success: false, message: 'Employee count is required.' });
+    }
+    if (!portalId || portalId.length < 6 || portalId.length > 50) {
+      return res.status(400).json({
+        success: false,
+        message: 'Portal name must have minimum of 6 and maximum of 50 characters',
+        code: 'PORTAL_LENGTH',
+      });
+    }
+
+    const portalTaken = await User.findOne({
+      _id: { $ne: user._id },
+      pulsePortalId: { $regex: new RegExp(`^${portalId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+    }).select('_id');
+
+    if (portalTaken) {
+      return res.status(400).json({
+        success: false,
+        message: 'This Portal Name already exists',
+        code: 'PORTAL_EXISTS',
+      });
+    }
+
+    user.companyName = companyName;
+    user.industry = industry;
+    user.pulseEmployeeCount = employeeCount;
+    user.pulsePortalId = portalId;
+    user.pulseSetupCompleted = true;
+    await user.save();
+
+    const token = req.token;
+    if (token) authCache.delete(token);
+
+    const safe = user.toObject();
+    delete safe.password;
+    delete safe.verificationToken;
+    delete safe.verificationExpires;
+    delete safe.resetPasswordToken;
+    delete safe.resetPasswordExpires;
+
+    res.json({ success: true, message: 'Pulse account ready', user: safe });
+  } catch (err) {
+    if (err && err.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'This Portal Name already exists',
+        code: 'PORTAL_EXISTS',
+      });
+    }
+    console.error('Pulse setup error:', err);
+    return next(err);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/auth/forgot-password - Send reset link to email
 // ─────────────────────────────────────────────────────────────
 router.post('/forgot-password', async (req, res, next) => {
   try {
     const email = req.body.email?.trim().toLowerCase();
     if (!email) return res.status(400).json({ success: false, message: 'Email is required.' });
+
+    const domainCheck = assertAllowedCompanyEmail(email);
+    if (!domainCheck.ok) {
+      return res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
+    }
 
     const user = await User.findOne({ email });
     // Always respond success to prevent email enumeration
@@ -295,14 +670,14 @@ router.post('/forgot-password', async (req, res, next) => {
     user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
     await user.save();
 
-    // Always use centralized URL helper — never use request origin for reset links
+    // Always use centralized URL helper - never use request origin for reset links
     const resetLink = buildResetLink(resetToken);
 
     // In dev (no NODE_ENV=production), always print the link to the terminal
     // so devs can recover accounts even without a working SMTP setup.
     if (process.env.NODE_ENV !== 'production') {
       console.log('\n────────────────────────────────────────────────────');
-      console.log('🔑 DEV MODE — Password Reset Link');
+      console.log('🔑 DEV MODE - Password Reset Link');
       console.log(`   For: ${user.email}`);
       console.log(`   Link: ${resetLink}`);
       console.log('   (Valid for 1 hour)');
@@ -341,7 +716,7 @@ router.post('/forgot-password', async (req, res, next) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/auth/reset-password — Set new password using token
+// POST /api/auth/reset-password - Set new password using token
 // ─────────────────────────────────────────────────────────────
 router.post('/reset-password', async (req, res, next) => {
   try {
@@ -375,7 +750,7 @@ router.post('/reset-password', async (req, res, next) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/auth/dev-latest-reset-link — DEV-ONLY
+// POST /api/auth/dev-latest-reset-link - DEV-ONLY
 // Returns the latest active reset link for an email so devs can
 // recover accounts when SMTP is broken. Disabled in production.
 // ─────────────────────────────────────────────────────────────

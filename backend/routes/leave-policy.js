@@ -207,7 +207,7 @@ router.post('/adjust/:staffId', auth, async (req, res) => {
   }
 });
 
-// Keep the old PUT route for backward compat (direct set) — no history recorded
+// Keep the old PUT route for backward compat (direct set) - no history recorded
 // Admin manually adjusts a staff member's leave balance.
 router.put('/balances/:staffId', auth, async (req, res) => {
   try {

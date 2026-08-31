@@ -1,0 +1,182 @@
+.psd-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 28px 20px 72px;
+  box-sizing: border-box;
+  font-family: 'Nunito Sans', 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: #1f2937;
+  background: #fff;
+}
+
+.psd-page.is-embedded {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px 20px calc(36px + 24px);
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.psd-card {
+  width: 620px;
+  max-width: 100%;
+  background: #fff;
+  border: 1px solid #e3e6eb;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+  animation: psd-in 0.35s ease both;
+}
+
+@keyframes psd-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .psd-card {
+    animation: none;
+  }
+}
+
+.psd-hero {
+  background: #d6e8f8;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.psd-art {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.psd-body {
+  padding: 28px 32px 0;
+}
+
+.psd-body h1 {
+  margin: 0 0 16px;
+  width: 100%;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.4;
+  color: #222;
+  white-space: normal;
+}
+
+.psd-lead {
+  margin: 0 0 12px;
+  width: 100%;
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: #555;
+  white-space: normal;
+}
+
+.psd-note {
+  margin: 0;
+  width: 100%;
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 400;
+  color: #666;
+}
+
+.psd-note strong {
+  color: #666;
+  font-weight: 700;
+}
+
+.psd-foot {
+  margin-top: 24px;
+  padding: 16px 32px 20px;
+  border-top: 1px solid #eceff3;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-start;
+  background: #fff;
+}
+
+.psd-yes,
+.psd-no {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 3px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.psd-yes {
+  border: none;
+  background: #0091ff;
+  color: #fff;
+}
+
+.psd-yes:hover:not(:disabled) {
+  background: #007fd6;
+}
+
+.psd-no {
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  color: #333941;
+}
+
+.psd-no:hover:not(:disabled) {
+  background: #f8f9fb;
+}
+
+.psd-yes:disabled,
+.psd-no:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+@media (max-width: 560px) {
+  .psd-card {
+    width: 100%;
+  }
+
+  .psd-body {
+    padding: 20px 20px 0;
+  }
+
+  .psd-body h1 {
+    font-size: 16px;
+  }
+
+  .psd-lead,
+  .psd-note {
+    font-size: 14px;
+  }
+
+  .psd-foot {
+    padding: 14px 20px 16px;
+    flex-wrap: wrap;
+  }
+
+  .psd-yes,
+  .psd-no {
+    width: 100%;
+  }
+}

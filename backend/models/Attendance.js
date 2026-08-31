@@ -131,9 +131,9 @@ const attendanceSchema = new mongoose.Schema(
 // within the same day, so this index is non-unique.
 attendanceSchema.index({ staff: 1, date: 1 });
 // Admin dashboard queries:
-//  • { admin, status, punchIn } — flagged / stale-incomplete check (cron + admin dashboard)
-//  • { admin, date } — admin daily view
-//  • { staff, status, date } — staff personal history
+//  • { admin, status, punchIn } - flagged / stale-incomplete check (cron + admin dashboard)
+//  • { admin, date } - admin daily view
+//  • { staff, status, date } - staff personal history
 attendanceSchema.index({ admin: 1, status: 1, punchIn: -1 });
 attendanceSchema.index({ admin: 1, date: -1 });
 attendanceSchema.index({ staff: 1, status: 1, date: -1 });

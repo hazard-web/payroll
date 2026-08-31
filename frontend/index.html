@@ -2,20 +2,106 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Payroll</title>
+    <title></title>
+    <script>
+      (function () {
+        var TITLES = [
+          ['/portal/forgot-password', 'Forgot password'],
+          ['/portal/reset-password', 'Reset password'],
+          ['/portal/setup-password', 'Set password'],
+          ['/portal/change-password', 'Change password'],
+          ['/portal/announcements', 'Announcements'],
+          ['/portal/attendance', 'Attendance'],
+          ['/portal/dashboard', 'Dashboard'],
+          ['/portal/payslips', 'Payslips'],
+          ['/portal/settings', 'Settings'],
+          ['/portal/profile', 'My Profile'],
+          ['/portal/tasks', 'Tasks'],
+          ['/portal/leave', 'Leave'],
+          ['/portal/help', 'Help'],
+          ['/portal/login', 'People OS Accounts'],
+          ['/portal', 'Team portal'],
+          ['/payslips/generate', 'Generate payslip'],
+          ['/payslips', 'Payslips'],
+          ['/performance', 'Performance'],
+          ['/staff-support', 'Support'],
+          ['/attendance', 'Attendance'],
+          ['/announcements', 'Announcements'],
+          ['/audit-logs', 'Audit logs'],
+          ['/settings', 'Settings'],
+          ['/profile', 'Settings'],
+          ['/staff', 'Team Management'],
+          ['/leave', 'Leave'],
+          ['/tasks', 'Work Management'],
+          ['/smart-signin', 'Smart Sign-in'],
+          ['/coming-soon', 'Coming Soon'],
+          ['/pulse/getting-started', 'Getting Started'],
+          ['/pulse', 'Pulse'],
+          ['/account', 'Accounts'],
+          ['/people-os', 'People OS'],
+          ['/verify-email', 'Verify email'],
+          ['/reset-password', 'Reset password'],
+          ['/register', 'Sign up'],
+          ['/forgot', 'Forgot password'],
+          ['/verify', 'Verify'],
+          ['/login', 'People OS Accounts']
+        ];
+        var path = (location.pathname || '/').replace(/\/+$/, '') || '/';
+        var title = 'Dashboard';
+        if (path === '/') {
+          title = 'Dashboard';
+        } else if (/^\/staff\/[^/]+$/.test(path)) {
+          title = 'Staff details';
+        } else if (/^\/payslips\/[^/]+$/.test(path) && path !== '/payslips/generate') {
+          title = 'Payslip';
+        } else if (/^\/performance\/[^/]+$/.test(path)) {
+          title = 'Performance';
+        } else {
+          var found = null;
+          for (var i = 0; i < TITLES.length; i++) {
+            var route = TITLES[i][0];
+            if (path === route || path.indexOf(route + '/') === 0) {
+              found = TITLES[i][1];
+              break;
+            }
+          }
+          if (found) {
+            title = found;
+          } else {
+            var parts = path.split('/').filter(Boolean);
+            var seg = parts[parts.length - 1] || '';
+            title = seg
+              ? seg.split('-').map(function (p) {
+                  return p ? p.charAt(0).toUpperCase() + p.slice(1) : '';
+                }).join(' ')
+              : 'Dashboard';
+          }
+        }
+        document.title = title === 'Coming Soon' ? 'Coming Soon | People OS' : title;
+        var fav = '/favicon.svg';
+        if (path === '/account' || path.indexOf('/account/') === 0) fav = '/favicon-accounts.svg';
+        else if (path === '/pulse' || path.indexOf('/pulse/') === 0 || path.indexOf('/people') === 0) fav = '/favicon-pulse.svg';
+        var icon = document.querySelector("link[rel='icon']");
+        if (icon) icon.setAttribute('href', fav + '?v12');
+        var apple = document.querySelector("link[rel='apple-touch-icon']");
+        if (apple) apple.setAttribute('href', fav + '?v12');
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@500;600;700&family=Inter:wght@300;400;500;600;700;800&family=Nunito+Sans:opsz,wght@6..12,400;6..12,500;6..12,600;6..12,700;6..12,800&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Cache-busting: tell browser to always revalidate -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <style>
       /* Inline critical CSS so the user sees content even before React mounts */
-      html, body { margin: 0; padding: 0; background: #f4f6fa; color: #1a1a1a; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-      #root:empty::before { content: 'Loading Payroll…'; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-size: 16px; color: #58833b; font-weight: 600; }
+      html, body { margin: 0; padding: 0; background: #fff; color: #1a1a1a; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+      /* No green "Loading..." flash - keep blank until React paints */
+      #root:empty { min-height: 100vh; background: #fff; }
     </style>
   </head>
   <body>
@@ -61,7 +147,7 @@
           var msg = (err && (err.stack || err.message)) || String(err);
           // truncate
           if (msg.length > 2000) msg = msg.substring(0, 2000) + '…';
-          root.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#f4f6fa;font-family:system-ui,sans-serif;color:#1a1a1a;"><div style="max-width:720px;width:100%;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:32px;box-shadow:0 10px 30px -10px rgba(0,0,0,0.08);"><h1 style="font-size:22px;font-weight:800;margin:0 0 8px;color:#b91c1c;">Payroll — Boot Error</h1><p style="font-size:14px;color:#6b7280;margin:0 0 16px;">The app failed to start. Details below (also check the browser console with F12 → Console):</h1><pre style="font-size:12px;background:#f4f6fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px;overflow:auto;max-height:280px;white-space:pre-wrap;word-break:break-word;color:#991b1b;margin:0 0 20px;">' + msg.replace(/</g, '&lt;') + '</pre><button onclick="localStorage.clear();sessionStorage.clear();indexedDB.databases && indexedDB.databases().then(dbs => dbs.forEach(db => indexedDB.deleteDatabase(db.name)));if(\'serviceWorker\' in navigator){navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()))};caches.keys().then(ks => ks.forEach(k => caches.delete(k))).then(() => location.reload())" style="padding:10px 18px;border-radius:8px;border:none;background:#58833b;color:#fff;font-weight:700;font-size:13px;cursor:pointer;margin-right:8px;">Clear all storage & reload</button><button onclick="location.reload()" style="padding:10px 18px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#374151;font-weight:700;font-size:13px;cursor:pointer;">Just reload</button></div></div>';
+          root.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#f4f6fa;font-family:system-ui,sans-serif;color:#1a1a1a;"><div style="max-width:720px;width:100%;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:32px;box-shadow:0 10px 30px -10px rgba(0,0,0,0.08);"><h1 style="font-size:22px;font-weight:800;margin:0 0 8px;color:#b91c1c;">People OS — Boot Error</h1><p style="font-size:14px;color:#6b7280;margin:0 0 16px;">The app failed to start. Details below (also check the browser console with F12 → Console):</h1><pre style="font-size:12px;background:#f4f6fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px;overflow:auto;max-height:280px;white-space:pre-wrap;word-break:break-word;color:#991b1b;margin:0 0 20px;">' + msg.replace(/</g, '&lt;') + '</pre><button onclick="localStorage.clear();sessionStorage.clear();indexedDB.databases && indexedDB.databases().then(dbs => dbs.forEach(db => indexedDB.deleteDatabase(db.name)));if(\'serviceWorker\' in navigator){navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()))};caches.keys().then(ks => ks.forEach(k => caches.delete(k))).then(() => location.reload())" style="padding:10px 18px;border-radius:8px;border:none;background:#58833b;color:#fff;font-weight:700;font-size:13px;cursor:pointer;margin-right:8px;">Clear all storage & reload</button><button onclick="location.reload()" style="padding:10px 18px;border-radius:8px;border:1px solid #d1d5db;background:#fff;color:#374151;font-weight:700;font-size:13px;cursor:pointer;">Just reload</button></div></div>';
         } catch (_) { /* ignore */ }
       }
       window.addEventListener('error', function (e) {

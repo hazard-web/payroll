@@ -183,7 +183,7 @@ function AdjustModal({ staffMember, onClose, onSuccess }) {
               style={{ resize: 'vertical', fontFamily: 'inherit', minHeight: 72 }}
             />
             <div style={{ fontSize: 11, color: reason.trim().length < 3 && reason.length > 0 ? '#dc2626' : 'var(--text-muted)', marginTop: 4 }}>
-              {reason.trim().length}/200 characters — reason is required and recorded permanently
+              {reason.trim().length}/200 characters - reason is required and recorded permanently
             </div>
           </div>
 
@@ -630,7 +630,7 @@ function StaffBalanceTable({ policy, onUpdate }) {
                 </div>
                 <div style={{ minWidth:0 }}>
                   <div style={{ fontSize:13, fontWeight:700, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.fullName}</div>
-                  <div style={{ fontSize:11, color:'var(--text-muted)' }}>{s.employeeId || '—'}</div>
+                  <div style={{ fontSize:11, color:'var(--text-muted)' }}>{s.employeeId || '-'}</div>
                 </div>
               </div>
 
@@ -769,7 +769,7 @@ function AdjustmentHistoryTable() {
 
                   {/* Employee */}
                   <div>
-                    <div style={{ fontSize:12, fontWeight:700, color:'var(--text)' }}>{a.staff?.fullName || '—'}</div>
+                    <div style={{ fontSize:12, fontWeight:700, color:'var(--text)' }}>{a.staff?.fullName || '-'}</div>
                     <div style={{ fontSize:10, color:'var(--text-muted)' }}>{a.staff?.employeeId || ''}</div>
                   </div>
 

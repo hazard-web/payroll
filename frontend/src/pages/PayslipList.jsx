@@ -524,7 +524,7 @@ export default function PayslipList() {
         {pagination.totalPages > 1 && (
           <div className="pagination-bar">
             <div className="text-muted" style={{ fontSize: 13, fontWeight: 600 }}>
-              Viewing {((page - 1) * 10) + 1} – {Math.min(page * 10, pagination.total)} of {pagination.total} records
+              Viewing {((page - 1) * 10) + 1} - {Math.min(page * 10, pagination.total)} of {pagination.total} records
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button

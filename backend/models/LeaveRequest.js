@@ -45,9 +45,9 @@ const leaveRequestSchema = new mongoose.Schema(
 );
 
 // Hot paths:
-//  • admin "all pending" — { admin, status, createdAt }
-//  • staff "my requests" — { staff, createdAt }
-//  • overlap / range queries — { staff, startDate, endDate }
+//  • admin "all pending" - { admin, status, createdAt }
+//  • staff "my requests" - { staff, createdAt }
+//  • overlap / range queries - { staff, startDate, endDate }
 leaveRequestSchema.index({ admin: 1, status: 1, createdAt: -1 });
 leaveRequestSchema.index({ staff: 1, createdAt: -1 });
 leaveRequestSchema.index({ staff: 1, startDate: 1, endDate: 1 });

@@ -2,7 +2,7 @@ import { useMemo, useState, useRef, useEffect } from 'react'
 import { Search, AlertCircle } from 'lucide-react'
 
 // ───────────────────────────────────────────────────────────────
-// InputField — labeled input with optional leading icon
+// InputField - labeled input with optional leading icon
 // ───────────────────────────────────────────────────────────────
 export function InputField({
   label,
@@ -61,7 +61,7 @@ export function InputField({
 }
 
 // ───────────────────────────────────────────────────────────────
-// SelectField — styled <select> matching InputField
+// SelectField - styled <select> matching InputField
 // ───────────────────────────────────────────────────────────────
 export function SelectField({
   label,
@@ -100,7 +100,7 @@ export function SelectField({
 }
 
 // ───────────────────────────────────────────────────────────────
-// SegmentedControl — pill toggle for Employee/Intern
+// SegmentedControl - pill toggle for Employee/Intern
 // ───────────────────────────────────────────────────────────────
 export function SegmentedControl({
   options = [],
@@ -126,7 +126,7 @@ export function SegmentedControl({
 }
 
 // ───────────────────────────────────────────────────────────────
-// Toggle — iOS-style switch for Statutory Automation
+// Toggle - iOS-style switch for Statutory Automation
 // ───────────────────────────────────────────────────────────────
 export function Toggle({
   checked,
@@ -152,7 +152,7 @@ export function Toggle({
 }
 
 // ───────────────────────────────────────────────────────────────
-// Modal — backdrop + dialog using .modal-overlay / .modal-panel
+// Modal - backdrop + dialog using .modal-overlay / .modal-panel
 // ───────────────────────────────────────────────────────────────
 export function Modal({
   open,
@@ -186,7 +186,7 @@ export function Modal({
 }
 
 // ───────────────────────────────────────────────────────────────
-// EmptyState — centered placeholder
+// EmptyState - centered placeholder
 // ───────────────────────────────────────────────────────────────
 export function EmptyState({
   icon: Icon,
@@ -210,7 +210,7 @@ export function EmptyState({
 }
 
 // ───────────────────────────────────────────────────────────────
-// Avatar — circular user initial
+// Avatar - circular user initial
 // ───────────────────────────────────────────────────────────────
 export function Avatar({
   name = '',
@@ -266,7 +266,7 @@ export function Avatar({
 }
 
 // ───────────────────────────────────────────────────────────────
-// StepLabel — step indicator for Payroll Engine
+// StepLabel - step indicator for Payroll Engine
 // ───────────────────────────────────────────────────────────────
 export function StepLabel({ num, label, active, completed, className = '' }) {
   const isInactive = !active && !completed
@@ -295,7 +295,7 @@ export function StepLabel({ num, label, active, completed, className = '' }) {
 }
 
 // ───────────────────────────────────────────────────────────────
-// StatCard — compact stat for dashboards
+// StatCard - compact stat for dashboards
 // ───────────────────────────────────────────────────────────────
 export function StatCard({
   icon: Icon,
@@ -347,7 +347,7 @@ export function StatCard({
 }
 
 // ─────────��─��───────────────────────────────────────────────────
-// Card — simple info row for payslip detail pages
+// Card - simple info row for payslip detail pages
 // ───────────────────────────────────────────────────────────────
 export function Card({
   title,
@@ -370,7 +370,7 @@ export function Card({
 }
 
 // ───────────────────────────────────────────────────────────────
-// InfoRow — key-value pair for detail cards
+// InfoRow - key-value pair for detail cards
 // ───────────────────────────────────────────────────────────────
 export function InfoRow({
   label,
@@ -380,13 +380,13 @@ export function InfoRow({
   return (
     <div className={`preview-row ${className}`}>
       <span className="preview-row__label">{label}</span>
-      <span className="preview-row__value">{value || '—'}</span>
+      <span className="preview-row__value">{value || '-'}</span>
     </div>
   )
 }
 
 // ───────────────────────────────────────────────────────────────
-// Badge — status indicator
+// Badge - status indicator
 // ───────────────────────────────────────────────────────────────
 export function Badge({
   variant = 'green', // green | blue | red | amber | slate
@@ -402,7 +402,7 @@ export function Badge({
 }
 
 // ───────────────────────────────────────────────────────────────
-// ActionBtn — icon button for table rows
+// ActionBtn - icon button for table rows
 // ───────────────────────────────────────────────────────────────
 export function ActionBtn({
   icon: Icon,
@@ -427,7 +427,7 @@ export function ActionBtn({
 }
 
 // ───────────────────────────────────────────────────────────────
-// SearchInput — search bar with icon
+// SearchInput - search bar with icon
 // ───────────────────────────────────────────────────────────────
 export function SearchInput({
   value,
@@ -451,12 +451,12 @@ export function SearchInput({
 }
 
 // ───────────────────────────────────────────────────────────────
-// StaffSearchDropdown — searchable combobox for staff selection
+// StaffSearchDropdown - searchable combobox for staff selection
 // Props:
-//   staffList   – array of staff objects from /staff API
-//   onSelect    – called with the selected staff object
-//   placeholder – input placeholder text
-//   label       – field label
+//   staffList   - array of staff objects from /staff API
+//   onSelect    - called with the selected staff object
+//   placeholder - input placeholder text
+//   label       - field label
 // ───────────────────────────────────────────────────────────────
 export function StaffSearchDropdown({
   staffList = [],

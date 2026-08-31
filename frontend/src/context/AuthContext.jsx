@@ -21,7 +21,7 @@ export function AuthProvider({ children }) {
 
   const fetchProfile = useCallback(async () => {
     const controller = new AbortController()
-    // 5-second timeout — avoids the 30 s axios global timeout causing a
+    // 5-second timeout - avoids the 30 s axios global timeout causing a
     // long blank screen when the backend is slow or the token is expired.
     const timer = setTimeout(() => controller.abort(), 5000)
     try {

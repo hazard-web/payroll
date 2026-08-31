@@ -1,196 +1,180 @@
-// PaySlip Pro - Enterprise Statutory Payroll Engine
-//
-// Route-based code splitting: every page is loaded on demand via
-// React.lazy so the initial bundle only ships the public route shells
-// + Layout components. Users navigating to /payslips for the first
-// time will pull in PayslipList.jsx as its own chunk instead of paying
-// for LeaveRequests, TeamPerformance, etc. on first paint.
-import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import Layout from './components/Layout'
-import PortalLayout from './components/PortalLayout'
-import PageTransition from './components/PageTransition'
+import DocumentTitle from './components/DocumentTitle'
+import PulseLoading from './components/PulseLoading'
+import PulseCheckInHeartbeat from './components/PulseCheckInHeartbeat'
 import { useAuth } from './context/AuthContext'
-import { useStaffPortal } from './context/StaffPortalContext'
 
-// Public / auth pages — keep these eagerly loaded so the entry path
-// (login, verify) renders instantly with no spinner.
 import Login from './pages/Login'
+import ComingSoon from './pages/ComingSoon'
+import PeopleOsLive from './pages/PeopleOsLive'
 import Register from './pages/Register'
 import VerifyEmail from './pages/VerifyEmail'
 import VerifyAction from './pages/VerifyAction'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
-import PortalLogin from './pages/portal/PortalLogin'
-import PortalForgotPassword from './pages/portal/PortalForgotPassword'
-import PortalResetPassword from './pages/portal/PortalResetPassword'
-import PortalSetupPassword from './pages/portal/PortalSetupPassword'
+import SmartSignIn from './pages/SmartSignIn'
+import OAuthCallback from './pages/OAuthCallback'
+import OAuthCreateAccount from './pages/OAuthCreateAccount'
+import HrSetup from './pages/HrSetup'
+import PeopleHub from './pages/PeopleHub'
+import PulseGettingStarted from './pages/PulseGettingStarted'
+import PeopleHome from './pages/PeopleHome'
+import PulseCheckInTimer from './pages/PulseCheckInTimer'
+import PulseNotes from './pages/PulseNotes'
+import AcceptInvite from './pages/AcceptInvite'
+import AccountPortal from './pages/AccountPortal'
 
-// Lazy-loaded pages (one chunk per file).
-const Dashboard             = lazy(() => import('./pages/Dashboard'))
-const GeneratePayslip       = lazy(() => import('./pages/GeneratePayslip'))
-const PayslipList           = lazy(() => import('./pages/PayslipList'))
-const PayslipDetail         = lazy(() => import('./pages/PayslipDetail'))
-const StaffList             = lazy(() => import('./pages/StaffList'))
-const StaffDetail           = lazy(() => import('./pages/StaffDetail'))
-const AuditLogs             = lazy(() => import('./pages/AuditLogs'))
-const TeamPerformance       = lazy(() => import('./pages/TeamPerformance'))
-const StaffPerformanceDetail = lazy(() => import('./pages/StaffPerformanceDetail'))
-const LeaveRequests         = lazy(() => import('./pages/LeaveRequests'))
-const LeavePolicy           = lazy(() => import('./pages/LeavePolicy'))
-const StaffSupport          = lazy(() => import('./pages/StaffSupport'))
-const Profile               = lazy(() => import('./pages/Profile'))
-const Announcements         = lazy(() => import('./pages/Announcements'))
-const SettingsPage          = lazy(() => import('./pages/SettingsPage'))
-const TaskAssignment        = lazy(() => import('./pages/TaskAssignment'))
-
-const PortalChangePassword  = lazy(() => import('./pages/portal/PortalChangePassword'))
-const PortalDashboard       = lazy(() => import('./pages/portal/PortalDashboard'))
-const PortalProfile         = lazy(() => import('./pages/portal/PortalProfile'))
-const PortalTasks           = lazy(() => import('./pages/portal/PortalTasks'))
-const PortalAttendance      = lazy(() => import('./pages/portal/PortalAttendance'))
-const PortalLeave           = lazy(() => import('./pages/portal/PortalLeave'))
-const PortalPayslips        = lazy(() => import('./pages/portal/PortalPayslips'))
-const PortalAnnouncements   = lazy(() => import('./pages/portal/PortalAnnouncements'))
-const PortalHelp            = lazy(() => import('./pages/portal/PortalHelp'))
-const PortalSettings        = lazy(() => import('./pages/portal/PortalSettings'))
-const PortalSummary         = lazy(() => import('./pages/portal/PortalSummary'))
-
-// Lightweight loading fallback — PageTransition's loader matches the
-// dashboard's loading state so users don't see a visual jump.
-const PageLoader = () => (
-  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '64px 0' }}>
-    <div className="pa-loader" />
-  </div>
-)
-
-// ─────────────────────────────────────────────
-// Guard for Corporate Portal
-// ─────────────────────────────────────────────
+/** Company User auth — Pulse only (no Rohit HR / Team Portal). */
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
-  if (loading) return null
-  if (!user) return <Navigate to="/login" replace />
-  return children
-}
-
-// ─────────────────────────────────────────────
-// Guard for Staff Portal protected pages
-// ─────────────────────────────────────────────
-function PortalProtectedRoute({ children }) {
-  const { staffUser, loading } = useStaffPortal()
   const location = useLocation()
-  if (loading) return null
-  if (!staffUser) return <Navigate to="/portal/login" replace />
-  if (staffUser.mustChangePassword && location.pathname !== '/portal/change-password') {
-    return <Navigate to="/portal/change-password" replace />
+  if (loading) {
+    const onPulse =
+      location.pathname === '/pulse' || location.pathname.startsWith('/pulse/')
+    if (onPulse) {
+      return <PulseLoading />
+    }
+    return <div style={{ minHeight: '100vh', background: '#fff' }} aria-hidden="true" />
   }
-  if (
-    staffUser.profileCompleted === false &&
-    location.pathname !== '/portal/profile'
-  ) {
-    return <Navigate to="/portal/profile" replace />
+  if (!user) return <Navigate to="/login" replace />
+  const needsSetup = user.onboardingCompleted === false
+  if (needsSetup && location.pathname !== '/setup') {
+    return <Navigate to="/setup" replace />
+  }
+  if (!needsSetup && location.pathname === '/setup') {
+    return <Navigate to="/account" replace />
   }
   return children
 }
 
-// Wrap a lazy page with PageTransition (matches existing UI) + Suspense.
-const Lazy = ({ component: Component }) => (
-  <Suspense fallback={<PageLoader />}>
-    <PageTransition>
-      <Component />
-    </PageTransition>
-  </Suspense>
-)
+/** Old Rohit / HR / portal URLs → Pulse. */
+function LegacyRedirect() {
+  return <Navigate to="/pulse" replace />
+}
 
 export default function App() {
   return (
-    <Routes>
-      {/* ════════════════════════════════════════════
-          STAFF PORTAL — Public (no auth required)
-          ════════════════════════════════════════════ */}
-      <Route path="/portal/login" element={<PortalLogin />} />
-      <Route path="/portal/forgot-password" element={<PortalForgotPassword />} />
-      <Route path="/portal/reset-password" element={<PortalResetPassword />} />
-      <Route path="/portal/setup-password" element={<PortalSetupPassword />} />
-      <Route
-        path="/portal/change-password"
-        element={
-          <PortalProtectedRoute>
-            <Lazy component={PortalChangePassword} />
-          </PortalProtectedRoute>
-        }
-      />
+    <>
+      <DocumentTitle />
+      <PulseCheckInHeartbeat />
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/oauth/callback" element={<OAuthCallback />} />
+        <Route path="/oauth/create-account" element={<OAuthCreateAccount />} />
+        <Route
+          path="/setup"
+          element={
+            <ProtectedRoute>
+              <HrSetup />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/pulse"
+          element={
+            <ProtectedRoute>
+              <PeopleHub />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/:portalId/settings/service/getting-started"
+          element={
+            <ProtectedRoute>
+              <PulseGettingStarted />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/pulse/settings/service/getting-started"
+          element={
+            <ProtectedRoute>
+              <PulseGettingStarted />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/pulse/getting-started"
+          element={<Navigate to="/pulse/settings/service/getting-started" replace />}
+        />
+        <Route
+          path="/pulse/sample-data"
+          element={<Navigate to="/pulse/settings/service/getting-started" replace />}
+        />
+        <Route path="/pulse/checkin-timer" element={<PulseCheckInTimer />} />
+        <Route
+          path="/pulse/home"
+          element={
+            <ProtectedRoute>
+              <PeopleHome />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/pulse/notes"
+          element={
+            <ProtectedRoute>
+              <PulseNotes />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/account/*"
+          element={
+            <ProtectedRoute>
+              <AccountPortal />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/people" element={<Navigate to="/pulse" replace />} />
+        <Route path="/people/home" element={<Navigate to="/pulse/home" replace />} />
 
-      {/* ════════════════════════════════════════════
-          STAFF PORTAL — Protected (staff auth required)
-          ════════════════════════════════════════════ */}
-      <Route
-        path="/portal"
-        element={
-          <PortalProtectedRoute>
-            <PortalLayout />
-          </PortalProtectedRoute>
-        }
-      >
-        <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="dashboard" element={<Lazy component={PortalDashboard} />} />
-        <Route path="profile"   element={<Lazy component={PortalProfile} />} />
-        <Route path="tasks"     element={<Lazy component={PortalTasks} />} />
-        <Route path="attendance" element={<Lazy component={PortalAttendance} />} />
-        <Route path="leave"     element={<Lazy component={PortalLeave} />} />
-        <Route path="payslips"  element={<Lazy component={PortalPayslips} />} />
-        <Route path="announcements" element={<Lazy component={PortalAnnouncements} />} />
-        <Route path="help"      element={<Lazy component={PortalHelp} />} />
-        <Route path="settings"  element={<Lazy component={PortalSettings} />} />
-        <Route path="*" element={<Navigate to="dashboard" replace />} />
-      </Route>
+        <Route path="/smart-signin" element={<SmartSignIn />} />
+        <Route path="/coming-soon" element={<ComingSoon />} />
+        <Route path="/people-os" element={<PeopleOsLive />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/invite/:token" element={<AcceptInvite />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/verify" element={<VerifyAction />} />
+        <Route path="/forgot" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
-      {/* ════════════════════════════════════════════
-          CORPORATE PORTAL — Public
-          ════════════════════════════════════════════ */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/verify-email" element={<VerifyEmail />} />
-      <Route path="/verify" element={<VerifyAction />} />
-      <Route path="/forgot" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
+        {/* Rohit Team Portal */}
+        <Route path="/portal/*" element={<LegacyRedirect />} />
+        {/* Rohit account hub / apps launcher */}
+        <Route path="/apps/*" element={<LegacyRedirect />} />
+        <Route path="/apps" element={<LegacyRedirect />} />
+        {/* Rohit corporate HR shell */}
+        <Route path="/dashboard/*" element={<LegacyRedirect />} />
+        <Route path="/dashboard" element={<LegacyRedirect />} />
+        <Route path="/staff/*" element={<LegacyRedirect />} />
+        <Route path="/staff" element={<LegacyRedirect />} />
+        <Route path="/payslips/*" element={<LegacyRedirect />} />
+        <Route path="/payslips" element={<LegacyRedirect />} />
+        <Route path="/leave/*" element={<LegacyRedirect />} />
+        <Route path="/leave" element={<LegacyRedirect />} />
+        <Route path="/attendance/*" element={<LegacyRedirect />} />
+        <Route path="/attendance" element={<LegacyRedirect />} />
+        <Route path="/performance/*" element={<LegacyRedirect />} />
+        <Route path="/performance" element={<LegacyRedirect />} />
+        <Route path="/tasks/*" element={<LegacyRedirect />} />
+        <Route path="/tasks" element={<LegacyRedirect />} />
+        <Route path="/settings/*" element={<LegacyRedirect />} />
+        <Route path="/settings" element={<LegacyRedirect />} />
+        <Route path="/announcements/*" element={<LegacyRedirect />} />
+        <Route path="/announcements" element={<LegacyRedirect />} />
+        <Route path="/audit-logs/*" element={<LegacyRedirect />} />
+        <Route path="/audit-logs" element={<LegacyRedirect />} />
+        <Route path="/staff-support/*" element={<LegacyRedirect />} />
+        <Route path="/staff-support" element={<LegacyRedirect />} />
+        <Route path="/leave-requests" element={<LegacyRedirect />} />
+        <Route path="/leave-policy" element={<LegacyRedirect />} />
+        <Route path="/profile" element={<LegacyRedirect />} />
+        <Route path="/generate" element={<LegacyRedirect />} />
 
-      {/* ════════════════════════════════════════════
-          CORPORATE PORTAL — Protected
-          ════════════════════════════════════════════ */}
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Lazy component={Dashboard} />} />
-        <Route path="payslips"        element={<Lazy component={PayslipList} />} />
-        <Route path="payslips/generate" element={<Lazy component={GeneratePayslip} />} />
-        <Route path="payslips/:id"    element={<Lazy component={PayslipDetail} />} />
-        {/* Redirect old /generate path to /payslips/generate */}
-        <Route path="generate"        element={<Navigate to="/payslips/generate" replace />} />
-        <Route path="staff"           element={<Lazy component={StaffList} />} />
-        <Route path="staff/:id"       element={<Lazy component={StaffDetail} />} />
-        <Route path="performance"     element={<Lazy component={TeamPerformance} />} />
-        <Route path="performance/:id" element={<Lazy component={StaffPerformanceDetail} />} />
-        <Route path="attendance"      element={<Lazy component={LeaveRequests} />} />
-        <Route path="leave"           element={<Lazy component={LeaveRequests} />} />
-        <Route path="settings"        element={<Lazy component={SettingsPage} />} />
-        <Route path="tasks"           element={<Lazy component={TaskAssignment} />} />
-        
-        {/* Redirect old routes */}
-        <Route path="leave-requests"  element={<Navigate to="/leave" replace />} />
-        <Route path="leave-policy"    element={<Navigate to="/leave" replace />} />
-        <Route path="profile"         element={<Navigate to="/settings" replace />} />
-        <Route path="announcements"   element={<Navigate to="/settings" replace />} />
-        <Route path="audit-logs"      element={<Navigate to="/settings" replace />} />
-        <Route path="staff-support"   element={<Lazy component={StaffSupport} />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
-    </Routes>
+        <Route path="/" element={<Navigate to="/account" replace />} />
+        <Route path="*" element={<Navigate to="/account" replace />} />
+      </Routes>
+    </>
   )
 }

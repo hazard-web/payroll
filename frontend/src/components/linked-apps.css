@@ -1,0 +1,48 @@
+.la-page {
+  max-width: 760px;
+}
+
+.la-h.ant-typography {
+  margin-bottom: 8px !important;
+}
+
+.la-lead.ant-typography {
+  margin-bottom: 24px !important;
+  max-width: 62ch;
+}
+
+.la-search.ant-input-affix-wrapper {
+  border-radius: 999px;
+  padding-inline: 16px;
+  margin-bottom: 20px;
+  background: #fff;
+}
+
+.la-tabs.ant-segmented {
+  margin-bottom: 16px;
+  padding: 4px;
+  background: #f4f2ec;
+}
+
+.la-actions {
+  margin-bottom: 12px;
+}
+
+.la-row.ant-list-item {
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  border: 1px solid #e6e1d8 !important;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.la-row.ant-list-item:hover {
+  border-color: #c8c2b6 !important;
+  box-shadow: 0 8px 24px rgba(28, 25, 23, 0.08);
+}
+
+.la-row .ant-list-item-meta-title {
+  font-weight: 600;
+  margin: 0 !important;
+}

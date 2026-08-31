@@ -1,12 +1,11 @@
 import axios from 'axios'
 
-const PROD_BACKEND = 'https://payroll-portal-bg9c.vercel.app'
 const API_BASE = import.meta.env.DEV
   ? ''
-  : (import.meta.env.VITE_API_BASE_URL || PROD_BACKEND).replace(/\/+$/, '')
+  : (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
 
 // Default timeout for normal API calls. Heavy endpoints (PDF generation,
-// payslip emails, portal provisioning with SMTP) need more headroom —
+// payslip emails, portal provisioning with SMTP) need more headroom -
 // those callers override `timeout` per-request.
 const DEFAULT_TIMEOUT_MS = 30000
 
@@ -19,6 +18,7 @@ const SLOW_ENDPOINT_PATTERNS = [
   /\/payslips\/generate/,
   /\/staff\/[^/]+\/provision-portal/,    // SMTP onboarding email
   /\/staff\/[^/]+\/documents/,           // base64 document upload
+  /\/candidates/,                        // candidate photo / offer letter uploads
   /\/portal\/me\/documents\//,           // base64 document upload
   /\/portal\/login/,                     // bcrypt + Atlas cold-start can be slow
 ]
@@ -53,7 +53,7 @@ api.interceptors.request.use((config) => {
   // already set an explicit timeout.
   if (!config.timeout || config.timeout === DEFAULT_TIMEOUT_MS) {
     if (SLOW_ENDPOINT_PATTERNS.some((re) => re.test(url))) {
-      config.timeout = 90000 // 90s — PDF gen + SMTP worst case
+      config.timeout = 90000 // 90s - PDF gen + SMTP worst case
     }
   }
 
@@ -63,13 +63,12 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    // Preserve the original AxiosError so call sites can still read
-    // err.response, err.config, etc. Only normalise .message when the
-    // server / network didn't supply one — never overwrite the real
-    // reason for the failure with a generic string (call sites rely on
-    // err.response.data.message for surfacing the actual server error).
     if (!err.message) {
       err.message = 'Something went wrong. Please try again.'
+    }
+    const code = err.response?.data?.code
+    if (code === 'COMPANY_DOMAIN_REQUIRED' && typeof window !== 'undefined') {
+      localStorage.removeItem('token')
     }
     return Promise.reject(err)
   }

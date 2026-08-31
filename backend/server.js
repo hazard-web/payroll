@@ -1,13 +1,22 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const dns = require('dns');
 require('dotenv').config();
+
+// Node 18+ / 24 often fail outbound HTTPS with "fetch failed" when IPv6 is broken.
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch {
+  /* ignore */
+}
 
 mongoose.set('bufferCommands', false);
 mongoose.set('autoIndex', false);
 
 const payslipRoutes = require('./routes/payslip');
 const { router: authRoutes } = require('./routes/auth');
+const oauthRoutes = require('./routes/oauth');
 const staffRoutes = require('./routes/staff');
 const { router: staffPortalRoutes } = require('./routes/staffPortal');
 const attendanceRoutes = require('./routes/attendance');
@@ -19,12 +28,17 @@ const supportRoutes = require('./routes/support');
 const announcementsRoutes = require('./routes/announcements');
 const assignedTasksRoutes = require('./routes/assignedTasks');
 const searchRoutes = require('./routes/search');
+const pulseCheckInRoutes = require('./routes/pulseCheckIn');
+const inviteRoutes = require('./routes/invites');
+const launcherRoutes = require('./routes/launcher');
+const candidateRoutes = require('./routes/candidates');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors({ origin: true, credentials: true }));
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
@@ -99,6 +113,7 @@ app.use('/api', async (req, res, next) => {
 
 // Routes
 app.use('/api/payslips', payslipRoutes);
+app.use('/api/auth/oauth', oauthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/portal', staffPortalRoutes);
@@ -111,12 +126,17 @@ app.use('/api/support', supportRoutes);
 app.use('/api/announcements', announcementsRoutes);
 app.use('/api/assigned-tasks', assignedTasksRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/pulse-checkin', pulseCheckInRoutes);
+app.use('/api/invites', inviteRoutes);
+app.use('/api/launcher', launcherRoutes);
+app.use('/api/candidates', candidateRoutes);
 
 const path = require('path');
 
-// Note: On Vercel, static files are served by @vercel/static-build
-// On local/dev, we serve frontend static files from here for unified server
-if (!process.env.VERCEL) {
+// Hostinger UAT serves API only. Vercel hosts the frontend.
+// Set SERVE_FRONTEND=true only if this Node process should also ship the SPA.
+const serveFrontend = !process.env.VERCEL && process.env.SERVE_FRONTEND === 'true';
+if (serveFrontend) {
   const frontendDist = path.join(__dirname, '../frontend/dist');
   app.use(express.static(frontendDist));
 }
@@ -126,8 +146,7 @@ app.use('/api', (req, res) => {
   res.status(404).json({ success: false, message: 'API Route not found' });
 });
 
-// Catch-all route for React app (local dev only)
-if (!process.env.VERCEL) {
+if (serveFrontend) {
   const frontendDist = path.join(__dirname, '../frontend/dist');
   app.get('*', (req, res) => {
     res.sendFile(path.join(frontendDist, 'index.html'));
@@ -137,7 +156,7 @@ if (!process.env.VERCEL) {
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('\n🔴 ═══════════════════════════════════════════');
-  console.error(`🔴 UNHANDLED SERVER ERROR — ${req.method} ${req.originalUrl}`);
+  console.error(`🔴 UNHANDLED SERVER ERROR - ${req.method} ${req.originalUrl}`);
   console.error('🔴 Name   :', err.name);
   console.error('🔴 Message:', err.message);
   if (err.stack) console.error('🔴 Stack  :\n', err.stack);
@@ -198,13 +217,17 @@ if (!process.env.VERCEL) {
   // Get local IP address on startup so user knows how to access from mobile
   const os = require('os');
   const getLocalIP = () => {
-    const interfaces = os.networkInterfaces();
-    for (const name of Object.keys(interfaces)) {
-      for (const iface of interfaces[name]) {
-        if (iface.family === 'IPv4' && !iface.internal) {
-          return iface.address;
+    try {
+      const interfaces = os.networkInterfaces();
+      for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+          if (iface.family === 'IPv4' && !iface.internal) {
+            return iface.address;
+          }
         }
       }
+    } catch {
+      /* network interface enumeration not available in this environment */
     }
     return 'localhost';
   };
@@ -215,7 +238,7 @@ if (!process.env.VERCEL) {
   server.listen(PORT, () => {
     const localIP = getLocalIP();
     console.log(`🚀 Server running locally  → http://localhost:${PORT}`);
-    console.log(`🚀 Server running on network → http://${localIP}:${PORT}`);
+    if (localIP !== 'localhost') console.log(`🚀 Server running on network → http://${localIP}:${PORT}`);
     console.log(`📋 API Health               → http://localhost:${PORT}/api/health`);
   });
   server.on('error', (err) => {
@@ -259,7 +282,7 @@ if (!process.env.VERCEL) {
   }, FIVE_MINUTES);
 
   console.log('⏰ Local shift-check cron scheduled (every 1 hour)');
-  console.log('🕖 Office closing cron scheduled (every 5 minutes — fires at 7:00 PM & 7:30 PM IST)');
+  console.log('🕖 Office closing cron scheduled (every 5 minutes - fires at 7:00 PM & 7:30 PM IST)');
 }
 
 // Eagerly establish the Mongo connection on cold start so the first
@@ -271,7 +294,7 @@ ensureMongoConnection()
     console.log('📂 DB NAME:', mongoose.connection.name);
   })
   .catch((err) => {
-    console.error('❌ MongoDB connection error (server is still up — requests will return DB_UNREACHABLE until DB is reachable):');
+    console.error('❌ MongoDB connection error (server is still up - requests will return DB_UNREACHABLE until DB is reachable):');
     console.error(err.message);
   });
 

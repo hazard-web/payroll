@@ -19,6 +19,11 @@ const RecentRow = React.memo(({ log, navigate }) => {
       case 'PUNCH_OUT': return { icon: Clock, color: 'var(--primary)', label: 'Attendance' }
       case 'ATTENDANCE_RESOLVED': return { icon: CheckCircle2, color: 'var(--primary)', label: 'Resolved' }
       case 'FORCE_PUNCH_OUT': return { icon: LogOut, color: 'var(--primary)', label: 'Admin Fix' }
+      case 'PULSE_CHECK_IN': return { icon: Clock, color: 'var(--primary)', label: 'Pulse check-in' }
+      case 'PULSE_CHECK_OUT': return { icon: LogOut, color: 'var(--primary)', label: 'Pulse check-out' }
+      case 'PULSE_RESUME': return { icon: Clock, color: 'var(--primary)', label: 'Pulse resume' }
+      case 'PULSE_TIMESHEET_DAY': return { icon: FileText, color: 'var(--primary)', label: 'Timesheet day' }
+      case 'PULSE_TARGET_REACHED': return { icon: CheckCircle2, color: 'var(--primary)', label: '9h target' }
       default: return { icon: Activity, color: 'var(--primary)', label: 'System' }
     }
   }
@@ -104,7 +109,7 @@ export default function AuditLogs({ isSettings }) {
     fetchPage(1)
   }, [fetchPage])
 
-  // IntersectionObserver — fires when sentinel enters viewport
+  // IntersectionObserver - fires when sentinel enters viewport
   useEffect(() => {
     if (observerRef.current) observerRef.current.disconnect()
     observerRef.current = new IntersectionObserver(

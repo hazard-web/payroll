@@ -13,7 +13,7 @@ const { logActivity } = require('../utils/logger');
 router.use(authCombined);
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/payslips — Create a new payslip
+// POST /api/payslips - Create a new payslip
 // ─────────────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
   try {
@@ -125,7 +125,7 @@ router.post('/', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// GET /api/payslips — List all payslips (with search/filter)
+// GET /api/payslips - List all payslips (with search/filter)
 // ─────────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
@@ -148,7 +148,7 @@ router.get('/', async (req, res) => {
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    // Run count + page fetch in parallel — they're independent queries.
+    // Run count + page fetch in parallel - they're independent queries.
     const [total, payslips] = await Promise.all([
       Payslip.countDocuments(filter),
       Payslip.find(filter)
@@ -273,7 +273,7 @@ router.get('/stats/summary', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// GET /api/payslips/:id — Get a single payslip
+// GET /api/payslips/:id - Get a single payslip
 // ─────────────────────────────────────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
@@ -296,7 +296,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// PUT /api/payslips/:id — Update a payslip (sanitized fields only)
+// PUT /api/payslips/:id - Update a payslip (sanitized fields only)
 // ─────────────────────────────────────────────────────────────
 router.put('/:id', async (req, res) => {
   try {
@@ -329,7 +329,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// DELETE /api/payslips/:id — Delete a payslip
+// DELETE /api/payslips/:id - Delete a payslip
 // ─────────────────────────────────────────────────────────────
 router.delete('/:id', async (req, res) => {
   try {
@@ -345,7 +345,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// GET /api/payslips/:id/download — Download payslip as PDF
+// GET /api/payslips/:id/download - Download payslip as PDF
 // ─────────────────────────────────────────────────────────────
 router.get('/:id/download', async (req, res) => {
   try {
@@ -375,7 +375,7 @@ router.get('/:id/download', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/payslips/:id/email — Email payslip to employee
+// POST /api/payslips/:id/email - Email payslip to employee
 // ─────────────────────────────────────────────────────────────
 router.post('/:id/email', async (req, res) => {
   try {
@@ -415,7 +415,7 @@ router.post('/:id/email', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/payslips/bulk-email-month — Bulk email all unsent slips for a month
+// POST /api/payslips/bulk-email-month - Bulk email all unsent slips for a month
 // ─────────────────────────────────────────────────────────────
 router.post('/bulk-email-month', async (req, res) => {
   try {
@@ -463,7 +463,7 @@ router.post('/bulk-email-month', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/payslips/:id/push — Push payslip to staff portal
+// POST /api/payslips/:id/push - Push payslip to staff portal
 // ─────────────────────────────────────────────────────────────
 router.post('/:id/push', async (req, res) => {
   try {

@@ -1,5 +1,5 @@
 // Recreate staffs collection to break the Atlas M0 collection lock
-// This is safe — it exports all data, drops the collection, re-imports
+// This is safe - it exports all data, drops the collection, re-imports
 require('dotenv').config();
 const { MongoClient } = require('mongodb');
 
@@ -12,7 +12,7 @@ const { MongoClient } = require('mongodb');
     const db = client.db('payslip_generator');
     const col = db.collection('staffs');
 
-    // Use hint(_id:1) to force _id index scan — avoids broken email index
+    // Use hint(_id:1) to force _id index scan - avoids broken email index
     console.log('Backing up all staff documents using _id index hint...');
     console.time('backup');
     const docs = await col.find({}).hint({ _id: 1 }).toArray();
@@ -25,7 +25,7 @@ const { MongoClient } = require('mongodb');
     }
 
     // Print emails for confirmation
-    docs.forEach((d, i) => console.log(`  [${i}] ${d.email} — ${d.fullName}`));
+    docs.forEach((d, i) => console.log(`  [${i}] ${d.email} - ${d.fullName}`));
 
     // Drop the locked collection
     console.log('Dropping staffs collection...');

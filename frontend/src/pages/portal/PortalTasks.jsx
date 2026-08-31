@@ -123,7 +123,7 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 
 const fmtDate = dt => dt
   ? new Date(dt).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
-  : '—'
+  : '-'
 
 const fmtTime = dt => dt
   ? new Date(dt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
@@ -477,7 +477,7 @@ function TaskCard({ task, onAction, actionLoading }) {
 
       {/* Actions */}
       <div className="pt-task-actions">
-        {/* START button — show for Pending tasks */}
+        {/* START button - show for Pending tasks */}
         {isPending && (
           <button
             className="pt-action-btn start"
@@ -491,7 +491,7 @@ function TaskCard({ task, onAction, actionLoading }) {
           </button>
         )}
 
-        {/* START button — also show for In Progress (restart / resume) */}
+        {/* START button - also show for In Progress (restart / resume) */}
         {task.status === 'In Progress' && !isRunning && (
           <button
             className="pt-action-btn start"
@@ -519,7 +519,7 @@ function TaskCard({ task, onAction, actionLoading }) {
           </button>
         )}
 
-        {/* PENDING button — show for In Progress and Completed */}
+        {/* PENDING button - show for In Progress and Completed */}
         {!isPending && (
           <button
             className="pt-action-btn pending"
@@ -1360,7 +1360,7 @@ export default function PortalTasks() {
                     onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg)' }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)' }}
                   >
-                    {/* Col 1 — Project name */}
+                    {/* Col 1 - Project name */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                         <span style={{ fontSize: 13 }}>📁</span>
@@ -1400,21 +1400,21 @@ export default function PortalTasks() {
                       )}
                     </div>
 
-                    {/* Col 2 — Priority */}
+                    {/* Col 2 - Priority */}
                     <div style={{ width: 100, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
                       <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: '700', background: priorityBg, color: priorityColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         {task.priority}
                       </span>
                     </div>
 
-                    {/* Col 3 — Status */}
+                    {/* Col 3 - Status */}
                     <div style={{ width: 110, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
                       <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: '700', background: statusBg, color: statusColor, whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         {task.status === 'Completed' ? '✓ ' : ''}{task.status}
                       </span>
                     </div>
 
-                    {/* Col 4 — Due date */}
+                    {/* Col 4 - Due date */}
                     <div style={{ width: 130, flexShrink: 0 }}>
                       {task.dueDate ? (
                         <div style={{ fontSize: 11, color: isOverdue ? '#dc2626' : '#64748b', fontWeight: isOverdue ? 700 : 500, textAlign: 'center' }}>
@@ -1425,11 +1425,11 @@ export default function PortalTasks() {
                           {isOverdue && <div style={{ fontSize: 9, color: '#dc2626', fontWeight: 700, marginTop: 1 }}>Overdue</div>}
                         </div>
                       ) : (
-                        <span style={{ fontSize: 11, color: '#cbd5e1', display: 'block', textAlign: 'center' }}>–</span>
+                        <span style={{ fontSize: 11, color: '#cbd5e1', display: 'block', textAlign: 'center' }}>-</span>
                       )}
                     </div>
 
-                    {/* Col 5 — Action */}
+                    {/* Col 5 - Action */}
                     <div style={{ width: 180, flexShrink: 0, display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
                       {task.status === 'Pending' && (
                         <button
@@ -1549,7 +1549,7 @@ export default function PortalTasks() {
                   <div>
                     <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Due Date</div>
                     <div style={{ fontWeight: 600, marginTop: 2, color: detailsProject.dueDate && new Date(detailsProject.dueDate) < new Date() && detailsProject.status !== 'Completed' ? '#dc2626' : 'inherit' }}>
-                      {detailsProject.dueDate ? new Date(detailsProject.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                      {detailsProject.dueDate ? new Date(detailsProject.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
                     </div>
                   </div>
                 </div>

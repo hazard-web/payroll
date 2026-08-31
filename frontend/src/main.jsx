@@ -4,10 +4,11 @@ import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
-import { StaffPortalProvider } from './context/StaffPortalContext'
+import AntdProvider from './components/AntdProvider'
 import App from './App.jsx'
 import ErrorBoundary from './components/ErrorBoundary'
 import './index.css'
+import './theme/pulse-dark.css'
 
 // Automatically unregister any active service worker from previous PWA installations.
 // This prevents old cached service workers from intercepting new portal routes.
@@ -25,27 +26,37 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <ErrorBoundary>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ThemeProvider>
-          <AuthProvider>
-            <StaffPortalProvider>
+          <AntdProvider>
+            <AuthProvider>
               <App />
-            </StaffPortalProvider>
-          </AuthProvider>
+            </AuthProvider>
+          </AntdProvider>
         </ThemeProvider>
         <Toaster
-          position="top-right"
+          position="top-center"
+          gutter={12}
+          containerStyle={{ top: 20 }}
           toastOptions={{
             duration: 3500,
+            className: 'pos-toast-default',
             style: {
-              fontSize: '13.5px',
-              borderRadius: '10px',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-              padding: '12px 16px',
+              fontFamily: "'Nunito Sans', 'Segoe UI', system-ui, sans-serif",
+              fontSize: '15px',
+              fontWeight: 600,
+              color: '#111',
+              background: '#fff',
+              border: '1px solid #e8eaed',
+              borderRadius: '12px',
+              boxShadow: '0 14px 36px rgba(15, 23, 42, 0.14)',
+              padding: '14px 18px',
+              minWidth: '280px',
+              maxWidth: '420px',
             },
             success: {
-              iconTheme: { primary: '#58833b', secondary: '#e5ebdd' },
+              iconTheme: { primary: '#15bc83', secondary: '#ffffff' },
             },
             error: {
-              iconTheme: { primary: '#9f1239', secondary: '#ffe4e6' },
+              iconTheme: { primary: '#e42527', secondary: '#ffffff' },
             },
           }}
         />

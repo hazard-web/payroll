@@ -1,0 +1,430 @@
+/* ── Boot: static Pulse logo ── */
+.pp-boot {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  background: #fff;
+}
+
+/* ── Pulse welcome (/pulse) — Ant Design + Pulse theme tokens ── */
+.pp-page.pulse-welcome.ant-layout {
+  --pp-text: var(--ant-color-text, #1c1917);
+  --pp-muted: var(--ant-color-text-secondary, #6b6560);
+  --pp-link: var(--ant-color-primary, #1a5f4a);
+  --pp-surface: #ffffff;
+  --pp-layout: var(--ant-color-bg-layout, #f4f2ec);
+
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 1;
+  background: var(--pp-surface);
+  color: var(--pp-text);
+  font-family: var(--ant-font-family, 'IBM Plex Sans', 'Source Sans 3', system-ui, sans-serif);
+  -webkit-font-smoothing: antialiased;
+}
+
+.pp-split.ant-layout-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1.38fr) minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  padding: 0 !important;
+}
+
+/* ── Left: welcome copy ── */
+.pp-left {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  overflow: auto;
+  padding: clamp(48px, 9vh, 96px) clamp(40px, 6vw, 88px);
+  background: var(--pp-surface);
+}
+
+.pp-left-inner {
+  width: 100%;
+  max-width: 560px;
+  animation: pp-rise 0.55s ease both;
+}
+
+.pp-page .pp-title.ant-typography {
+  margin: 0 0 22px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: clamp(30px, 3.4vw, 38px) !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.03em;
+  color: var(--pp-text) !important;
+}
+
+.pp-hello,
+.pp-welcome {
+  display: block;
+}
+
+.pp-page .pp-intro.ant-typography {
+  margin: 0 0 42px !important;
+  max-width: 48ch;
+  font-size: 15px !important;
+  line-height: 1.7 !important;
+}
+
+.pp-page .pp-features-title.ant-typography {
+  margin: 0 0 16px !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: var(--pp-text) !important;
+}
+
+.pp-features {
+  margin: 0 0 40px !important;
+}
+
+.pp-features ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pp-features li {
+  padding: 9px 0;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.pp-page .pp-links .ant-typography a,
+.pp-page .pp-links a.ant-typography {
+  color: var(--pp-link);
+  font-size: 14.5px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.pp-page .pp-links .ant-typography a:hover,
+.pp-page .pp-links a.ant-typography:hover {
+  color: #154a3a;
+}
+
+/* ── Right: CTA panel ── */
+.pp-right {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 100%;
+  padding: 72px clamp(28px, 3.5vw, 56px) 56px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 110% 80% at 0% 100%, rgba(26, 95, 74, 0.18) 0%, transparent 55%),
+    radial-gradient(ellipse 100% 70% at 100% 0%, rgba(196, 138, 42, 0.14) 0%, transparent 50%),
+    linear-gradient(160deg, #e8f2ee 0%, #f4f2ec 45%, #ebe6dc 100%);
+}
+
+.pp-welcome-tools {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pp-page .pp-signout.ant-btn {
+  position: static;
+  height: auto;
+  padding: 4px 8px;
+  font-weight: 600;
+}
+
+.pp-right-inner {
+  width: min(360px, 100%);
+  text-align: center;
+  animation: pp-rise 0.6s ease 0.08s both;
+}
+
+.pp-right-mark {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 28px;
+}
+
+.pp-right-mark svg {
+  filter: drop-shadow(0 8px 20px rgba(26, 95, 74, 0.16));
+}
+
+.pp-page .pp-cta-title.ant-typography {
+  margin: 0 0 28px !important;
+  font-size: clamp(18px, 1.85vw, 22px) !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+  letter-spacing: -0.02em;
+  color: var(--pp-text) !important;
+  text-align: center;
+}
+
+.pp-page .pp-cta.ant-btn {
+  max-width: 280px;
+  height: 48px;
+  margin-inline: auto;
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(26, 95, 74, 0.28);
+}
+
+.pp-page .pp-right-note.ant-typography {
+  margin: 22px auto 0 !important;
+  max-width: 290px;
+  font-size: 12.5px !important;
+  line-height: 1.55 !important;
+  text-align: center;
+}
+
+.pp-creating {
+  min-height: 220px;
+  justify-content: center;
+}
+
+@keyframes pp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-left-inner,
+  .pp-right-inner {
+    animation: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .pp-page.pulse-welcome.ant-layout {
+    position: relative;
+    inset: auto;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: auto;
+  }
+
+  .pp-split.ant-layout-content {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .pp-right {
+    min-height: 460px;
+    order: -1;
+  }
+
+  .pp-left {
+    height: auto;
+    align-items: flex-start;
+    padding: 40px 28px 56px;
+  }
+
+  .pp-left-inner {
+    max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .pp-page .pp-title.ant-typography {
+    font-size: 28px !important;
+  }
+
+  .pp-page .pp-cta.ant-btn {
+    max-width: none;
+  }
+}
+
+/* ── People HR services home (/people/home) ── */
+.ph-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--ant-color-bg-layout, #f4f2ec);
+  font-family: var(--ant-font-family, 'IBM Plex Sans', 'Source Sans 3', system-ui, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  color: var(--ant-color-text, #1c1917);
+  padding-bottom: 56px;
+}
+
+.ph-top {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  height: 56px;
+  padding: 0 24px;
+  background: #fff;
+  border-bottom: 1px solid var(--ant-color-border, #e6e1d8);
+}
+
+.ph-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: var(--ant-color-text-secondary, #6b6560);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+.ph-back:hover {
+  color: var(--ant-color-text, #1c1917);
+  background: #f4f2ec;
+}
+
+.ph-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ph-brand-mark {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  color: #1a5f4a;
+  background: #e8f2ee;
+  border-radius: 8px;
+}
+
+.ph-brand-mark.is-pulse {
+  background: transparent;
+  width: 32px;
+  height: 32px;
+}
+
+.ph-brand strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.ph-brand span {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ant-color-text-secondary, #6b6560);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ph-main {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+}
+
+.ph-kicker {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ant-color-text-secondary, #6b6560);
+}
+
+.ph-main h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.ph-lead {
+  margin: 0 0 28px;
+  max-width: 520px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ant-color-text-secondary, #6b6560);
+}
+
+.ph-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ph-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 16px;
+  background: #fff;
+  border: 1px solid var(--ant-color-border, #e6e1d8);
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.ph-card:hover {
+  border-color: #c5cdd8;
+  box-shadow: 0 8px 24px rgba(28, 25, 23, 0.08);
+}
+
+.ph-card-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: #f4f2ec;
+  border-radius: 8px;
+}
+
+.ph-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ph-card-copy strong {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.ph-card-copy span {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ant-color-text-secondary, #6b6560);
+}
+
+@media (max-width: 640px) {
+  .ph-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ph-main h1 {
+    font-size: 24px;
+  }
+}

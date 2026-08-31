@@ -48,8 +48,8 @@ const supportRequestSchema = new mongoose.Schema(
 );
 
 // Hot paths:
-//  • staff "my support" — { staff, createdAt }
-//  • admin "all open" — { admin, status, createdAt }
+//  • staff "my support" - { staff, createdAt }
+//  • admin "all open" - { admin, status, createdAt }
 supportRequestSchema.index({ staff: 1, createdAt: -1 });
 supportRequestSchema.index({ admin: 1, status: 1, createdAt: -1 });
 

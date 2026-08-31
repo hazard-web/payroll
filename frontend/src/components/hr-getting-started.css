@@ -1,0 +1,143 @@
+.hrgs {
+  margin-bottom: 20px;
+  padding: 18px 18px 8px;
+  border: 1px solid var(--border, #e6ebf1);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f7fbff 0%, #fff 55%);
+}
+
+.hrgs-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.hrgs-eyebrow {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0091ff;
+}
+
+.hrgs-head h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text, #0b1220);
+}
+
+.hrgs-sub {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-muted, #5c6370);
+}
+
+.hrgs-dismiss {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: #159aff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.hrgs-dismiss:hover {
+  text-decoration: underline;
+}
+
+.hrgs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.hrgs-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 4px;
+  border-top: 1px solid #eef2f6;
+}
+
+.hrgs-status {
+  color: #9aa3af;
+  display: inline-flex;
+}
+
+.hrgs-list li.is-done .hrgs-status {
+  color: #21a05a;
+}
+
+.hrgs-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.hrgs-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e8f4ff;
+  color: #0091ff;
+  font-size: 12px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.hrgs-copy h3 {
+  margin: 0 0 2px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text, #111);
+}
+
+.hrgs-copy p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-muted, #666);
+}
+
+.hrgs-link {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 4px;
+  background: #eaf5ff;
+  color: #0091ff;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.hrgs-link:hover {
+  background: #dceeff;
+}
+
+@media (max-width: 640px) {
+  .hrgs-list li {
+    flex-wrap: wrap;
+  }
+
+  .hrgs-link {
+    margin-left: 30px;
+  }
+}

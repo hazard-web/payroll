@@ -49,7 +49,7 @@ const ALL_IDS = [
           console.log(`⚠️  NOT FOUND`);
         }
       } catch (err) {
-        console.log(`❌ ${err.message} — corrupted, skipping`);
+        console.log(`❌ ${err.message} - corrupted, skipping`);
         badIds.push(idStr);
       }
     }

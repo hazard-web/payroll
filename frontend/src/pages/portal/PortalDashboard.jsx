@@ -356,7 +356,7 @@ export default function PortalDashboard() {
 
   const formatTimeLabel = (value) => value
     ? new Date(value).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
-    : '—'
+    : '-'
 
   const getTaskStatusStyle = (status) => {
     if (status === 'Completed') return { bg: 'rgba(88,131,59,0.12)', color: '#58833b' }
@@ -488,7 +488,7 @@ export default function PortalDashboard() {
   }
 
   const fmtAnnouncementDate = (dt) => {
-    if (!dt) return '—'
+    if (!dt) return '-'
     const d = new Date(dt)
     const day = d.getDate()
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -1483,7 +1483,7 @@ export default function PortalDashboard() {
                   Complete Your Profile
                 </h2>
                 <p style={{ margin: 0, marginBottom: 20, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6, fontSize: 13 }}>
-                  Please complete your profile before continuing. This includes your PAN, address, bank details and emergency contact — required for accurate payroll.
+                  Please complete your profile before continuing. This includes your PAN, address, bank details and emergency contact - required for accurate payroll.
                 </p>
                 <div style={{ background: 'var(--bg)', padding: 14, borderRadius: 10, marginBottom: 20, fontSize: 12, color: 'var(--text-muted)' }}>
                   <strong>Why is this required?</strong> Your profile information is used to generate your payslips, tax forms (TDS/Form 16) and to disburse your salary.

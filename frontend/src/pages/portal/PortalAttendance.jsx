@@ -54,8 +54,8 @@ const styles = `
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
-const fmtTime = dt => dt ? new Date(dt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'
-const fmtDate = dt => dt ? new Date(dt).toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' }) : '—'
+const fmtTime = dt => dt ? new Date(dt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'
+const fmtDate = dt => dt ? new Date(dt).toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' }) : '-'
 
 /**
  * Returns true if the given date (UTC midnight) is before today (UTC).
@@ -72,7 +72,7 @@ const isPastDay = (dateVal) => {
 
 /**
  * Determine the display workStatus for a row.
- * Past-day records must NEVER show "Active" — they are always auto-closed.
+ * Past-day records must NEVER show "Active" - they are always auto-closed.
  */
 const resolveWorkStatus = (row) => {
   if (row.workStatus === 'Active' && isPastDay(row.date)) {
@@ -232,10 +232,10 @@ export default function PortalAttendance() {
         
         return [
           fmtDate(row.date),
-          row.punchIn ? fmtTime(row.punchIn) : '—',
+          row.punchIn ? fmtTime(row.punchIn) : '-',
           row.punchOut ? fmtTime(row.punchOut) : (isRecordPastDay ? 'Auto 11:59 PM' : 'Active'),
           `${dispHours.toFixed(2)}h`,
-          displayStatus || '—'
+          displayStatus || '-'
         ]
       })
 
@@ -505,9 +505,9 @@ export default function PortalAttendance() {
                     <td style={{ fontWeight: 600, color: 'var(--text)' }}>{fmtTime(row.punchIn)}</td>
                     <td style={{ color: 'var(--text-muted)' }}>{punchOutDisplay}</td>
                     <td style={{ fontWeight: 600, color: hoursWarn ? '#c2410c' : 'var(--text)' }}>
-                      {dispHours ? `${dispHours.toFixed(1)}h` : '—'}
+                      {dispHours ? `${dispHours.toFixed(1)}h` : '-'}
                     </td>
-                    <td style={{ color: 'var(--text)', fontWeight: 700 }}>{taskCount ? `${completed}/${taskCount}` : '—'}</td>
+                    <td style={{ color: 'var(--text)', fontWeight: 700 }}>{taskCount ? `${completed}/${taskCount}` : '-'}</td>
                     <td>
                       <WorkStatusPill status={displayStatus} />
                     </td>

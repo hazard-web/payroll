@@ -47,7 +47,7 @@ const getStartOfDay = (dateString = null) => {
  * referenceTime. This is the primary defence against the 163h/285h/462h bug.
  *
  * For TODAY's active records we compute live hours normally (they are not
- * persisted — the caller must not save the document just to show a live timer).
+ * persisted - the caller must not save the document just to show a live timer).
  */
 const syncAttendanceRecord = (attendance, referenceTime = new Date()) => {
   if (!attendance) return null;
@@ -114,7 +114,7 @@ const formatDuration = (start, end = new Date()) => {
 // ADMIN ENDPOINTS (Using authAdmin middleware)
 // ─────────────────────────────────────────────────────────────
 
-// GET /api/attendance/admin/active — Count of staff currently punched in today
+// GET /api/attendance/admin/active - Count of staff currently punched in today
 router.get('/admin/active', authAdmin, async (req, res) => {
   try {
     const today = getStartOfDay();
@@ -131,7 +131,7 @@ router.get('/admin/active', authAdmin, async (req, res) => {
   }
 });
 
-// GET /api/attendance/admin/monthly?month=&year= — All records for a month across all staff
+// GET /api/attendance/admin/monthly?month=&year= - All records for a month across all staff
 router.get('/admin/monthly', authAdmin, async (req, res) => {
   try {
     const m = parseInt(req.query.month) || (new Date().getMonth() + 1);
@@ -189,7 +189,7 @@ router.get('/admin/payroll-summary', authAdmin, async (req, res) => {
       }
     }
 
-    // ── 2. Working days: Mon–Fri in the month, minus company holidays ──────────
+    // ── 2. Working days: Mon-Fri in the month, minus company holidays ──────────
     const LeavePolicy = require('../models/LeavePolicy');
     const policy = await LeavePolicy.findOne({ user: req.user._id }).lean();
     const weekendDays = policy?.weekendDays ?? [0, 6]; // 0=Sun, 6=Sat
@@ -299,7 +299,7 @@ router.get('/admin/payroll-summary', authAdmin, async (req, res) => {
 
 
 
-// GET /api/attendance/admin/daily?date=YYYY-MM-DD — Records for a specific date across all staff
+// GET /api/attendance/admin/daily?date=YYYY-MM-DD - Records for a specific date across all staff
 router.get('/admin/daily', authAdmin, async (req, res) => {
   try {
     const targetDate = req.query.date ? new Date(req.query.date) : new Date();
@@ -322,7 +322,7 @@ router.get('/admin/daily', authAdmin, async (req, res) => {
   }
 });
 
-// GET /api/attendance/admin/today-punchins — All today's punch-in records with staff details
+// GET /api/attendance/admin/today-punchins - All today's punch-in records with staff details
 router.get('/admin/today-punchins', authAdmin, async (req, res) => {
   try {
     const today = getStartOfDay();
@@ -341,7 +341,7 @@ router.get('/admin/today-punchins', authAdmin, async (req, res) => {
   }
 });
 
-// GET /api/attendance/admin/performance?date=YYYY-MM-DD — Today's team task performance
+// GET /api/attendance/admin/performance?date=YYYY-MM-DD - Today's team task performance
 // GET /api/attendance/admin/performance-stats
 // Returns aggregated task performance stats for a given period (today, week, month, year, all)
 router.get('/admin/performance-stats', authAdmin, async (req, res) => {
@@ -420,7 +420,7 @@ router.get('/admin/performance-stats', authAdmin, async (req, res) => {
       score: s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0
     })).filter(s => s.score > 0);
 
-    let topPerformerName = '—';
+    let topPerformerName = '-';
     let topPerformerScore = 0;
     if (staffScores.length > 0) {
       const top = staffScores.reduce((best, s) => s.score > best.score ? s : best, staffScores[0]);
@@ -504,7 +504,7 @@ router.get('/admin/performance', authAdmin, async (req, res) => {
   }
 });
 
-// GET /api/attendance/admin/staff/:id/tasks — Task history for a specific staff member with filters (assigned + self-reported)
+// GET /api/attendance/admin/staff/:id/tasks - Task history for a specific staff member with filters (assigned + self-reported)
 router.get('/admin/staff/:id/tasks', authAdmin, async (req, res) => {
   try {
     const { id } = req.params;
@@ -644,7 +644,7 @@ router.get('/admin/staff/:id/tasks', authAdmin, async (req, res) => {
   }
 });
 
-// GET /api/attendance/admin/staff-list — Get all staff for Team Performance module (combined performance)
+// GET /api/attendance/admin/staff-list - Get all staff for Team Performance module (combined performance)
 router.get('/admin/staff-list', authAdmin, async (req, res) => {
   try {
     const staffList = await Staff.find({ user: req.user._id })
@@ -744,7 +744,7 @@ router.post('/punch-in', authStaff, async (req, res) => {
       const { fixed } = autoCloseStaleAttendance(stale);
       if (fixed) {
         stale.notes = (stale.notes ? stale.notes + ' | ' : '') +
-          'System: Auto punch-out at 11:59:59 PM — new punch-in detected on a later day.';
+          'System: Auto punch-out at 11:59:59 PM - new punch-in detected on a later day.';
         await stale.save();
       }
     }
@@ -888,7 +888,7 @@ const formatDurationMinutes = (minutes) => {
   return `${h}h ${String(m).padStart(2, '0')}m`;
 };
 
-// GET /api/attendance/tasks/today — Get today's tasks for the authenticated staff
+// GET /api/attendance/tasks/today - Get today's tasks for the authenticated staff
 router.get('/tasks/today', authStaff, async (req, res) => {
   try {
     const today = getStartOfDay();
@@ -943,7 +943,7 @@ router.get('/tasks/today', authStaff, async (req, res) => {
   }
 });
 
-// POST /api/attendance/tasks/add — Add a new task to today's attendance session
+// POST /api/attendance/tasks/add - Add a new task to today's attendance session
 router.post('/tasks/add', authStaff, async (req, res) => {
   try {
     const { project, description, notes } = req.body;
@@ -1005,7 +1005,7 @@ router.post('/tasks/add', authStaff, async (req, res) => {
   }
 });
 
-// PATCH /api/attendance/tasks/:attendanceId/:taskId/status — Change task status
+// PATCH /api/attendance/tasks/:attendanceId/:taskId/status - Change task status
 // Body: { action: 'start' | 'complete' | 'pending' }
 router.patch('/tasks/:attendanceId/:taskId/status', authStaff, async (req, res) => {
   try {
@@ -1136,7 +1136,7 @@ router.patch('/tasks/:attendanceId/:taskId/status', authStaff, async (req, res) 
   }
 });
 
-// PATCH /api/attendance/tasks/:attendanceId/:taskId/manual-duration — Save manual duration
+// PATCH /api/attendance/tasks/:attendanceId/:taskId/manual-duration - Save manual duration
 // Body: { hours: number, minutes: number }
 router.patch('/tasks/:attendanceId/:taskId/manual-duration', authStaff, async (req, res) => {
   try {
@@ -1187,7 +1187,7 @@ router.patch('/tasks/:attendanceId/:taskId/manual-duration', authStaff, async (r
   }
 });
 
-// GET /api/attendance/tasks/admin/team — Admin: view all team tasks with running indicators
+// GET /api/attendance/tasks/admin/team - Admin: view all team tasks with running indicators
 router.get('/tasks/admin/team', authAdmin, async (req, res) => {
   try {
     const today = getStartOfDay();
@@ -1266,7 +1266,7 @@ router.get('/today', authStaff, async (req, res) => {
       const { fixed } = autoCloseStaleAttendance(stale);
       if (fixed) {
         stale.notes = (stale.notes ? stale.notes + ' | ' : '') +
-          'System: Auto punch-out at 11:59:59 PM — detected during /today fetch.';
+          'System: Auto punch-out at 11:59:59 PM - detected during /today fetch.';
         await stale.save();
       }
     }
@@ -1278,7 +1278,7 @@ router.get('/today', authStaff, async (req, res) => {
     });
 
     if (attendance) {
-      // Only sync (and save) if today has an active session — we never
+      // Only sync (and save) if today has an active session - we never
       // write inflated hours for past-day records here.
       syncAttendanceRecord(attendance, now);
       await attendance.save();
@@ -1290,7 +1290,7 @@ router.get('/today', authStaff, async (req, res) => {
   }
 });
 
-// GET /api/attendance/active — Returns today's open shift (punched in but not out)
+// GET /api/attendance/active - Returns today's open shift (punched in but not out)
 router.get('/active', authStaff, async (req, res) => {
   try {
     const today = getStartOfDay();
@@ -1307,7 +1307,7 @@ router.get('/active', authStaff, async (req, res) => {
       const { fixed } = autoCloseStaleAttendance(stale);
       if (fixed) {
         stale.notes = (stale.notes ? stale.notes + ' | ' : '') +
-          'System: Auto punch-out at 11:59:59 PM — detected during /active fetch.';
+          'System: Auto punch-out at 11:59:59 PM - detected during /active fetch.';
         await stale.save();
       }
     }
@@ -1334,7 +1334,7 @@ router.get('/active', authStaff, async (req, res) => {
   }
 });
 
-// GET /api/attendance/history (Staff View) — supports ?month=&year= or defaults to last 30 days
+// GET /api/attendance/history (Staff View) - supports ?month=&year= or defaults to last 30 days
 router.get('/history', authStaff, async (req, res) => {
   try {
     const today = getStartOfDay();
@@ -1368,7 +1368,7 @@ router.get('/history', authStaff, async (req, res) => {
       const { fixed } = autoCloseStaleAttendance(stale);
       if (fixed) {
         stale.notes = (stale.notes ? stale.notes + ' | ' : '') +
-          'System: Auto punch-out at 11:59:59 PM — no manual punch-out recorded.';
+          'System: Auto punch-out at 11:59:59 PM - no manual punch-out recorded.';
         await stale.save();
       }
     }
@@ -1379,16 +1379,16 @@ router.get('/history', authStaff, async (req, res) => {
       .lean()
       .select('date punchIn punchOut totalHours overtimeHours status workStatus tasks notes sessions sessionCount');
 
-    // ── Step 3: Map history — NEVER recalculate hours from now for past records ──
+    // ── Step 3: Map history - NEVER recalculate hours from now for past records ──
     // For today's record that is still active, show workStatus='Active' and punchOut=null.
-    // All past records must have a punchOut (set by the auto-close above) — no live inflation.
+    // All past records must have a punchOut (set by the auto-close above) - no live inflation.
     const mappedHistory = history.map(record => {
       const recordDate = new Date(record.date);
       const isToday = recordDate.getTime() === today.getTime();
       const hasActiveSession = Array.isArray(record.sessions) && record.sessions.some(s => s && s.isActive);
 
       if (isToday && hasActiveSession) {
-        // Today's live session — show as Active, use stored totalHours (from completed sessions only)
+        // Today's live session - show as Active, use stored totalHours (from completed sessions only)
         return { ...record, workStatus: 'Active', punchOut: null };
       }
 
@@ -1426,7 +1426,7 @@ router.get('/history', authStaff, async (req, res) => {
   }
 });
 
-// GET /api/attendance/weekly?date= — Weekly summary for a specific week
+// GET /api/attendance/weekly?date= - Weekly summary for a specific week
 router.get('/weekly', authStaff, async (req, res) => {
   try {
     const today = getStartOfDay();
@@ -1451,7 +1451,7 @@ router.get('/weekly', authStaff, async (req, res) => {
       const { fixed } = autoCloseStaleAttendance(stale);
       if (fixed) {
         stale.notes = (stale.notes ? stale.notes + ' | ' : '') +
-          'System: Auto punch-out at 11:59:59 PM — no manual punch-out recorded.';
+          'System: Auto punch-out at 11:59:59 PM - no manual punch-out recorded.';
         await stale.save();
       }
     }
@@ -1461,7 +1461,7 @@ router.get('/weekly', authStaff, async (req, res) => {
       date: { $gte: monday, $lt: sunday }
     }).lean();
 
-    // Use stored totalHours only — NEVER recalculate from Date.now() for past records.
+    // Use stored totalHours only - NEVER recalculate from Date.now() for past records.
     // Today's active record will show 0h until punch-out (acceptable for weekly summary).
     const totalHours = weekRecords.reduce((sum, r) => sum + (r.totalHours || 0), 0);
     const totalOT = weekRecords.reduce((sum, r) => sum + (r.overtimeHours || 0), 0);
@@ -1553,7 +1553,7 @@ router.put('/admin/:id', authAdmin, async (req, res) => {
 
 // ─── Working Days Management ──────────────────────────────────────────────────
 
-// GET /api/attendance/admin/working-days — Admin default + all staff overrides
+// GET /api/attendance/admin/working-days - Admin default + all staff overrides
 router.get('/admin/working-days', authAdmin, async (req, res) => {
   try {
     const adminUser = await User.findById(req.user._id).select('defaultWorkDays').lean();
@@ -1567,12 +1567,12 @@ router.get('/admin/working-days', authAdmin, async (req, res) => {
   }
 });
 
-// PUT /api/attendance/admin/working-days/default — Update company-wide default working days
+// PUT /api/attendance/admin/working-days/default - Update company-wide default working days
 router.put('/admin/working-days/default', authAdmin, async (req, res) => {
   try {
     const { workDays } = req.body; // e.g. [1,2,3,4,5]
     if (!Array.isArray(workDays) || workDays.some(d => typeof d !== 'number' || d < 0 || d > 6)) {
-      return res.status(400).json({ success: false, message: 'workDays must be an array of integers 0–6' });
+      return res.status(400).json({ success: false, message: 'workDays must be an array of integers 0-6' });
     }
     await User.findByIdAndUpdate(req.user._id, { defaultWorkDays: workDays });
     res.json({ success: true, message: 'Default working days updated' });
@@ -1581,12 +1581,12 @@ router.put('/admin/working-days/default', authAdmin, async (req, res) => {
   }
 });
 
-// PUT /api/attendance/admin/working-days/staff/:staffId — Update a staff member's working days override
+// PUT /api/attendance/admin/working-days/staff/:staffId - Update a staff member's working days override
 router.put('/admin/working-days/staff/:staffId', authAdmin, async (req, res) => {
   try {
     const { workDays, clientAssignment } = req.body;
     if (!Array.isArray(workDays) || workDays.some(d => typeof d !== 'number' || d < 0 || d > 6)) {
-      return res.status(400).json({ success: false, message: 'workDays must be an array of integers 0–6' });
+      return res.status(400).json({ success: false, message: 'workDays must be an array of integers 0-6' });
     }
     const staff = await Staff.findOne({ _id: req.params.staffId, user: req.user._id });
     if (!staff) return res.status(404).json({ success: false, message: 'Staff not found' });
@@ -1600,7 +1600,7 @@ router.put('/admin/working-days/staff/:staffId', authAdmin, async (req, res) => 
   }
 });
 
-// GET /api/attendance/admin/pending — Get all flagged or long-incomplete records for dashboard
+// GET /api/attendance/admin/pending - Get all flagged or long-incomplete records for dashboard
 router.get('/admin/pending', authAdmin, async (req, res) => {
   try {
     const pending = await Attendance.find({
@@ -1617,7 +1617,7 @@ router.get('/admin/pending', authAdmin, async (req, res) => {
   }
 });
 
-// GET /api/attendance/admin/export-csv — Export attendance to CSV
+// GET /api/attendance/admin/export-csv - Export attendance to CSV
 router.get('/admin/export-csv', authAdmin, async (req, res) => {
   try {
     const records = await Attendance.find({ admin: req.user._id })
@@ -1645,7 +1645,7 @@ router.get('/admin/export-csv', authAdmin, async (req, res) => {
   }
 });
 
-// POST /api/attendance/admin/force-punch-out — Close all stale shifts at IST 11:59 PM
+// POST /api/attendance/admin/force-punch-out - Close all stale shifts at IST 11:59 PM
 router.post('/admin/force-punch-out', authAdmin, async (req, res) => {
   try {
     const today = getStartOfDay();
@@ -1713,7 +1713,7 @@ router.post('/admin/fix-stale-records', authAdmin, async (req, res) => {
       if (!fixed) continue;
 
       record.notes = (record.notes ? record.notes + ' | ' : '') +
-        'System: Migrated — auto punch-out at 11:59:59 PM. Previous data showed inflated hours due to missing punch-out.';
+        'System: Migrated - auto punch-out at 11:59:59 PM. Previous data showed inflated hours due to missing punch-out.';
 
       await record.save();
       fixedCount++;
@@ -1757,9 +1757,9 @@ router.post('/admin/fix-stale-records', authAdmin, async (req, res) => {
             session.endTime = recordDayEnd;
             session.isActive = false;
             session.source = 'AUTO_PUNCH_OUT';
-            session.reason = 'System: Recalculated during migration fix — session end capped at 11:59:59 PM.';
+            session.reason = 'System: Recalculated during migration fix - session end capped at 11:59:59 PM.';
           }
-          // Recalculate duration — cap session end at recordDayEnd
+          // Recalculate duration - cap session end at recordDayEnd
           const sessionEnd = new Date(session.endTime) <= recordDayEnd
             ? new Date(session.endTime)
             : recordDayEnd;
@@ -1785,7 +1785,7 @@ router.post('/admin/fix-stale-records', authAdmin, async (req, res) => {
         );
       }
 
-      // Cap at 23.99h — a single day cannot have more
+      // Cap at 23.99h - a single day cannot have more
       correctedHours = Math.min(correctedHours, 23.99);
 
       const prevHours = record.totalHours;
@@ -1795,7 +1795,7 @@ router.post('/admin/fix-stale-records', authAdmin, async (req, res) => {
       record.workStatus    = determineWorkStatus(correctedHours);
       record.status        = correctedHours >= DEFAULT_STANDARD_HOURS ? 'complete' : 'incomplete';
       record.notes         = (record.notes ? record.notes + ' | ' : '') +
-        `System: Migrated — corrected inflated totalHours from ${prevHours.toFixed(1)}h to ${correctedHours.toFixed(2)}h. Hours recalculated from stored punchIn → punchOut, capped at 11:59:59 PM.`;
+        `System: Migrated - corrected inflated totalHours from ${prevHours.toFixed(1)}h to ${correctedHours.toFixed(2)}h. Hours recalculated from stored punchIn → punchOut, capped at 11:59:59 PM.`;
 
       await record.save();
       inflatedFixed++;

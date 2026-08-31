@@ -45,8 +45,8 @@ const bcrypt = require('bcryptjs');
     console.log('✅ rks099871 fixed: GULSHAN KUMAR | BDA Technologies | BDA-EMP-0003');
   }
 
-  // Fix 2: vg810200@gmail.com — not in any payslip. Was likely a test/admin account.
-  // The portal showed "BDA" — so it should be under BDA Technologies (rkg98521).
+  // Fix 2: vg810200@gmail.com - not in any payslip. Was likely a test/admin account.
+  // The portal showed "BDA" - so it should be under BDA Technologies (rkg98521).
   // Update to correct company and remove XYZ company link.
   console.log('\nFixing vg810200@gmail.com staff record...');
   const vgStaff = await col.findOne({ email: 'vg810200@gmail.com' });
@@ -66,7 +66,7 @@ const bcrypt = require('bcryptjs');
 
   // Fix 3: Restore udayandey8@gmail.com to correct name from payslips
   // Payslip says: udayandey8@gmail.com = UDAYAN DEY | DEVELOPER | EID01 | PAN: EXQOF8880K | SBI 366075258895
-  // But current staff record says: GULSHAN KUMAR — wrong!
+  // But current staff record says: GULSHAN KUMAR - wrong!
   console.log('\nFixing udayandey8@gmail.com (should be UDAYAN DEY, not GULSHAN KUMAR)...');
   const uday8 = await col.findOne({ email: 'udayandey8@gmail.com' });
   if (uday8) {

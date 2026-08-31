@@ -1,0 +1,725 @@
+/* Create Account - border-cutout floating labels */
+.oca-page,
+.oca-page * {
+  font-family: 'Nunito Sans', 'Segoe UI', system-ui, sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.oca-page {
+  --blue: #0091ff;
+  --blue-dark: #0080e0;
+  --link: #159aff;
+  --text: #000;
+  --muted: #555;
+  --line: #cfcfcf;
+  --field: #fff;
+
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 40px 16px 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #fff;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.oca-shell {
+  width: 100%;
+  max-width: 520px;
+  border: 1px solid #e8e8e8;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  overflow: hidden;
+  padding: 0 28px 18px;
+  box-sizing: border-box;
+}
+
+/* Brand header with soft circular backdrop */
+.oca-brands {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 0 -28px 28px;
+  padding: 30px 20px;
+  overflow: hidden;
+  isolation: isolate;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e6e6e6;
+}
+
+.oca-brands > :not(.oca-brands-bg) {
+  position: relative;
+  z-index: 1;
+}
+
+.oca-brands-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.oca-brands-bg::before,
+.oca-brands-bg::after,
+.oca-brands-bg i {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.oca-brands-bg::before {
+  width: 150px;
+  height: 150px;
+  top: -78px;
+  left: -42px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.oca-brands-bg::after {
+  width: 110px;
+  height: 110px;
+  top: -18px;
+  left: 56px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.oca-brands-bg i:nth-child(1) {
+  width: 200px;
+  height: 200px;
+  top: -48px;
+  right: -92px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.oca-brands-bg i:nth-child(2) {
+  width: 90px;
+  height: 90px;
+  bottom: -48px;
+  left: 18px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.oca-brands-bg i:nth-child(3) {
+  width: 70px;
+  height: 70px;
+  bottom: -30px;
+  right: 72px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.oca-people-mark {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5px;
+}
+
+.oca-people-mark i {
+  display: block;
+  border-radius: 2px;
+}
+
+.oca-x {
+  color: #b8bdc6;
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 300;
+}
+
+.oca-hello {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 30px;
+}
+
+.oca-pic {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #eee;
+}
+
+.oca-pic--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--blue);
+  color: #fff;
+  font-weight: 700;
+  font-size: 20px;
+  text-transform: uppercase;
+}
+
+.oca-hello h1 {
+  margin: 0 0 6px;
+  padding: 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #000;
+}
+
+.oca-hello p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.oca-hello b {
+  color: #222;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.oca-names {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 26px;
+}
+
+/*
+  Floating labels: sit ON the top border with white cutout.
+  Never compete with field content (fixes Mobile Number × flag overlap).
+*/
+.oca-box {
+  position: relative;
+  display: block;
+  margin: 0;
+}
+
+.oca-box > label {
+  position: absolute;
+  top: -8px;
+  left: 10px;
+  z-index: 2;
+  margin: 0;
+  padding: 0 5px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  color: #666;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.oca-box.is-focus > label {
+  color: var(--blue);
+}
+
+.oca-box > input {
+  display: block;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--field);
+  box-sizing: border-box;
+  font-size: 15px;
+  font-weight: 400;
+  color: #000;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.oca-box.is-focus > input {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px var(--blue);
+}
+
+/* Mobile: label on border; dial + number fully inside the box */
+.oca-mobile {
+  margin-bottom: 18px;
+}
+
+.oca-mobile > label {
+  top: -8px;
+  left: 10px;
+  /* override any inherited inside-float rules */
+  transform: none !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+.oca-mobile-row {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: #fff;
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.oca-mobile.is-focus .oca-mobile-row {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px var(--blue);
+}
+
+.oca-dial {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 10px 0 12px;
+  border-right: 1px solid #e6e6e6;
+  color: #222;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.oca-flag {
+  display: block;
+  width: 22px;
+  height: 15px;
+  border-radius: 1px;
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.15);
+}
+
+.oca-mobile .oca-mobile-row input {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  height: 100%;
+  flex: 1;
+  min-width: 0;
+  padding: 0 12px !important;
+  margin: 0;
+  font-size: 15px;
+  color: #000;
+  outline: none;
+}
+
+.oca-dc {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.oca-dc b {
+  color: #222;
+  font-weight: 700;
+}
+
+.oca-tos {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0 0 22px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #444;
+  cursor: pointer;
+}
+
+.oca-tos input {
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--blue);
+}
+
+.oca-tos a {
+  color: var(--link);
+  text-decoration: none;
+}
+
+.oca-tos a:hover {
+  text-decoration: underline;
+}
+
+.oca-go {
+  display: block;
+  width: 100%;
+  height: 44px;
+  border: none;
+  border-radius: 2px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+}
+
+.oca-go:hover:not(:disabled) {
+  background: var(--blue-dark);
+}
+
+.oca-go:disabled {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+.oca-split {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 14px;
+  color: #9aa0a8;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.oca-split i {
+  flex: 1;
+  height: 1px;
+  background: #eceff3;
+  display: block;
+}
+
+.oca-linkrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 18px;
+  border: 1px solid #e0e3e8;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.oca-linkrow > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.oca-linkrow h2 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #000;
+  line-height: 1.35;
+}
+
+.oca-linkrow p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #555;
+  max-width: none;
+}
+
+.oca-linkrow p b {
+  color: #222;
+  font-weight: 700;
+}
+
+.oca-link {
+  flex-shrink: 0;
+  height: 34px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 3px;
+  background: #eaf5ff;
+  color: #0091ff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.oca-link:hover {
+  background: #dceeff;
+}
+
+.oca-linkform {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.oca-linkform input {
+  width: 140px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #d5dbe3;
+  border-radius: 2px;
+  font-size: 13px;
+}
+
+.oca-linkform button {
+  height: 34px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 2px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* -- Full-page expired session -- */
+.oca-expired {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  background: #fff;
+  color: #111;
+  font-family: 'Nunito Sans', 'Segoe UI', system-ui, sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+}
+
+.oca-expired *,
+.oca-expired *::before,
+.oca-expired *::after {
+  font-family: inherit !important;
+  box-sizing: border-box;
+}
+
+.oca-expired-visual {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 48px 40px;
+  overflow: hidden;
+  background: linear-gradient(160deg, #f4f7fb 0%, #e8eef5 48%, #f7f9fc 100%);
+  border-right: 1px solid #e6ebf1;
+}
+
+.oca-expired-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.oca-expired-art {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 460px);
+}
+
+.oca-expired-art .auth-illu {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.oca-expired-brandmark {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.oca-expired-brandmark strong {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f1720;
+}
+
+.oca-expired-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 48px 56px 28px;
+  background: #fff;
+}
+
+.oca-expired-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 460px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.oca-expired-logos {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.oca-expired-eyebrow {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0091ff;
+}
+
+.oca-expired-title {
+  margin: 0 0 18px;
+  font-size: clamp(26px, 3.2vw, 34px);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  color: #0b1220;
+  white-space: nowrap;
+}
+
+.oca-expired-title span {
+  color: #c62828;
+}
+
+.oca-expired-lead {
+  margin: 0 0 28px;
+  font-size: 17px;
+  line-height: 1.55;
+  color: #333;
+  font-weight: 500;
+}
+
+.oca-expired-lead b {
+  font-weight: 800;
+  color: #111;
+}
+
+.oca-expired-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  height: 50px;
+  border-radius: 4px;
+  background: #0091ff;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.oca-expired-cta:hover {
+  background: #0080e0;
+}
+
+.oca-expired-cta svg {
+  width: 22px;
+  height: 22px;
+  background: #fff;
+  border-radius: 50%;
+  padding: 2px;
+  box-sizing: content-box;
+}
+
+.oca-expired-back {
+  margin-top: 16px;
+  border: none;
+  background: none;
+  color: #159aff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  align-self: center;
+  padding: 0;
+  text-align: center;
+}
+
+.oca-expired-back:hover {
+  text-decoration: underline;
+}
+
+.oca-expired-foot {
+  margin-top: 32px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5c6370;
+}
+
+@media (max-width: 900px) {
+  .oca-expired {
+    grid-template-columns: 1fr;
+  }
+
+  .oca-expired-visual {
+    min-height: 240px;
+    padding: 32px 24px 20px;
+    border-right: none;
+    border-bottom: 1px solid #e6ebf1;
+  }
+
+  .oca-expired-art {
+    width: min(100%, 340px);
+  }
+
+  .oca-expired-panel {
+    min-height: auto;
+    padding: 36px 24px 24px;
+  }
+
+  .oca-expired-title {
+    white-space: normal;
+  }
+}
+
+/* Static under the white card - same width / center as `.oca-shell` */
+.oca-page > .auth-footer {
+  position: static;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  z-index: auto;
+  width: 100%;
+  max-width: 520px;
+  margin: 18px auto 0;
+  padding: 0 8px;
+  box-sizing: border-box;
+  text-align: center;
+  pointer-events: auto;
+}
+
+@media (max-width: 520px) {
+  .oca-page {
+    padding: 24px 18px 24px;
+  }
+
+  .oca-names {
+    grid-template-columns: 1fr;
+  }
+
+  .oca-linkrow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .oca-linkrow p {
+    max-width: none;
+  }
+}

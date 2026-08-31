@@ -2,6 +2,8 @@ node_modules/
 .env
 .env.local
 .env.*.local
+!.env.example
+!**/.env.example
 dist/
 build/
 frontend/dist/
@@ -20,5 +22,6 @@ npm-debug.log*
 .idea/
 .vscode/
 
-.vercel
 .env*
+!.env.example
+!**/.env.example

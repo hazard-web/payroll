@@ -19,7 +19,7 @@ export default function PortalForgotPassword() {
       setSent(true)
       if (res?.data?.devResetLink) {
         setDevResetLink(res.data.devResetLink)
-        toast.success('SMTP not configured — use the dev link below to reset.', { duration: 5000 })
+        toast.success('SMTP not configured - use the dev link below to reset.', { duration: 5000 })
       } else {
         toast.success('Reset link sent successfully.')
       }

@@ -5,7 +5,7 @@ const { auth: authAdmin } = require('./auth');
 const { authStaff } = require('./staffPortal');
 const { authCombined } = require('../utils/authMiddleware');
 
-// GET /api/notifications/admin — All admin notifications
+// GET /api/notifications/admin - All admin notifications
 router.get('/admin', authAdmin, async (req, res) => {
   try {
     const notifications = await Notification.find({
@@ -23,7 +23,7 @@ router.get('/admin', authAdmin, async (req, res) => {
   }
 });
 
-// GET /api/notifications/staff — All staff notifications
+// GET /api/notifications/staff - All staff notifications
 router.get('/staff', authStaff, async (req, res) => {
   try {
     const notifications = await Notification.find({
@@ -40,7 +40,7 @@ router.get('/staff', authStaff, async (req, res) => {
   }
 });
 
-// PUT /api/notifications/:id/read — Mark single notification as read
+// PUT /api/notifications/:id/read - Mark single notification as read
 router.put('/:id/read', authCombined, async (req, res) => {
   try {
     const query = { _id: req.params.id };
@@ -53,7 +53,7 @@ router.put('/:id/read', authCombined, async (req, res) => {
   }
 });
 
-// PUT /api/notifications/:id/archive — Archive single notification
+// PUT /api/notifications/:id/archive - Archive single notification
 router.put('/:id/archive', authCombined, async (req, res) => {
   try {
     const query = { _id: req.params.id };

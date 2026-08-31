@@ -52,7 +52,7 @@ export function StaffPortalProvider({ children }) {
       return;
     }
 
-    // Use a generous timeout — Atlas cold-start can take 3–8 s.
+    // Use a generous timeout - Atlas cold-start can take 3-8 s.
     // The old 5 s limit was causing spurious logouts on page refresh.
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12000);
@@ -66,7 +66,7 @@ export function StaffPortalProvider({ children }) {
       if (status === 401 || status === 403) {
         // Server explicitly rejected the token (expired, revoked, wrong audience).
         // This is the ONLY case where we should log the user out on refresh.
-        console.warn('[StaffPortal] Token rejected by server — logging out.');
+        console.warn('[StaffPortal] Token rejected by server - logging out.');
         localStorage.removeItem('staffToken');
         api.invalidateCache?.('/portal/me');
         setStaffUser(null);
@@ -75,7 +75,7 @@ export function StaffPortalProvider({ children }) {
         // Keep the token. Restore a minimal session from the JWT payload so
         // the user stays on their current page instead of being kicked to login.
         // The full profile will load automatically on the next successful API call.
-        console.warn('[StaffPortal] Server unreachable on refresh — restoring session from token.', err?.message);
+        console.warn('[StaffPortal] Server unreachable on refresh - restoring session from token.', err?.message);
         setStaffUser(normalizeStaff({
           id: payload.id,
           mustChangePassword: false,
@@ -151,7 +151,7 @@ export function StaffPortalProvider({ children }) {
     [staffUser, loading, login, logout, refresh]
   );
 
-  // Always render children — individual routes handle loading states themselves
+  // Always render children - individual routes handle loading states themselves
   // This prevents the entire app from being blocked during staff auth init
   return (
     <StaffPortalContext.Provider value={value}>

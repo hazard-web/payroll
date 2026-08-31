@@ -15,7 +15,7 @@ function InfoRow({ label, value, always = false }) {
     <div className="preview-row">
       <span className="preview-row__label" style={{ flex: '0 0 160px' }}>{label}</span>
       <span style={{ fontSize: 13, fontWeight: 500, color: value ? 'var(--text)' : 'var(--text-muted)', textAlign: 'right', wordBreak: 'break-word' }}>
-        {value || '—'}
+        {value || '-'}
       </span>
     </div>
   )
@@ -91,7 +91,7 @@ function EmailModal({ payslip, onClose, onSent }) {
       />
 
       <div className="text-muted" style={{ background: 'var(--bg)', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 12 }}>
-        <strong>Subject:</strong> Salary Slip for {payslip.month} {payslip.year} — {payslip.companyName}
+        <strong>Subject:</strong> Salary Slip for {payslip.month} {payslip.year} - {payslip.companyName}
       </div>
 
       <div style={{ display: 'flex', gap: 10 }}>
@@ -254,7 +254,7 @@ export default function PayslipDetail() {
             <InfoRow label="Company Name" value={p.companyName || 'BDA Technologies Private Limited'} />
             <InfoRow label="Address" value={p.companyAddress || 'Flat No. 207, Plot No. 31A, Unione Residency, Akbarpur, Behrampur, Ghaziabad, Uttar Pradesh, India, 201009'} />
             <InfoRow label="Email" value={p.companyEmail || 'hr@bdatechnologies.com'} />
-            <InfoRow label="Phone" value={p.companyPhone || '—'} />
+            <InfoRow label="Phone" value={p.companyPhone || '-'} />
             <InfoRow label="Website" value={p.companyWebsite || 'www.bdatechnologies.com'} />
             <InfoRow label="CIN" value={p.companyCIN || 'U74999UP2017PTC096671'} />
             <InfoRow label="GST No." value={p.companyGST || '09AAHCB4248F1ZO'} />

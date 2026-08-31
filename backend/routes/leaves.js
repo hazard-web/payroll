@@ -13,7 +13,7 @@ const { autoDeleteExpiredLeaves } = require('../utils/leaveCleanup');
 // STAFF ENDPOINTS
 // ─────────────────────────────────────────────────────────────
 
-// POST /api/leaves/apply — Staff applies for leave
+// POST /api/leaves/apply - Staff applies for leave
 router.post('/apply', authStaff, async (req, res) => {
   try {
     const { type, startDate, endDate, reason } = req.body;
@@ -50,7 +50,7 @@ router.post('/apply', authStaff, async (req, res) => {
   }
 });
 
-// GET /api/leaves/my-requests — Staff views their requests
+// GET /api/leaves/my-requests - Staff views their requests
 router.get('/my-requests', authStaff, async (req, res) => {
   try {
     await autoDeleteExpiredLeaves();
@@ -61,7 +61,7 @@ router.get('/my-requests', authStaff, async (req, res) => {
   }
 });
 
-// GET /api/leaves/policy — Staff fetches their company's leave policy
+// GET /api/leaves/policy - Staff fetches their company's leave policy
 router.get('/policy', authStaff, async (req, res) => {
   try {
     const LeavePolicy = require('../models/LeavePolicy');
@@ -82,7 +82,7 @@ router.get('/policy', authStaff, async (req, res) => {
   }
 });
 
-// GET /api/leaves/notifications — Staff views their notifications
+// GET /api/leaves/notifications - Staff views their notifications
 router.get('/notifications', authStaff, async (req, res) => {
   try {
     const notifications = await Notification.find({ 
@@ -99,7 +99,7 @@ router.get('/notifications', authStaff, async (req, res) => {
   }
 });
 
-// POST /api/leaves/mark-as-read — Mark all staff notifications as read
+// POST /api/leaves/mark-as-read - Mark all staff notifications as read
 router.post('/mark-as-read', authStaff, async (req, res) => {
   try {
     await Notification.updateMany(
@@ -116,7 +116,7 @@ router.post('/mark-as-read', authStaff, async (req, res) => {
 // ADMIN ENDPOINTS
 // ─────────────────────────────────────────────────────────────
 
-// GET /api/leaves/admin/pending — Admin views pending requests
+// GET /api/leaves/admin/pending - Admin views pending requests
 router.get('/admin/pending', authAdmin, async (req, res) => {
   try {
     await autoDeleteExpiredLeaves();
@@ -143,7 +143,7 @@ router.get('/admin/pending', authAdmin, async (req, res) => {
   }
 });
 
-// POST /api/leaves/admin/respond — Admin Approves/Rejects
+// POST /api/leaves/admin/respond - Admin Approves/Rejects
 router.post('/admin/respond', authAdmin, async (req, res) => {
   try {
     const { id, status, adminNotes } = req.body; // status: 'Approved' or 'Rejected'
@@ -208,7 +208,7 @@ router.post('/admin/respond', authAdmin, async (req, res) => {
   }
 });
 
-// GET /api/leaves/admin/notifications — Fetch admin notifications
+// GET /api/leaves/admin/notifications - Fetch admin notifications
 router.get('/admin/notifications', authAdmin, async (req, res) => {
   try {
     const notifications = await Notification.find({ 
@@ -225,7 +225,7 @@ router.get('/admin/notifications', authAdmin, async (req, res) => {
   }
 });
 
-// PUT /api/leaves/notifications/:id/read — Mark individual notification as read
+// PUT /api/leaves/notifications/:id/read - Mark individual notification as read
 router.put('/notifications/:id/read', authCombined, async (req, res) => {
   try {
     const query = { _id: req.params.id };
@@ -239,7 +239,7 @@ router.put('/notifications/:id/read', authCombined, async (req, res) => {
   }
 });
 
-// PUT /api/leaves/notifications/:id/archive — Archive individual notification
+// PUT /api/leaves/notifications/:id/archive - Archive individual notification
 router.put('/notifications/:id/archive', authCombined, async (req, res) => {
   try {
     const query = { _id: req.params.id };
@@ -253,7 +253,7 @@ router.put('/notifications/:id/archive', authCombined, async (req, res) => {
   }
 });
 
-// POST /api/leaves/mark-as-read — Mark all staff notifications as read
+// POST /api/leaves/mark-as-read - Mark all staff notifications as read
 router.post('/mark-as-read', authStaff, async (req, res) => {
   try {
     await Notification.updateMany(
@@ -266,7 +266,7 @@ router.post('/mark-as-read', authStaff, async (req, res) => {
   }
 });
 
-// POST /api/leaves/admin/mark-as-read — Mark all admin notifications as read
+// POST /api/leaves/admin/mark-as-read - Mark all admin notifications as read
 router.post('/admin/mark-as-read', authAdmin, async (req, res) => {
   try {
     await Notification.updateMany(

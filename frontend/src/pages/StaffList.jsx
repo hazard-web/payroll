@@ -104,7 +104,7 @@ export default function StaffList() {
     }
   }, [])
 
-  // Debounced search + type filter + sort — resets to page 1
+  // Debounced search + type filter + sort - resets to page 1
   useEffect(() => {
     clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(() => {
@@ -209,7 +209,7 @@ export default function StaffList() {
           if (portalAccess?.emailError) {
             toast.error(`Team member added, but invite email failed: ${portalAccess.emailError}`)
           } else {
-            toast.success('Team member added — invite email sent to their inbox!')
+            toast.success('Team member added - invite email sent to their inbox!')
           }
         } else {
           toast.success('Team member added successfully')
@@ -267,7 +267,7 @@ export default function StaffList() {
     }
   }
 
-  // No client-side filter — search/type are sent server-side
+  // No client-side filter - search/type are sent server-side
   const displayStaff = staff
 
   const handleEdit = (e, person) => {

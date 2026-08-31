@@ -2,5 +2,8 @@
   "name": "payslip-generator",
   "version": "1.0.0",
   "private": true,
-  "scripts": {}
+  "scripts": {
+    "desktop": "npm --prefix desktop run start",
+    "desktop:install": "npm --prefix desktop install"
+  }
 }

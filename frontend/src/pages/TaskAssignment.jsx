@@ -471,7 +471,7 @@ function ProjectCard({ project, onDelete, onStatusChange, submittingId, isLast }
       onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg)' }}
       onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)' }}
     >
-      {/* Col 1 — Employee */}
+      {/* Col 1 - Employee */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '0 0 200px', minWidth: 200 }}>
         <Avatar name={project.staff?.fullName} src={project.staff?.documents?.profileImage?.url} style={{ width: 32, height: 32, fontSize: 11, borderRadius: 8, background: 'var(--primary)' }} />
         <div style={{ minWidth: 0 }}>
@@ -481,7 +481,7 @@ function ProjectCard({ project, onDelete, onStatusChange, submittingId, isLast }
         </div>
       </div>
 
-      {/* Col 2 — Project */}
+      {/* Col 2 - Project */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
           <FolderOpen size={12} color={pm.color} />
@@ -519,7 +519,7 @@ function ProjectCard({ project, onDelete, onStatusChange, submittingId, isLast }
         )}
       </div>
 
-      {/* Col 3 — Priority badge */}
+      {/* Col 3 - Priority badge */}
       <div style={{ width: 90, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
         <span style={{
           padding: '3px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: '700',
@@ -529,7 +529,7 @@ function ProjectCard({ project, onDelete, onStatusChange, submittingId, isLast }
         </span>
       </div>
 
-      {/* Col 4 — Status badge */}
+      {/* Col 4 - Status badge */}
       <div style={{ width: 90, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
         <span style={{
           padding: '3px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: '700',
@@ -539,7 +539,7 @@ function ProjectCard({ project, onDelete, onStatusChange, submittingId, isLast }
         </span>
       </div>
 
-      {/* Col 5 — Due date */}
+      {/* Col 5 - Due date */}
       <div style={{ width: 110, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
         {project.dueDate ? (
           <div style={{ fontSize: 11, color: isOverdue ? '#dc2626' : 'var(--text-muted)', fontWeight: isOverdue ? 700 : 500, textAlign: 'center' }}>
@@ -550,11 +550,11 @@ function ProjectCard({ project, onDelete, onStatusChange, submittingId, isLast }
             {isOverdue && <div style={{ fontSize: 9, color: '#dc2626', fontWeight: 700, marginTop: 1 }}>Overdue</div>}
           </div>
         ) : (
-          <span style={{ fontSize: 11, color: '#cbd5e1' }}>–</span>
+          <span style={{ fontSize: 11, color: '#cbd5e1' }}>-</span>
         )}
       </div>
 
-      {/* Col 6 — Action button */}
+      {/* Col 6 - Action button */}
       <div style={{ width: 90, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
         <button
           onClick={(e) => {
@@ -738,7 +738,7 @@ export default function WorkManagement() {
         onSaved={task => setProjects(p => [task, ...p])}
       />
 
-      {/* Stats — click any card to filter */}
+      {/* Stats - click any card to filter */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 16 }}>
         {[
           { label: 'Total',       value: total,      color: '#2563eb', icon: FolderOpen, filter: 'All' },

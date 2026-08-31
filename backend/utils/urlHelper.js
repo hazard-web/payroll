@@ -94,6 +94,11 @@ function buildResetLink(token) {
   return `${baseUrl}/reset-password?token=${token}`;
 }
 
+function buildInviteLink(token) {
+  const baseUrl = getProductionBaseUrl();
+  return `${baseUrl}/invite/${token}`;
+}
+
 /**
  * Build an email verification link using ONLY the production base URL.
  *
@@ -110,6 +115,7 @@ module.exports = {
   buildSetupLink,
   buildResetLink,
   buildVerifyLink,
+  buildInviteLink,
   isPreviewOrDeadUrl,
   isLocalUrl,
   cleanUrl,

@@ -6,8 +6,8 @@ const HALF_DAY_THRESHOLD = 4;
 // IST TIMEZONE HELPERS (UTC+5:30)
 // ─────────────────────────────────────────────────────────────────────────────
 // All attendance boundary calculations MUST use IST, not UTC.
-// UTC 23:59:59 = IST 05:29:59 AM next day — that's why punches showed "05:29 AM".
-// IST 23:59:59 = UTC 18:29:59 — this is the correct auto-close boundary.
+// UTC 23:59:59 = IST 05:29:59 AM next day - that's why punches showed "05:29 AM".
+// IST 23:59:59 = UTC 18:29:59 - this is the correct auto-close boundary.
 // ─────────────────────────────────────────────────────────────────────────────
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in ms
 
@@ -64,7 +64,7 @@ function getISTDayOfWeek(utcDate = new Date()) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UTC HELPERS (kept for backward-compatible DB queries)
-// attendance.date is stored as UTC midnight — queries must match that.
+// attendance.date is stored as UTC midnight - queries must match that.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function normalizeDate(value) {
@@ -82,7 +82,7 @@ function getDayStart(date) {
   return value;
 }
 
-/** Returns UTC 23:59:59 of the given date (legacy — prefer getISTDayEnd for caps). */
+/** Returns UTC 23:59:59 of the given date (legacy - prefer getISTDayEnd for caps). */
 function getDayEnd(date) {
   const value = normalizeDate(date);
   value.setUTCHours(23, 59, 59, 999);
@@ -122,11 +122,11 @@ function determineWorkStatus(totalHours) {
  *
  * CRITICAL SAFETY RULE:
  *   If the active session belongs to a PAST day, cap its contribution at
- *   23:59:59 IST of the record's own date — never compute hours up to
+ *   23:59:59 IST of the record's own date - never compute hours up to
  *   referenceTime (which could be hours/days/weeks later).
  *
  *   Past-day detection uses UTC midnight (getDayStart) which is the same
- *   format used for attendance.date storage — keeping DB queries correct.
+ *   format used for attendance.date storage - keeping DB queries correct.
  *
  *   The cap itself uses getISTDayEnd to ensure 11:59 PM IST is the
  *   boundary, not 05:29 AM IST the next day.
@@ -150,7 +150,7 @@ function buildAttendanceSnapshot(attendance, referenceTime = new Date()) {
       const capTime = istDayEnd > sessionStart ? istDayEnd : sessionStart;
       liveHours = computeSessionHours(sessionStart, capTime);
     } else {
-      // Today's active session — compute live duration
+      // Today's active session - compute live duration
       liveHours = computeSessionHours(activeSession.startTime, referenceTime);
     }
   }
@@ -299,7 +299,7 @@ function autoCloseStaleAttendance(attendance) {
         );
         session.isActive = false;
         session.source = 'AUTO_PUNCH_OUT';
-        session.reason = 'System: Auto punch-out at 11:59 PM IST — no manual punch-out recorded';
+        session.reason = 'System: Auto punch-out at 11:59 PM IST - no manual punch-out recorded';
       }
     }
   }
@@ -318,7 +318,7 @@ function autoCloseStaleAttendance(attendance) {
     totalHours = parseFloat(computeSessionHours(effectivePunchIn, effectiveEnd).toFixed(2));
   }
 
-  // Cap at 23.99h — a single IST day cannot have more hours than this
+  // Cap at 23.99h - a single IST day cannot have more hours than this
   totalHours = Math.min(totalHours, 23.99);
 
   attendance.punchOut      = effectiveEnd;
@@ -328,7 +328,7 @@ function autoCloseStaleAttendance(attendance) {
   attendance.status        = totalHours >= DEFAULT_STANDARD_HOURS ? 'complete' : 'incomplete';
   attendance.punchOutSource = 'AUTO_PUNCH_OUT';
   attendance.lastAutoPunchOutAt     = effectiveEnd;
-  attendance.lastAutoPunchOutReason = 'System: Auto punch-out at 11:59 PM IST — no manual punch-out recorded';
+  attendance.lastAutoPunchOutReason = 'System: Auto punch-out at 11:59 PM IST - no manual punch-out recorded';
 
   return { fixed: true, autoPunchOut: effectiveEnd };
 }

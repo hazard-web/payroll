@@ -16,7 +16,7 @@ const notPunchedOut = null;
 async function autoPunchOutMissedSessions(now = new Date()) {
   const todayStart = getDayStart(now);
 
-  // Find ALL past open records (any date before today) — not just yesterday
+  // Find ALL past open records (any date before today) - not just yesterday
   const missedRecords = await Attendance.find({
     date: { $lt: todayStart },
     $or: [
@@ -37,7 +37,7 @@ async function autoPunchOutMissedSessions(now = new Date()) {
     if (!fixed) continue;
 
     record.notes = (record.notes ? record.notes + ' | ' : '') +
-      'System: Auto punch-out at 11:59:59 PM — no manual punch-out recorded.';
+      'System: Auto punch-out at 11:59:59 PM - no manual punch-out recorded.';
     await record.save();
     autoClosed++;
 
@@ -66,7 +66,7 @@ async function runShiftCheck() {
   // ── 1. Auto-close overdue shifts on PREVIOUS days ──────────────────────────
   // todayStart must be declared before use. autoPunchOutMissedSessions (called
   // above) already handles this for ALL previous-day open records, so this
-  // block is a safety net — declare todayStart to avoid ReferenceError.
+  // block is a safety net - declare todayStart to avoid ReferenceError.
   const todayStart = getDayStart(now);
 
   // ── 2. Reminder: shifts between 8.5 h and 9.5 h (still active TODAY) ──────
@@ -93,7 +93,7 @@ async function runShiftCheck() {
 
     const reason = isOT
       ? 'You have completed your standard hours (8.5h). If you are continuing as overtime, remember the maximum OT allowed is 1 hour. Please punch out before the 9.5-hour mark.'
-      : 'You have been punched in for over 8.5 hours — your full day is complete. Please punch out now.';
+      : 'You have been punched in for over 8.5 hours - your full day is complete. Please punch out now.';
 
     const workStatus = isOT ? 'Overtime in Progress' : 'Full Day Logged';
 
@@ -115,7 +115,7 @@ async function runShiftCheck() {
       type:          'ATTENDANCE_ALERT',
       referenceId:   shift._id,
       message:       isOT
-        ? 'You have completed 8.5+ hours. Overtime maximum is 1 additional hour — please punch out before 9.5 hours.'
+        ? 'You have completed 8.5+ hours. Overtime maximum is 1 additional hour - please punch out before 9.5 hours.'
         : 'Reminder: 8.5+ hours logged. Your full day is complete. Please punch out.'
     }).save();
 
@@ -182,7 +182,7 @@ function computeWorkStatus(punchIn, punchOut) {
 }
 
 /**
- * 11:30 PM IST — Send reminder emails to all staff still punched in.
+ * 11:30 PM IST - Send reminder emails to all staff still punched in.
  * Won't send duplicate reminders for the same shift.
  */
 async function runOfficeClosingReminder() {
@@ -221,7 +221,7 @@ async function runOfficeClosingReminder() {
       officeClosing: true,
     }).catch(err => console.error('[Office Closing] Reminder email error:', err.message));
 
-    // In-app notification — use distinct type to avoid conflict with shift-duration reminders
+    // In-app notification - use distinct type to avoid conflict with shift-duration reminders
     await new Notification({
       admin:         shift.admin,
       staff:         shift.staff._id,
@@ -239,7 +239,7 @@ async function runOfficeClosingReminder() {
 }
 
 /**
- * 11:59 PM IST — Auto punch-out all staff still active.
+ * 11:59 PM IST - Auto punch-out all staff still active.
  * Closes shift at exactly 11:59 PM IST, marks as flagged.
  */
 async function runOfficeClosingAutoClose() {
@@ -304,7 +304,7 @@ async function runOfficeClosingAutoClose() {
       message:       `Your attendance has been auto-closed at 11:59 PM IST (office closing time) on ${new Date(shift.date).toLocaleDateString('en-IN')}. Work status: ${workStatus}. Contact HR if correction needed.`
     }).save();
 
-    // Email — send to staff with portal + email
+    // Email - send to staff with portal + email
     if (shift.staff.isPortalEnabled && shift.staff.email) {
       await sendPunchOutReminderEmail(shift.staff, loginUrl, {
         loginTime:  new Date(shift.punchIn).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),

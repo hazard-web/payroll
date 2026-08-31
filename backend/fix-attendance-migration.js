@@ -1,5 +1,5 @@
 /**
- * fix-attendance-migration.js  (v2 — IST-correct)
+ * fix-attendance-migration.js  (v2 - IST-correct)
  * ─────────────────────────────────────────────────
  * Re-runs the migration with the correct IST timezone fix.
  *
@@ -14,13 +14,13 @@
  *   10:09 AM IST → 11:59 PM IST = 13h 50m ✅
  *   04:40 PM IST → 11:59 PM IST = 07h 19m ✅
  *
- * Pass 1 — Open records (punchOut null or sessions.isActive = true):
+ * Pass 1 - Open records (punchOut null or sessions.isActive = true):
  *           Auto-close at IST 23:59:59 (= UTC 18:29:59) of the record's date.
  *
- * Pass 2 — Inflated records (punchOut set but totalHours > 23.99):
+ * Pass 2 - Inflated records (punchOut set but totalHours > 23.99):
  *           Recalculate from stored punchIn → punchOut, capped at IST day-end.
  *
- * Pass 3 — Previously-migrated records with wrong UTC boundary (05:29 AM IST):
+ * Pass 3 - Previously-migrated records with wrong UTC boundary (05:29 AM IST):
  *           Detects punchOut between UTC 18:30:00 and UTC 23:59:59 on past days,
  *           corrects to IST 23:59:59 (UTC 18:29:59) and recalculates hours.
  *
@@ -82,7 +82,7 @@ function autoCloseRecord(record) {
         s.durationHours = computeSessionHours(sStart, sEnd);
         s.isActive      = false;
         s.source        = 'AUTO_PUNCH_OUT';
-        s.reason        = 'System: Migration v2 — auto punch-out at IST 11:59 PM.';
+        s.reason        = 'System: Migration v2 - auto punch-out at IST 11:59 PM.';
       }
     }
   }
@@ -116,7 +116,7 @@ async function run() {
   today.setUTCHours(0, 0, 0, 0);
 
   // ── PASS 1: Open records (no punchOut or still active sessions) ───────────
-  console.log('🔍 Pass 1 — Finding open/unclosed past-day records...');
+  console.log('🔍 Pass 1 - Finding open/unclosed past-day records...');
   const openRecords = await Attendance.find({
     date: { $lt: today },
     $or: [
@@ -132,7 +132,7 @@ async function run() {
     const fixed = autoCloseRecord(raw);
     if (!fixed) continue;
 
-    const note = `System: Migration v2 — auto punch-out at IST 11:59 PM (${new Date(raw.punchOut).toISOString()}). Previous data had no punch-out recorded.`;
+    const note = `System: Migration v2 - auto punch-out at IST 11:59 PM (${new Date(raw.punchOut).toISOString()}). Previous data had no punch-out recorded.`;
     const existingNotes = raw.notes || '';
     await Attendance.updateOne({ _id: raw._id }, {
       $set: {
@@ -150,7 +150,7 @@ async function run() {
   }
 
   // ── PASS 2: Inflated records (punchOut exists but totalHours > 23.99) ─────
-  console.log(`\n🔍 Pass 2 — Finding inflated-hours records (totalHours > 23.99)...`);
+  console.log(`\n🔍 Pass 2 - Finding inflated-hours records (totalHours > 23.99)...`);
   const inflatedRecords = await Attendance.find({
     date: { $lt: today },
     punchOut: { $ne: null, $exists: true },
@@ -171,7 +171,7 @@ async function run() {
         if (!s.endTime) {
           s.endTime = recordDayEnd; s.isActive = false;
           s.source = 'AUTO_PUNCH_OUT';
-          s.reason = 'System: Migration v2 fix — session closed at IST day end.';
+          s.reason = 'System: Migration v2 fix - session closed at IST day end.';
         }
         const sEnd = new Date(s.endTime) <= recordDayEnd ? new Date(s.endTime) : recordDayEnd;
         s.durationHours = computeSessionHours(new Date(s.startTime), sEnd);
@@ -188,7 +188,7 @@ async function run() {
 
     corrected = Math.min(corrected, 23.99);
 
-    const note = `System: Migration v2 — corrected inflated totalHours from ${(raw.totalHours || 0).toFixed(1)}h to ${corrected.toFixed(2)}h.`;
+    const note = `System: Migration v2 - corrected inflated totalHours from ${(raw.totalHours || 0).toFixed(1)}h to ${corrected.toFixed(2)}h.`;
     const existingNotes = raw.notes || '';
     await Attendance.updateOne({ _id: raw._id }, {
       $set: {
@@ -209,10 +209,10 @@ async function run() {
   // Old migration used UTC 23:59:59 → IST 05:29:59 AM next day.
   // Detect: punchOut between UTC 18:30:00 and UTC 23:59:59 on a PAST day
   // (IST 00:00 to 05:29 AM = clearly a wrong auto-close, not a real punch-out)
-  console.log(`\n🔍 Pass 3 — Fixing records with wrong UTC boundary (punchOut shows ~05:29 AM IST)...`);
+  console.log(`\n🔍 Pass 3 - Fixing records with wrong UTC boundary (punchOut shows ~05:29 AM IST)...`);
 
-  // For each past-day attendance, check if punchOut is in the UTC 18:30–23:59 range
-  // which corresponds to IST 00:00–05:29 of the NEXT day — an impossible real punch-out
+  // For each past-day attendance, check if punchOut is in the UTC 18:30-23:59 range
+  // which corresponds to IST 00:00-05:29 of the NEXT day - an impossible real punch-out
   const allPastRecords = await Attendance.find({
     date: { $lt: today },
     punchOut: { $ne: null, $exists: true }
@@ -234,7 +234,7 @@ async function run() {
     const wrongBoundaryEnd   = new Date(attendanceDateUTC.getTime() + 24 * 60 * 60 * 1000 - 1);   // UTC 23:59:59.999
 
     if (storedPO >= wrongBoundaryStart && storedPO <= wrongBoundaryEnd) {
-      // This punchOut is in the wrong-UTC-boundary zone — fix it
+      // This punchOut is in the wrong-UTC-boundary zone - fix it
       const newPunchOut = correctDayEnd; // IST 23:59:59
 
       // Recalculate from punchIn → new punchOut
@@ -257,7 +257,7 @@ async function run() {
         }
       }
 
-      const note = `System: Migration v3 — corrected wrong UTC punchOut (${storedPO.toISOString()}) to IST 11:59 PM (${newPunchOut.toISOString()}). totalHours: ${(raw.totalHours||0).toFixed(2)}h → ${correctedHours.toFixed(2)}h.`;
+      const note = `System: Migration v3 - corrected wrong UTC punchOut (${storedPO.toISOString()}) to IST 11:59 PM (${newPunchOut.toISOString()}). totalHours: ${(raw.totalHours||0).toFixed(2)}h → ${correctedHours.toFixed(2)}h.`;
       const existingNotes = raw.notes || '';
       await Attendance.updateOne({ _id: raw._id }, {
         $set: {
@@ -286,7 +286,7 @@ async function run() {
   console.log(`   Pass 3 (wrong UTC boundary fixed):    ${pass3Fixed}`);
   console.log(`   Total fixed:                          ${total}`);
   if (total === 0) {
-    console.log('\n   ℹ  No records needed fixing — your data is already clean!');
+    console.log('\n   ℹ  No records needed fixing - your data is already clean!');
   }
   console.log('═'.repeat(60) + '\n');
 

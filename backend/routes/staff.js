@@ -80,7 +80,7 @@ async function provisionStaffPortalAccess(staff, req, options = {}) {
 
   await staff.save();
 
-  // ALWAYS use buildSetupLink() — it reads from env vars and rejects preview URLs.
+  // ALWAYS use buildSetupLink() - it reads from env vars and rejects preview URLs.
   // This guarantees the link never depends on the current deployment.
   const setupLink = buildSetupLink(setupToken);
   const result = {
@@ -163,7 +163,7 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
-// Add new staff — Employee ID is OPTIONAL.
+// Add new staff - Employee ID is OPTIONAL.
 // Per the new flow, admin only enters basic info; the employee
 // completes the rest after first login. Auto-Employee-ID generation
 // has been removed.
@@ -338,7 +338,7 @@ router.post('/', protect, async (req, res) => {
       recipientType: 'admin',
       type: 'STAFF_CREATED',
       referenceId: staff._id,
-      message: `New staff added: ${staff.fullName}${staff.employeeId ? ` (${staff.employeeId})` : ''} — ${staff.designation || 'N/A'}`
+      message: `New staff added: ${staff.fullName}${staff.employeeId ? ` (${staff.employeeId})` : ''} - ${staff.designation || 'N/A'}`
     }).save();
 
     res.status(201).json({ success: true, data: staff, portalAccess });
@@ -367,7 +367,7 @@ router.post('/', protect, async (req, res) => {
 // Get a specific staff member
 router.get('/:id', protect, async (req, res) => {
   try {
-    // lean() — read-only detail fetch never mutates; no need for a Mongoose doc
+    // lean() - read-only detail fetch never mutates; no need for a Mongoose doc
     const staff = await Staff.findOne({ _id: req.params.id, user: req.user._id }).lean();
     if (!staff) {
       return res.status(404).json({ success: false, message: 'Staff member not found' });
@@ -538,7 +538,7 @@ router.delete('/:id', protect, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/staff/:id/provision-portal — Admin Provisions Staff Portal
+// POST /api/staff/:id/provision-portal - Admin Provisions Staff Portal
 // ─────────────────────────────────────────────────────────────
 router.post('/:id/provision-portal', protect, async (req, res) => {
   try {
@@ -567,7 +567,7 @@ router.post('/:id/provision-portal', protect, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// DELETE /api/staff/:id/revoke-portal — Admin Revokes Staff Portal
+// DELETE /api/staff/:id/revoke-portal - Admin Revokes Staff Portal
 // ─────────────────────────────────────────────────────────────
 router.delete('/:id/revoke-portal', protect, async (req, res) => {
   try {
@@ -587,7 +587,7 @@ router.delete('/:id/revoke-portal', protect, async (req, res) => {
   }
 });
 
-// POST /api/staff/:id/documents — Admin uploads employee records / files
+// POST /api/staff/:id/documents - Admin uploads employee records / files
 router.post('/:id/documents', protect, async (req, res) => {
   try {
     const { id } = req.params;
@@ -661,7 +661,7 @@ router.post('/:id/documents', protect, async (req, res) => {
   }
 });
 
-// DELETE /api/staff/:id/documents/:docId — Admin deletes employee record / file
+// DELETE /api/staff/:id/documents/:docId - Admin deletes employee record / file
 router.delete('/:id/documents/:docId', protect, async (req, res) => {
   try {
     const { id, docId } = req.params;

@@ -24,7 +24,7 @@ function DetailRow({ icon: Icon, label, value }) {
       {Icon && <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}><Icon size={18} /></div>}
       <div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4 }}>{label}</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{value || '—'}</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{value || '-'}</div>
       </div>
     </div>
   )
@@ -34,7 +34,7 @@ function DossierField({ label, value }) {
   return (
     <div className="dossier-field">
       <div className="dossier-field-label">{label}</div>
-      <div className="dossier-field-value">{value || '—'}</div>
+      <div className="dossier-field-value">{value || '-'}</div>
     </div>
   )
 }
@@ -738,7 +738,7 @@ export default function StaffDetail() {
           </div>
           <div>
             <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employee ID</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staff.employeeId || '—'}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staff.employeeId || '-'}</div>
           </div>
         </div>
 
@@ -750,7 +750,7 @@ export default function StaffDetail() {
           <div>
             <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date of Joining</div>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>
-              {staff.joiningDate ? new Date(staff.joiningDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+              {staff.joiningDate ? new Date(staff.joiningDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
             </div>
           </div>
         </div>
@@ -762,7 +762,7 @@ export default function StaffDetail() {
           </div>
           <div>
             <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Department</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staff.department || '—'}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staff.department || '-'}</div>
           </div>
         </div>
 
@@ -773,7 +773,7 @@ export default function StaffDetail() {
           </div>
           <div>
             <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Designation</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staff.designation || '—'}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staff.designation || '-'}</div>
           </div>
         </div>
       </div>
@@ -794,19 +794,19 @@ export default function StaffDetail() {
           <div className="panel-card-body">
             <div className="info-kv-row">
               <span className="info-kv-key">Employee ID / Code</span>
-              <span className="info-kv-val">{staff.employeeId || '—'}</span>
+              <span className="info-kv-val">{staff.employeeId || '-'}</span>
             </div>
             <div className="info-kv-row">
               <span className="info-kv-key">Date of Joining</span>
-              <span className="info-kv-val">{staff.joiningDate ? new Date(staff.joiningDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span>
+              <span className="info-kv-val">{staff.joiningDate ? new Date(staff.joiningDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</span>
             </div>
             <div className="info-kv-row">
               <span className="info-kv-key">Department</span>
-              <span className="info-kv-val">{staff.department || '—'}</span>
+              <span className="info-kv-val">{staff.department || '-'}</span>
             </div>
             <div className="info-kv-row">
               <span className="info-kv-key">Designation</span>
-              <span className="info-kv-val">{staff.designation || '—'}</span>
+              <span className="info-kv-val">{staff.designation || '-'}</span>
             </div>
             <div className="info-kv-row">
               <span className="info-kv-key">Employment Type</span>
@@ -828,26 +828,26 @@ export default function StaffDetail() {
           <div className="panel-card-body">
             <div className="info-kv-row">
               <span className="info-kv-key">Email Address</span>
-              <span className="info-kv-val">{staff.email || '—'}</span>
+              <span className="info-kv-val">{staff.email || '-'}</span>
             </div>
             <div className="info-kv-row">
               <span className="info-kv-key">Phone Number</span>
-              <span className="info-kv-val">{staff.phone || '—'}</span>
+              <span className="info-kv-val">{staff.phone || '-'}</span>
             </div>
             <div className="info-kv-row">
               <span className="info-kv-key">Date of Birth</span>
-              <span className="info-kv-val">{staff.dob ? new Date(staff.dob).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span>
+              <span className="info-kv-val">{staff.dob ? new Date(staff.dob).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</span>
             </div>
             <div className="info-kv-row">
               <span className="info-kv-key">Gender</span>
-              <span className="info-kv-val">{staff.gender || '—'}</span>
+              <span className="info-kv-val">{staff.gender || '-'}</span>
             </div>
             <div className="info-kv-row" style={{ flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
               <span className="info-kv-key">Registered Address</span>
               <span className="info-kv-val" style={{ textAlign: 'left', lineHeight: 1.4 }}>
                 {staff.address && (staff.address.street || staff.address.city)
                   ? `${staff.address.street || ''}${staff.address.street ? ', ' : ''}${staff.address.city || ''}${staff.address.state ? `, ${staff.address.state}` : ''}${staff.address.pincode ? ` - ${staff.address.pincode}` : ''}`
-                  : '—'}
+                  : '-'}
               </span>
             </div>
             <div className="info-kv-row" style={{ flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
@@ -855,7 +855,7 @@ export default function StaffDetail() {
               <span className="info-kv-val" style={{ textAlign: 'left', lineHeight: 1.4 }}>
                 {staff.emergencyContact?.name
                   ? `${staff.emergencyContact.name} (${staff.emergencyContact.relationship || 'Emergency'}) · ${staff.emergencyContact.phone || ''}`
-                  : '—'}
+                  : '-'}
               </span>
             </div>
           </div>
@@ -870,19 +870,19 @@ export default function StaffDetail() {
           <div className="panel-card-body">
             <div className="info-kv-row">
               <span className="info-kv-key">PAN Card Number</span>
-              <span className="info-kv-val">{staff.panNumber || staff.financials?.panNumber || '—'}</span>
+              <span className="info-kv-val">{staff.panNumber || staff.financials?.panNumber || '-'}</span>
             </div>
             <div className="info-kv-row">
               <span className="info-kv-key">Bank Name</span>
-              <span className="info-kv-val">{staff.bankDetails?.bankName || staff.financials?.bankName || '—'}</span>
+              <span className="info-kv-val">{staff.bankDetails?.bankName || staff.financials?.bankName || '-'}</span>
             </div>
             <div className="info-kv-row">
               <span className="info-kv-key">Account Number</span>
-              <span className="info-kv-val">{staff.bankDetails?.accountNumber || staff.financials?.accountNumber || '—'}</span>
+              <span className="info-kv-val">{staff.bankDetails?.accountNumber || staff.financials?.accountNumber || '-'}</span>
             </div>
             <div className="info-kv-row">
               <span className="info-kv-key">IFSC Code</span>
-              <span className="info-kv-val">{staff.bankDetails?.ifscCode || staff.financials?.ifscCode || '—'}</span>
+              <span className="info-kv-val">{staff.bankDetails?.ifscCode || staff.financials?.ifscCode || '-'}</span>
             </div>
             
             <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
@@ -1162,13 +1162,13 @@ export default function StaffDetail() {
                           {new Date(record.date).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                         </td>
                         <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
-                          {record.punchIn ? new Date(record.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                          {record.punchIn ? new Date(record.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '-'}
                         </td>
                         <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
-                          {record.punchOut ? new Date(record.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                          {record.punchOut ? new Date(record.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '-'}
                         </td>
                         <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
-                          {record.totalHours > 0 ? `${record.totalHours.toFixed(2)}h` : '—'}
+                          {record.totalHours > 0 ? `${record.totalHours.toFixed(2)}h` : '-'}
                         </td>
                         <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -1233,7 +1233,7 @@ export default function StaffDetail() {
                           {new Date(l.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </td>
                         <td style={{ padding: '12px 14px', color: 'var(--text)' }}>
-                          {new Date(l.startDate).toLocaleDateString('en-IN')} – {new Date(l.endDate).toLocaleDateString('en-IN')}
+                          {new Date(l.startDate).toLocaleDateString('en-IN')} - {new Date(l.endDate).toLocaleDateString('en-IN')}
                         </td>
                         <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>
                           {leaveDurationDays(l.startDate, l.endDate)} day{leaveDurationDays(l.startDate, l.endDate) !== 1 ? 's' : ''}
@@ -1294,8 +1294,8 @@ export default function StaffDetail() {
                     {payslips.map((p, idx) => (
                       <tr key={p._id} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text)' }}>{p.month} {p.year}</td>
-                        <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>{p.department || '—'}</td>
-                        <td style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--primary)' }}>₹ {p.netSalary?.toLocaleString('en-IN') || '—'}</td>
+                        <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>{p.department || '-'}</td>
+                        <td style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--primary)' }}>₹ {p.netSalary?.toLocaleString('en-IN') || '-'}</td>
                         <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
                           {new Date(p.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </td>

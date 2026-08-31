@@ -61,7 +61,7 @@ export default function PortalSummary() {
     const mon = new Date(currentWeek); mon.setDate(currentWeek.getDate() - day + 1)
     const sun = new Date(mon); sun.setDate(mon.getDate() + 6)
     return {
-      label: `${mon.toLocaleDateString('en-IN',{day:'numeric',month:'short'})} – ${sun.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}`,
+      label: `${mon.toLocaleDateString('en-IN',{day:'numeric',month:'short'})} - ${sun.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}`,
       mon, sun
     }
   }
@@ -177,7 +177,7 @@ export default function PortalSummary() {
               </div>
               <div>
                 <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'var(--text-muted)', marginBottom:5 }}>
-                  <span>Mon – Fri target</span><span style={{ fontWeight:700, color:'var(--text)' }}>{Math.round(daysProgress)}%</span>
+                  <span>Mon - Fri target</span><span style={{ fontWeight:700, color:'var(--text)' }}>{Math.round(daysProgress)}%</span>
                 </div>
                 <div className="ps-progress-track">
                   <motion.div className="ps-progress-fill" initial={{ width:0 }} animate={{ width:`${daysProgress}%` }} transition={{ duration:.7, delay:.1 }}

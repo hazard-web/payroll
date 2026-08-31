@@ -940,7 +940,7 @@ export default function PortalProfile() {
               </div>
               <div>
                 <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Employee ID</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staffUser.employeeId || '—'}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staffUser.employeeId || '-'}</div>
               </div>
             </div>
 
@@ -951,7 +951,7 @@ export default function PortalProfile() {
               <div>
                 <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date of Joining</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>
-                  {staffUser.joiningDate ? new Date(staffUser.joiningDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                  {staffUser.joiningDate ? new Date(staffUser.joiningDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
                 </div>
               </div>
             </div>
@@ -962,7 +962,7 @@ export default function PortalProfile() {
               </div>
               <div>
                 <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Department</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staffUser.department || '—'}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staffUser.department || '-'}</div>
               </div>
             </div>
 
@@ -972,7 +972,7 @@ export default function PortalProfile() {
               </div>
               <div>
                 <div style={{ fontSize: 10.5, color: 'var(--text-light)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Designation</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staffUser.designation || '—'}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{staffUser.designation || '-'}</div>
               </div>
             </div>
           </div>
@@ -993,19 +993,19 @@ export default function PortalProfile() {
               <div className="panel-card-body">
                 <div className="info-kv-row">
                   <span className="info-kv-key">Employee ID / Code</span>
-                  <span className="info-kv-val">{staffUser.employeeId || '—'}</span>
+                  <span className="info-kv-val">{staffUser.employeeId || '-'}</span>
                 </div>
                 <div className="info-kv-row">
                   <span className="info-kv-key">Date of Joining</span>
-                  <span className="info-kv-val">{staffUser.joiningDate ? new Date(staffUser.joiningDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span>
+                  <span className="info-kv-val">{staffUser.joiningDate ? new Date(staffUser.joiningDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</span>
                 </div>
                 <div className="info-kv-row">
                   <span className="info-kv-key">Department</span>
-                  <span className="info-kv-val">{staffUser.department || '—'}</span>
+                  <span className="info-kv-val">{staffUser.department || '-'}</span>
                 </div>
                 <div className="info-kv-row">
                   <span className="info-kv-key">Designation</span>
-                  <span className="info-kv-val">{staffUser.designation || '—'}</span>
+                  <span className="info-kv-val">{staffUser.designation || '-'}</span>
                 </div>
                 <div className="info-kv-row">
                   <span className="info-kv-key">Employment Type</span>
@@ -1027,30 +1027,30 @@ export default function PortalProfile() {
               <div className="panel-card-body">
                 <div className="info-kv-row">
                   <span className="info-kv-key">Full Name</span>
-                  <span className="info-kv-val">{staffUser.fullName || '—'}</span>
+                  <span className="info-kv-val">{staffUser.fullName || '-'}</span>
                 </div>
                 <div className="info-kv-row">
                   <span className="info-kv-key">Email Address</span>
-                  <span className="info-kv-val">{staffUser.email || '—'}</span>
+                  <span className="info-kv-val">{staffUser.email || '-'}</span>
                 </div>
                 <div className="info-kv-row">
                   <span className="info-kv-key">Phone Number</span>
-                  <span className="info-kv-val">{staffUser.phone || '—'}</span>
+                  <span className="info-kv-val">{staffUser.phone || '-'}</span>
                 </div>
                 <div className="info-kv-row">
                   <span className="info-kv-key">Date of Birth</span>
-                  <span className="info-kv-val">{staffUser.dob ? new Date(staffUser.dob).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span>
+                  <span className="info-kv-val">{staffUser.dob ? new Date(staffUser.dob).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</span>
                 </div>
                 <div className="info-kv-row">
                   <span className="info-kv-key">Gender</span>
-                  <span className="info-kv-val">{staffUser.gender || '—'}</span>
+                  <span className="info-kv-val">{staffUser.gender || '-'}</span>
                 </div>
                 <div className="info-kv-row" style={{ flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
                   <span className="info-kv-key">Registered Address</span>
                   <span className="info-kv-val" style={{ textAlign: 'left', lineHeight: 1.4 }}>
                     {staffUser.address && (staffUser.address.street || staffUser.address.city)
                       ? `${staffUser.address.street || ''}${staffUser.address.street ? ', ' : ''}${staffUser.address.city || ''}${staffUser.address.state ? `, ${staffUser.address.state}` : ''}${staffUser.address.pincode ? ` - ${staffUser.address.pincode}` : ''}`
-                      : '—'}
+                      : '-'}
                   </span>
                 </div>
                 <div className="info-kv-row" style={{ flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
@@ -1058,7 +1058,7 @@ export default function PortalProfile() {
                   <span className="info-kv-val" style={{ textAlign: 'left', lineHeight: 1.4 }}>
                     {staffUser.emergencyContact?.name
                       ? `${staffUser.emergencyContact.name} (${staffUser.emergencyContact.relationship || 'Emergency'}) · ${staffUser.emergencyContact.phone || ''}`
-                      : '—'}
+                      : '-'}
                   </span>
                 </div>
               </div>
@@ -1073,19 +1073,19 @@ export default function PortalProfile() {
               <div className="panel-card-body">
                 <div className="info-kv-row">
                   <span className="info-kv-key">PAN Card Number</span>
-                  <span className="info-kv-val">{staffUser.panNumber || '—'}</span>
+                  <span className="info-kv-val">{staffUser.panNumber || '-'}</span>
                 </div>
                 <div className="info-kv-row">
                   <span className="info-kv-key">Bank Name</span>
-                  <span className="info-kv-val">{staffUser.bankDetails?.bankName || '—'}</span>
+                  <span className="info-kv-val">{staffUser.bankDetails?.bankName || '-'}</span>
                 </div>
                 <div className="info-kv-row">
                   <span className="info-kv-key">Account Number</span>
-                  <span className="info-kv-val">{staffUser.bankDetails?.accountNumber || '—'}</span>
+                  <span className="info-kv-val">{staffUser.bankDetails?.accountNumber || '-'}</span>
                 </div>
                 <div className="info-kv-row">
                   <span className="info-kv-key">IFSC Code</span>
-                  <span className="info-kv-val">{staffUser.bankDetails?.ifscCode || '—'}</span>
+                  <span className="info-kv-val">{staffUser.bankDetails?.ifscCode || '-'}</span>
                 </div>
                 <div className="info-kv-row">
                   <span className="info-kv-key">Account Type</span>

@@ -13,11 +13,11 @@ export const PRIORITY_CONFIG = {
  * AnnouncementPreviewWidget
  *
  * Props:
- *   announcements  — already-filtered active list (all of them; we slice to 3 here)
- *   loading        — boolean
- *   viewAllPath    — react-router path for "View All" button  e.g. '/announcements'
- *   emptyMessage   — string shown when list is empty (optional)
- *   title          — widget header title (optional, defaults to "Announcements")
+ *   announcements  - already-filtered active list (all of them; we slice to 3 here)
+ *   loading        - boolean
+ *   viewAllPath    - react-router path for "View All" button  e.g. '/announcements'
+ *   emptyMessage   - string shown when list is empty (optional)
+ *   title          - widget header title (optional, defaults to "Announcements")
  */
 export default function AnnouncementPreviewWidget({
   announcements = [],
@@ -196,7 +196,7 @@ export default function AnnouncementPreviewWidget({
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                 }}
               >
-                +{announcements.length - 3} more — View All <ArrowRight size={11} />
+                +{announcements.length - 3} more - View All <ArrowRight size={11} />
               </button>
             )}
           </div>

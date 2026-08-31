@@ -141,7 +141,33 @@ const authStaff = async (req, res, next) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/portal/login — Staff Login
+// POST /api/portal/check-email - Does this staff portal account exist?
+// ─────────────────────────────────────────────────────────────
+router.post('/check-email', async (req, res, next) => {
+  try {
+    const email = req.body.email?.trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    const staff = await rawFindStaffByEmail(email);
+    if (!staff || !staff.isPortalEnabled) {
+      return res.status(404).json({
+        success: false,
+        exists: false,
+        message: 'No account found with this email address',
+      });
+    }
+
+    return res.json({ success: true, exists: true });
+  } catch (err) {
+    console.error('Portal check email error:', err);
+    return next(err);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/portal/login - Staff Login
 // ─────────────────────────────────────────────────────────────
 router.post('/login', async (req, res, next) => {
   try {
@@ -310,7 +336,7 @@ router.post('/login', async (req, res, next) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/portal/change-password — Mandatory First Login Change
+// POST /api/portal/change-password - Mandatory First Login Change
 // ─────────────────────────────────────────────────────────────
 router.post('/change-password', authStaff, async (req, res) => {
   try {
@@ -350,7 +376,7 @@ router.post('/change-password', authStaff, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/portal/forgot-password — Send Reset Link
+// POST /api/portal/forgot-password - Send Reset Link
 // ─────────────────────────────────────────────────────────────
 router.post('/forgot-password', async (req, res, next) => {
   try {
@@ -384,7 +410,7 @@ router.post('/forgot-password', async (req, res, next) => {
 
       if (process.env.NODE_ENV !== 'production') {
         console.log('\n────────────────────────────────────────────────────');
-        console.log('🔑 DEV MODE — Portal Password Reset Link');
+        console.log('🔑 DEV MODE - Portal Password Reset Link');
         console.log(`   For: ${staff.email}`);
         console.log(`   Link: ${resetLink}`);
         console.log('   (Valid for 15 minutes)');
@@ -419,7 +445,7 @@ router.post('/forgot-password', async (req, res, next) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/portal/reset-password — Set New Password
+// POST /api/portal/reset-password - Set New Password
 // ─────────────────────────────────────────────────────────────
 router.post('/reset-password', async (req, res, next) => {
   try {
@@ -438,7 +464,7 @@ router.post('/reset-password', async (req, res, next) => {
       });
     }
 
-    // Use raw driver — query directly by token
+    // Use raw driver - query directly by token
     console.log('🔑 [reset-password] Looking up staff by reset token (raw driver)...');
     const db = mongoose.connection.db;
     const staff = await db.collection('staffs').findOne({
@@ -471,7 +497,7 @@ router.post('/reset-password', async (req, res, next) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/portal/setup-password — First-time account setup
+// POST /api/portal/setup-password - First-time account setup
 // Used by new team members who received a setup link by email.
 // Activates the account: sets portalPassword (bcrypt-hashed by the
 // pre-save hook), clears the setup token, and marks mustChangePassword
@@ -494,7 +520,7 @@ router.post('/setup-password', async (req, res, next) => {
       });
     }
 
-    // Use raw driver — query directly by token
+    // Use raw driver - query directly by token
     console.log('🔑 [setup-password] Looking up staff by setup token (raw driver)...');
     const db = mongoose.connection.db;
     const staff = await db.collection('staffs').findOne({
@@ -539,7 +565,7 @@ router.post('/setup-password', async (req, res, next) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// GET /api/portal/me — Get Profile
+// GET /api/portal/me - Get Profile
 // ─────────────────────────────────────────────────────────────
 router.get('/me', authStaff, async (req, res) => {
   const s = req.staff;
@@ -580,7 +606,7 @@ router.get('/me', authStaff, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// PUT /api/portal/me — Update Profile
+// PUT /api/portal/me - Update Profile
 // Employees use this for both profile-completion (mandatory fields)
 // and lightweight updates to their own contact info.
 // Admin-controlled fields (employeeId, salaryDetails, etc.) are
@@ -668,7 +694,7 @@ router.put('/me', authStaff, async (req, res) => {
       }
     }
 
-    // Bank details — mirror to financials for legacy payslip support
+    // Bank details - mirror to financials for legacy payslip support
     if (req.body.bankDetails !== undefined) {
       if (req.body.bankDetails.ifscCode) {
         const ifsc = String(req.body.bankDetails.ifscCode).toUpperCase().trim();
@@ -688,7 +714,7 @@ router.put('/me', authStaff, async (req, res) => {
       };
     }
 
-    // Apply remaining fields (partial update — only fields present in body are touched)
+    // Apply remaining fields (partial update - only fields present in body are touched)
     const ALLOWED = [
       'fullName', 'employeeId', 'type', 'designation', 'department', 'joiningDate', 'salaryDetails',
       'workLocation', 'email', 'phone', 'panNumber', 'dob', 'gender',
@@ -739,7 +765,7 @@ router.put('/me', authStaff, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// POST /api/portal/me/documents/:type — Upload identity documents
+// POST /api/portal/me/documents/:type - Upload identity documents
 // type: aadharCard | panCard | profileImage
 // ─────────────────────────────────────────────────────────────
 router.post('/me/documents/:type', authStaff, async (req, res) => {
@@ -836,7 +862,7 @@ router.patch('/me/profile-status', authStaff, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// GET /api/portal/payslips — Get Staff's Pushed Payslips (Last 3 Months)
+// GET /api/portal/payslips - Get Staff's Pushed Payslips (Last 3 Months)
 // ─────────────────────────────────────────────────────────────
 router.get('/payslips', authStaff, async (req, res) => {
   try {
@@ -869,7 +895,7 @@ router.get('/payslips', authStaff, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// GET /api/portal/payslips/:id/download — Download pushed payslip as PDF (Staff)
+// GET /api/portal/payslips/:id/download - Download pushed payslip as PDF (Staff)
 // ─────────────────────────────────────────────────────────────
 router.get('/payslips/:id/download', authStaff, async (req, res) => {
   try {
@@ -895,7 +921,7 @@ router.get('/payslips/:id/download', authStaff, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// GET /api/portal/announcements — Active announcements for staff
+// GET /api/portal/announcements - Active announcements for staff
 // ─────────────────────────────────────────────────────────────
 const Announcement = require('../models/Announcement');
 
@@ -932,7 +958,7 @@ router.get('/announcements', authStaff, async (req, res) => {
   }
 });
 
-// GET /api/portal/me/documents — Staff fetches their own documents
+// GET /api/portal/me/documents - Staff fetches their own documents
 router.get('/me/documents', authStaff, async (req, res) => {
   try {
     const staff = req.staff;
@@ -948,7 +974,7 @@ router.get('/me/documents', authStaff, async (req, res) => {
   }
 });
 
-// POST /api/portal/me/documents/additional — Staff uploads an additional document
+// POST /api/portal/me/documents/additional - Staff uploads an additional document
 router.post('/me/documents/additional', authStaff, async (req, res) => {
   try {
     const { documentType, data, originalName, notes } = req.body;
@@ -1019,7 +1045,7 @@ router.post('/me/documents/additional', authStaff, async (req, res) => {
   }
 });
 
-// DELETE /api/portal/me/documents/additional/:docId — Staff deletes an additional document
+// DELETE /api/portal/me/documents/additional/:docId - Staff deletes an additional document
 router.delete('/me/documents/additional/:docId', authStaff, async (req, res) => {
   try {
     const { docId } = req.params;

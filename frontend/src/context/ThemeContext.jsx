@@ -11,10 +11,15 @@ export function ThemeProvider({ children }) {
     const root = document.documentElement
 
     const applyTheme = (currentTheme) => {
-      if (currentTheme === 'dark') {
+      const dark =
+        currentTheme === 'dark' ||
+        (currentTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+      if (dark) {
         root.setAttribute('data-theme', 'dark')
+        root.style.colorScheme = 'dark'
       } else {
         root.removeAttribute('data-theme')
+        root.style.colorScheme = 'light'
       }
     }
 
@@ -23,9 +28,7 @@ export function ThemeProvider({ children }) {
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     const handleChange = () => {
-      if (theme === 'system') {
-        applyTheme('system')
-      }
+      if (theme === 'system') applyTheme('system')
     }
 
     mediaQuery.addEventListener('change', handleChange)

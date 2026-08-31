@@ -165,20 +165,20 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const fmtTime = dt => {
-  if (!dt) return '—'
+  if (!dt) return '-'
   return new Date(dt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
 }
 const fmtDate = dt => {
-  if (!dt) return '—'
+  if (!dt) return '-'
   return new Date(dt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 const fmtDateShort = dt => {
-  if (!dt) return '—'
+  if (!dt) return '-'
   const d = new Date(dt)
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })
 }
 const fmtHours = h => {
-  if (!h && h !== 0) return '—'
+  if (!h && h !== 0) return '-'
   const hrs = Math.floor(h)
   const min = Math.round((h - hrs) * 60)
   return `${hrs}h ${String(min).padStart(2,'0')}m`
@@ -208,7 +208,7 @@ function StatusPill({ status, workStatus }) {
   if (s === 'Leave')     return <span className="la-pill la-pill-purple">Leave</span>
   if (s === 'flagged')   return <span className="la-pill la-pill-red">Flagged</span>
   if (s === 'incomplete') return <span className="la-pill la-pill-orange">Incomplete</span>
-  return <span className="la-pill la-pill-slate">{s || '—'}</span>
+  return <span className="la-pill la-pill-slate">{s || '-'}</span>
 }
 
 // ─── Leave Tab ────────────────────────────────────────────────────────────────
@@ -344,7 +344,7 @@ function LeaveTab({ initialFilter }) {
                     <Avatar name={req.staff?.fullName} src={req.staff?.documents?.profileImage?.url} size={30} />
                     <div style={{ minWidth:0 }}>
                       <div style={{ fontSize:12.5, fontWeight:600, color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{req.staff?.fullName}</div>
-                      <div style={{ fontSize:10.5, color:'var(--text-muted)', marginTop:1 }}>{req.staff?.employeeId || '—'} · <span style={{ color:'var(--primary)', fontWeight:600 }}>{req.type} Leave</span></div>
+                      <div style={{ fontSize:10.5, color:'var(--text-muted)', marginTop:1 }}>{req.staff?.employeeId || '-'} · <span style={{ color:'var(--primary)', fontWeight:600 }}>{req.type} Leave</span></div>
                     </div>
                   </div>
 
@@ -357,7 +357,7 @@ function LeaveTab({ initialFilter }) {
 
                   {/* Reason */}
                   <div style={{ fontSize:11.5, color:'var(--text)', lineHeight:1.4, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>
-                    {req.reason || '—'}
+                    {req.reason || '-'}
                   </div>
 
                   {/* Balances */}
@@ -398,7 +398,7 @@ function LeaveTab({ initialFilter }) {
                   <div style={{ fontSize:18, fontWeight:700, color:'var(--text)', marginBottom:4 }}>Review Leave Request</div>
                   {req && (
                     <div style={{ fontSize:13, color:'var(--text-muted)' }}>
-                      <strong style={{ color:'var(--text)' }}>{req.staff?.fullName}</strong> · {req.type} Leave · {fmtDate(req.startDate)} – {fmtDate(req.endDate)}
+                      <strong style={{ color:'var(--text)' }}>{req.staff?.fullName}</strong> · {req.type} Leave · {fmtDate(req.startDate)} - {fmtDate(req.endDate)}
                     </div>
                   )}
                 </div>
@@ -587,19 +587,19 @@ function AttendanceTab() {
 
       const headers = [['Date', 'Check-In', 'Check-Out', 'Total Hours', 'Overtime', 'Work Status', 'Check-out Source', 'Location In', 'Location Out']]
       const tableData = history.map(r => {
-        const checkInTime = r.punchIn ? new Date(r.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'
-        const checkOutTime = r.punchOut ? new Date(r.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'
-        const locIn = r.locationIn?.lat ? `${Number(r.locationIn.lat).toFixed(4)}, ${Number(r.locationIn.lng).toFixed(4)}` : '—'
-        const locOut = r.locationOut?.lat ? `${Number(r.locationOut.lat).toFixed(4)}, ${Number(r.locationOut.lng).toFixed(4)}` : '—'
-        const sourceLabel = r.punchOutSource === 'AUTO_PUNCH_OUT' ? 'Auto Closed' : r.punchOut ? 'Manual' : '—'
+        const checkInTime = r.punchIn ? new Date(r.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'
+        const checkOutTime = r.punchOut ? new Date(r.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'
+        const locIn = r.locationIn?.lat ? `${Number(r.locationIn.lat).toFixed(4)}, ${Number(r.locationIn.lng).toFixed(4)}` : '-'
+        const locOut = r.locationOut?.lat ? `${Number(r.locationOut.lat).toFixed(4)}, ${Number(r.locationOut.lng).toFixed(4)}` : '-'
+        const sourceLabel = r.punchOutSource === 'AUTO_PUNCH_OUT' ? 'Auto Closed' : r.punchOut ? 'Manual' : '-'
 
         return [
           new Date(r.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
           checkInTime,
           checkOutTime,
-          r.totalHours ? `${r.totalHours.toFixed(2)}h` : '—',
-          r.overtimeHours ? `${r.overtimeHours.toFixed(2)}h` : '—',
-          r.workStatus || '—',
+          r.totalHours ? `${r.totalHours.toFixed(2)}h` : '-',
+          r.overtimeHours ? `${r.overtimeHours.toFixed(2)}h` : '-',
+          r.workStatus || '-',
           sourceLabel,
           locIn,
           locOut
@@ -903,8 +903,8 @@ function AttendanceTab() {
       headers = [['Employee Name', 'Emp ID', 'Department', 'Total Present', 'Total Absent', 'Leaves', 'Working Days', 'Attendance %', 'Status']]
       data = processedRows.map(r => [
         r.staff.fullName,
-        r.staff.employeeId || '—',
-        r.staff.department || '—',
+        r.staff.employeeId || '-',
+        r.staff.department || '-',
         r.present.toString(),
         r.absent.toString(),
         r.leave.toString(),
@@ -918,11 +918,11 @@ function AttendanceTab() {
       headers = [['Employee Name', 'Emp ID', 'Check-In', 'Check-Out', 'Total Hours', 'Check-Out Type', 'Status']]
       data = processedRows.map(r => [
         r.staff.fullName,
-        r.staff.employeeId || '—',
-        r.dailyRecord?.punchIn ? new Date(r.dailyRecord.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—',
-        r.dailyRecord?.punchOut ? new Date(r.dailyRecord.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—',
-        r.dailyRecord?.totalHours ? `${r.dailyRecord.totalHours.toFixed(2)}h` : '—',
-        r.dailyRecord?.punchOutSource === 'AUTO_PUNCH_OUT' ? 'Auto Closed' : r.dailyRecord?.punchOut ? 'Manual' : '—',
+        r.staff.employeeId || '-',
+        r.dailyRecord?.punchIn ? new Date(r.dailyRecord.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-',
+        r.dailyRecord?.punchOut ? new Date(r.dailyRecord.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-',
+        r.dailyRecord?.totalHours ? `${r.dailyRecord.totalHours.toFixed(2)}h` : '-',
+        r.dailyRecord?.punchOutSource === 'AUTO_PUNCH_OUT' ? 'Auto Closed' : r.dailyRecord?.punchOut ? 'Manual' : '-',
         r.dailyStatus
       ])
     } else if (viewMode === 'weekly') {
@@ -933,7 +933,7 @@ function AttendanceTab() {
       headers = [['Employee Name', 'Emp ID', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']]
       data = processedRows.map(r => [
         r.staff.fullName,
-        r.staff.employeeId || '—',
+        r.staff.employeeId || '-',
         ...r.weeklyStates.map(state => state === 'Full Day' || state === 'complete' ? 'Present' : state)
       ])
     }
@@ -1285,14 +1285,14 @@ function AttendanceTab() {
 
                     {/* ID */}
                     <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontWeight: 600, fontSize: 12.5, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                      {row.staff.employeeId || '—'}
+                      {row.staff.employeeId || '-'}
                     </td>
 
                     {/* Monthly Mode Specifics */}
                     {viewMode === 'monthly' && (
                       <>
                         <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontWeight: 600, fontSize: 12.5, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                          {row.staff.department || '—'}
+                          {row.staff.department || '-'}
                         </td>
                         <td style={{ padding: '10px 16px', fontWeight: 700, color: '#58833b', fontSize: 13, whiteSpace: 'nowrap', textAlign: 'center' }}>
                           {row.present}
@@ -1345,14 +1345,14 @@ function AttendanceTab() {
                           {fmtTime(row.dailyRecord?.punchOut)}
                         </td>
                         <td style={{ padding: '10px 16px', fontWeight: 700, color: 'var(--text-dark)', fontSize: 12.5, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                          {row.dailyRecord?.totalHours ? fmtHours(row.dailyRecord.totalHours) : '—'}
+                          {row.dailyRecord?.totalHours ? fmtHours(row.dailyRecord.totalHours) : '-'}
                         </td>
                         <td style={{ padding: '10px 16px', color: 'var(--text-muted)', fontSize: 12, whiteSpace: 'nowrap', textAlign: 'center' }}>
                           {row.dailyRecord?.punchOutSource === 'AUTO_PUNCH_OUT' ? (
                             <span style={{ color: '#d97706', fontWeight: 700, background: '#fffbeb', padding: '2px 6px', borderRadius: 4 }}>Auto Closed</span>
                           ) : row.dailyRecord?.punchOut ? (
                             <span style={{ color: '#475569', fontWeight: 600 }}>Manual</span>
-                          ) : '—'}
+                          ) : '-'}
                         </td>
                         <td style={{ padding: '10px 16px', whiteSpace: 'nowrap', textAlign: 'center' }}>
                           {row.dailyRecord?.locationIn?.lat ? (
@@ -1377,7 +1377,7 @@ function AttendanceTab() {
                                 </a>
                               )}
                             </div>
-                          ) : '—'}
+                          ) : '-'}
                         </td>
                         <td style={{ padding: '10px 16px', whiteSpace: 'nowrap', textAlign: 'center' }}>
                           <span 
@@ -1750,7 +1750,7 @@ function WorkingDaysTab() {
                           <Avatar name={s.fullName} src={s.documents?.profileImage?.url} size={32} />
                           <div>
                             <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: 13 }}>{s.fullName}</div>
-                            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{s.employeeId || '—'} · {s.designation || 'Team Member'}</div>
+                            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{s.employeeId || '-'} · {s.designation || 'Team Member'}</div>
                             <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
                               {weekendWork && (
                                 <span style={{ fontSize: 10, fontWeight: 700, color: '#6d28d9', background: '#f5f3ff', border: '1px solid #e9d5ff', borderRadius: 4, padding: '1px 6px' }}>
@@ -1846,6 +1846,15 @@ export default function LeaveRequests() {
       setActiveTab(isLeave ? 'leave' : 'attendance')
     }
   }, [location.state?.activeTab, isLeave])
+
+  useEffect(() => {
+    try {
+      if (isLeave) localStorage.setItem('pos_hr_leave_touched', '1')
+      else localStorage.setItem('pos_hr_attendance_touched', '1')
+    } catch {
+      /* ignore */
+    }
+  }, [isLeave])
 
   useEffect(() => {
     const id = 'la-page-styles'

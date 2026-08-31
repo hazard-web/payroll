@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Payslip Generator API with PDF & Email support",
   "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "node -e \"const {execSync}=require('child_process');try{execSync('npx kill-port 5001',{stdio:'ignore'})}catch(e){}\" && nodemon server.js",

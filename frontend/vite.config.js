@@ -1,10 +1,12 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [
     react(),
+    tailwindcss(),
     VitePWA({
       // Disable PWA entirely — the SW was intercepting /portal routes and
       // serving a blank page (the navigation fallback was denylisted for
@@ -15,7 +17,7 @@ export default defineConfig({
     }),
   ],
   server: {
-    port: 3000,
+    port: 3001,
     host: true,
     proxy: {
       '/api': {
