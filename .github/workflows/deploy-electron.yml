@@ -1,0 +1,93 @@
+# Pulse Timer desktop deploy (not Vercel / not the API).
+# Push to `electron` → build Mac + Windows installers → GitHub Release
+#   https://github.com/hazard-web/payroll/releases/tag/pulse-timer-uat
+#
+# Testers download the .dmg / .exe. The app still talks to localhost:39217
+# after they check in from the UAT web app.
+#
+# Production desktop: workflow_dispatch → channel = production
+#   (release tag pulse-timer).
+
+name: Deploy Pulse Timer
+
+on:
+  push:
+    branches: [electron]
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Release channel
+        type: choice
+        options:
+          - uat
+          - production
+        default: uat
+
+concurrency:
+  group: deploy-electron-${{ github.event.inputs.channel || 'uat' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            label: macOS
+            script: dist:mac
+          - os: windows-latest
+            label: Windows
+            script: dist:win
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - name: Build installer
+        run: npm run ${{ matrix.script }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pulse-timer-${{ matrix.label }}
+          path: |
+            desktop/release/*.dmg
+            desktop/release/*.zip
+            desktop/release/*.exe
+            desktop/release/*.blockmap
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: installers
+          merge-multiple: true
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ (github.event.inputs.channel || 'uat') == 'production' && 'pulse-timer' || 'pulse-timer-uat' }}
+          name: ${{ (github.event.inputs.channel || 'uat') == 'production' && 'Pulse Timer' || 'Pulse Timer (UAT)' }}
+          prerelease: ${{ (github.event.inputs.channel || 'uat') != 'production' }}
+          make_latest: ${{ (github.event.inputs.channel || 'uat') == 'production' }}
+          files: installers/*
+          body: |
+            Pulse Timer desktop build from `${{ github.sha }}`.
+            Install on Mac or Windows, then check in from the People OS web app.
+            The timer uses a local bridge on 127.0.0.1:39217.
+          fail_on_unmatched_files: true

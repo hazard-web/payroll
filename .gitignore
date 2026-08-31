@@ -6,6 +6,8 @@ node_modules/
 !**/.env.example
 dist/
 build/
+release/
+desktop/release/
 frontend/dist/
 frontend/build/
 .DS_Store

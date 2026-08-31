@@ -1,15 +1,8 @@
-# Pulse Timer (Electron) — local desktop app, not Vercel/Hostinger.
-# Local bridge: http://127.0.0.1:39217  (not a public port)
-# Web app stays on Vite :3001 and API :5001.
-#
-# Work on the `electron` branch. Merge into development when the timer
-# should ship with the rest of People OS. No UAT/production deploy.
+# Lightweight check on PRs into `electron`. Installers are built by Deploy Pulse Timer.
 
 name: CI electron (Pulse Timer)
 
 on:
-  push:
-    branches: [electron]
   pull_request:
     branches: [electron]
   workflow_dispatch:
