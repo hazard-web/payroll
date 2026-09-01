@@ -200,9 +200,8 @@ export function getPulseOpenPath(user) {
   return PULSE_HOME
 }
 
-/** After company login / OAuth — land on Accounts for everyone. */
-export function getPostLoginPath(user) {
-  if (user?.onboardingCompleted === false) return '/setup'
+/** After company login / OAuth — land on Accounts. */
+export function getPostLoginPath() {
   return '/account'
 }
 

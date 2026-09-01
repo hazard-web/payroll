@@ -99,7 +99,7 @@ jobs:
             rm -f /tmp/backend-release.tgz
             cd "$APP_DIR"
             if [ ! -f .env ]; then
-              echo "Missing $APP_DIR/.env — create it from backend/.env.example before first deploy."
+              echo "Missing $APP_DIR/.env — set it in the host dashboard (Render env vars)."
               exit 1
             fi
             command -v node

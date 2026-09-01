@@ -536,7 +536,7 @@ router.post('/complete', async (req, res, next) => {
       country: 'India',
       state: '',
       isVerified: true,
-      onboardingCompleted: false,
+      onboardingCompleted: true,
       pulseSetupCompleted: false,
       oauthProviders: [{ provider: data.provider, providerId: data.providerId }],
     });
