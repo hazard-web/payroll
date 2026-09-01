@@ -37,13 +37,6 @@ function ProtectedRoute({ children }) {
     return <div style={{ minHeight: '100vh', background: '#fff' }} aria-hidden="true" />
   }
   if (!user) return <Navigate to="/login" replace />
-  const needsSetup = user.onboardingCompleted === false
-  if (needsSetup && location.pathname !== '/setup') {
-    return <Navigate to="/setup" replace />
-  }
-  if (!needsSetup && location.pathname === '/setup') {
-    return <Navigate to="/account" replace />
-  }
   return children
 }
 
